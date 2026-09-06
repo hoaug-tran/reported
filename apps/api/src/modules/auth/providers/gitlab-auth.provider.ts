@@ -30,7 +30,7 @@ export class GitLabAuthProvider implements IAuthProvider {
   }
 
   getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = [], redirectUri?: string): string {
-    const baseScopes = ['read_user', 'openid', 'profile', 'email'];
+    const baseScopes = ['read_user'];
     const allScopes = Array.from(new Set([...baseScopes, ...extraScopes]));
 
     const effectiveRedirectUri = redirectUri || config.oauth.gitlab.redirectUri;
