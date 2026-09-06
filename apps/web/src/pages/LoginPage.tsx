@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, Button, Alert, Paper, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress
+  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress, IconButton, Tooltip
 } from '@mui/material';
-import { ShieldAlert, Fingerprint, Mail, KeyRound, ArrowLeft, ShieldCheck, RefreshCw } from 'lucide-react';
+import {
+  ShieldAlert, Fingerprint, Mail, KeyRound, ArrowLeft, ShieldCheck,
+  RefreshCw, Sun, Moon, Globe
+} from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
+import { useI18n } from '../contexts/I18nContext';
 import { useAuthContext, LoginResult } from '../contexts/AuthContext';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { apiFetch } from '../api/client';
@@ -41,7 +45,9 @@ function GitLabIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export const LoginPage: React.FC = () => {
-  const { tokens } = useThemeContext();
+  const { tokens, resolvedMode, setMode } = useThemeContext();
+  const { t, language, setLanguage } = useI18n();
+  const isVi = language === 'vi';
   const { login, register, verifyMfaLogin, loginWithEmailOtp, loginWithPasskey } = useAuthContext();
   const [, setLocation] = useLocation();
 
@@ -91,10 +97,10 @@ export const LoginPage: React.FC = () => {
     } catch (err: unknown) {
       const apiErr = err as { code?: string; message?: string };
       if (apiErr?.code === 'EXISTING_ACCOUNT_LINK_REQUIRED') {
-        setLinkModalMessage(apiErr.message || 'Tài khoản với email này đã tồn tại trong hệ thống.');
+        setLinkModalMessage(apiErr.message || (isVi ? 'Tài khoản với email này đã tồn tại trong hệ thống.' : 'An account with this email already exists.'));
         setLinkModalOpen(true);
       } else {
-        setError(apiErr?.message || `Không thể khởi chạy đăng nhập ${provider}`);
+        setError(apiErr?.message || (isVi ? `Không thể khởi chạy đăng nhập ${provider}` : `Could not initiate ${provider} sign-in`));
       }
       setOauthLoading(null);
     }
@@ -107,7 +113,7 @@ export const LoginPage: React.FC = () => {
       await loginWithPasskey();
       setLocation('/');
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Xác thực Passkey thất bại';
+      const errMsg = err instanceof Error ? err.message : (isVi ? 'Xác thực Passkey thất bại' : 'Passkey authentication failed');
       setError(errMsg);
     } finally {
       setPasskeyLoading(false);
@@ -143,7 +149,7 @@ export const LoginPage: React.FC = () => {
         setLocation('/');
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Xác thực thất bại';
+      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || (isVi ? 'Xác thực thất bại' : 'Authentication failed');
       setError(errMsg);
     } finally {
       setLoading(false);
@@ -161,7 +167,7 @@ export const LoginPage: React.FC = () => {
       await verifyMfaLogin(mfaChallenge.tempToken, mfaCode);
       setLocation('/');
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Mã xác thực 2FA không chính xác';
+      const errMsg = err instanceof Error ? err.message : (isVi ? 'Mã xác thực 2FA không chính xác' : 'Invalid 2FA code');
       setError(errMsg);
     } finally {
       setLoading(false);
@@ -171,7 +177,7 @@ export const LoginPage: React.FC = () => {
   const handleSendOtpEmail = async () => {
     const targetEmail = authMode === 'MFA_CHALLENGE' ? (mfaChallenge?.email || '') : otpEmail;
     if (!targetEmail.trim()) {
-      setError('Vui lòng nhập địa chỉ email');
+      setError(isVi ? 'Vui lòng nhập địa chỉ email' : 'Please enter your email address');
       return;
     }
 
@@ -184,9 +190,9 @@ export const LoginPage: React.FC = () => {
       });
       setOtpSent(true);
       setOtpCountdown(60);
-      setInfoMessage(`Mã xác thực 6 số đã được gửi tới ${targetEmail}. Mã có hiệu lực trong 5 phút.`);
+      setInfoMessage(isVi ? `Mã xác thực 6 số đã được gửi tới ${targetEmail}. Mã có hiệu lực trong 5 phút.` : `A 6-digit code has been sent to ${targetEmail}. It expires in 5 minutes.`);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Không thể gửi mã OTP';
+      const errMsg = err instanceof Error ? err.message : (isVi ? 'Không thể gửi mã OTP' : 'Could not send OTP code');
       setError(errMsg);
     } finally {
       setLoading(false);
@@ -202,7 +208,7 @@ export const LoginPage: React.FC = () => {
       await loginWithEmailOtp(otpEmail.trim(), otpCode.trim());
       setLocation('/');
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : 'Xác thực mã OTP thất bại';
+      const errMsg = err instanceof Error ? err.message : (isVi ? 'Xác thực mã OTP thất bại' : 'OTP verification failed');
       setError(errMsg);
     } finally {
       setLoading(false);
@@ -215,12 +221,68 @@ export const LoginPage: React.FC = () => {
         minHeight: '100vh',
         width: '100vw',
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
+        position: 'relative',
         backgroundColor: tokens.background
       }}
     >
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 16,
+          right: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1
+        }}
+      >
+        <Tooltip title={isVi ? 'Đổi sang English' : 'Chuyển sang Tiếng Việt'}>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setLanguage(isVi ? 'en' : 'vi')}
+            startIcon={<Globe size={14} />}
+            sx={{
+              height: 32,
+              px: 1.2,
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              textTransform: 'none',
+              borderRadius: '6px',
+              borderColor: tokens.border,
+              color: tokens.textSecondary,
+              backgroundColor: tokens.surface,
+              '&:hover': {
+                borderColor: tokens.primary,
+                color: tokens.primary
+              }
+            }}
+          >
+            {isVi ? 'EN' : 'VI'}
+          </Button>
+        </Tooltip>
+
+        <Tooltip title={resolvedMode === 'dark' ? (isVi ? 'Chế độ sáng' : 'Light mode') : (isVi ? 'Chế độ tối' : 'Dark mode')}>
+          <IconButton
+            size="small"
+            onClick={() => setMode(resolvedMode === 'dark' ? 'light' : 'dark')}
+            sx={{
+              width: 32,
+              height: 32,
+              border: `1px solid ${tokens.border}`,
+              backgroundColor: tokens.surface,
+              color: tokens.textSecondary,
+              borderRadius: '6px'
+            }}
+          >
+            {resolvedMode === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </IconButton>
+        </Tooltip>
+      </Box>
+
       <Paper
         elevation={0}
         sx={{
@@ -241,7 +303,7 @@ export const LoginPage: React.FC = () => {
             variant="body2"
             sx={{ color: tokens.textSecondary, mt: 0.5, textAlign: 'center', fontSize: '0.875rem' }}
           >
-            Nền tảng kỹ thuật và review code cho kỹ sư công nghệ cao
+            {t('appSubtitle')}
           </Typography>
         </Box>
 
@@ -262,12 +324,10 @@ export const LoginPage: React.FC = () => {
             <Box sx={{ textAlign: 'center', py: 1 }}>
               <ShieldCheck size={40} color={tokens.primary} style={{ marginBottom: 8 }} />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Xác thực hai yếu tố (2FA)
+                {t('twoFactorTitle')}
               </Typography>
               <Typography variant="body2" sx={{ color: tokens.textSecondary, mt: 0.5 }}>
-                {useBackupCode
-                  ? 'Nhập một trong các mã dự phòng (Backup Code) của bạn'
-                  : 'Nhập mã 6 chữ số từ ứng dụng Authenticator'}
+                {useBackupCode ? t('enterBackupCode') : t('enterTotpCode')}
               </Typography>
             </Box>
 
@@ -275,7 +335,7 @@ export const LoginPage: React.FC = () => {
               fullWidth
               size="small"
               autoFocus
-              label={useBackupCode ? 'Mã dự phòng (8 ký tự)' : 'Mã xác thực (6 số)'}
+              label={useBackupCode ? t('backupCodeLabel') : t('totpCodeLabel')}
               placeholder={useBackupCode ? 'xxxx-xxxx' : '123456'}
               value={mfaCode}
               onChange={(e) => setMfaCode(e.target.value)}
@@ -290,7 +350,7 @@ export const LoginPage: React.FC = () => {
               disabled={loading || !mfaCode.trim()}
               sx={{ py: 1.1, fontWeight: 600, fontSize: '0.875rem' }}
             >
-              {loading ? 'Đang kiểm tra...' : 'Xác nhận đăng nhập'}
+              {loading ? t('verifying') : t('confirmLogin')}
             </Button>
 
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
@@ -300,7 +360,7 @@ export const LoginPage: React.FC = () => {
                 onClick={() => setUseBackupCode(!useBackupCode)}
                 sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}
               >
-                {useBackupCode ? 'Dùng mã Authenticator' : 'Dùng mã dự phòng'}
+                {useBackupCode ? t('useTotpCode') : t('useBackupCode')}
               </Button>
 
               <Button
@@ -314,7 +374,7 @@ export const LoginPage: React.FC = () => {
                 startIcon={<ArrowLeft size={14} />}
                 sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}
               >
-                Quay lại
+                {t('goBack')}
               </Button>
             </Box>
           </Box>
@@ -325,10 +385,10 @@ export const LoginPage: React.FC = () => {
             <Box sx={{ textAlign: 'center', py: 1 }}>
               <Mail size={40} color={tokens.primary} style={{ marginBottom: 8 }} />
               <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                Đăng nhập bằng Email OTP
+                {t('emailOtpTitle')}
               </Typography>
               <Typography variant="body2" sx={{ color: tokens.textSecondary, mt: 0.5 }}>
-                Đăng nhập bảo mật không cần mật khẩu qua Resend Email
+                {t('emailOtpSubtitle')}
               </Typography>
             </Box>
 
@@ -336,7 +396,7 @@ export const LoginPage: React.FC = () => {
               fullWidth
               size="small"
               type="email"
-              label="Địa chỉ Email"
+              label={t('emailAddress')}
               placeholder="hoaug@reported.dev"
               value={otpEmail}
               onChange={(e) => setOtpEmail(e.target.value)}
@@ -353,7 +413,7 @@ export const LoginPage: React.FC = () => {
                 onClick={handleSendOtpEmail}
                 sx={{ py: 1.1, fontWeight: 600, fontSize: '0.875rem' }}
               >
-                {loading ? 'Đang gửi mã...' : 'Gửi mã xác thực qua Email'}
+                {loading ? t('sendingCode') : t('sendOtpCode')}
               </Button>
             ) : (
               <>
@@ -361,7 +421,7 @@ export const LoginPage: React.FC = () => {
                   fullWidth
                   size="small"
                   autoFocus
-                  label="Mã xác thực 6 chữ số"
+                  label={t('otpCodeLabel')}
                   placeholder="123456"
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
@@ -376,7 +436,7 @@ export const LoginPage: React.FC = () => {
                   disabled={loading || otpCode.trim().length !== 6}
                   sx={{ py: 1.1, fontWeight: 600, fontSize: '0.875rem' }}
                 >
-                  {loading ? 'Đang kiểm tra...' : 'Xác nhận & Đăng nhập'}
+                  {loading ? t('verifying') : t('confirmAndLogin')}
                 </Button>
 
                 <Box sx={{ textAlign: 'center', mt: 0.5 }}>
@@ -388,7 +448,9 @@ export const LoginPage: React.FC = () => {
                     startIcon={<RefreshCw size={13} />}
                     sx={{ fontSize: '0.75rem', color: tokens.textSecondary }}
                   >
-                    {otpCountdown > 0 ? `Gửi lại mã (${otpCountdown}s)` : 'Gửi lại mã xác thực'}
+                    {otpCountdown > 0
+                      ? (isVi ? `Gửi lại mã (${otpCountdown}s)` : `Resend code (${otpCountdown}s)`)
+                      : t('resendCode')}
                   </Button>
                 </Box>
               </>
@@ -405,7 +467,7 @@ export const LoginPage: React.FC = () => {
               startIcon={<ArrowLeft size={14} />}
               sx={{ fontSize: '0.75rem', color: tokens.textSecondary, alignSelf: 'center', mt: 1 }}
             >
-              Quay lại đăng nhập mật khẩu
+              {t('backToPasswordLogin')}
             </Button>
           </Box>
         )}
@@ -432,7 +494,7 @@ export const LoginPage: React.FC = () => {
                   }
                 }}
               >
-                {passkeyLoading ? 'Đang quét sinh trắc học...' : 'Đăng nhập nhanh bằng Passkey'}
+                {passkeyLoading ? t('biometricAuthenticating') : t('signInWithPasskey')}
               </Button>
             </Box>
 
@@ -456,7 +518,7 @@ export const LoginPage: React.FC = () => {
                   }
                 }}
               >
-                {oauthLoading === 'github' ? 'Đang kết nối GitHub...' : 'Continue with GitHub'}
+                {oauthLoading === 'github' ? `${t('connectingTo')} GitHub...` : `${t('continueWith')} GitHub`}
               </Button>
 
               <Button
@@ -478,7 +540,7 @@ export const LoginPage: React.FC = () => {
                   }
                 }}
               >
-                {oauthLoading === 'gitlab' ? 'Đang kết nối GitLab...' : 'Continue with GitLab'}
+                {oauthLoading === 'gitlab' ? `${t('connectingTo')} GitLab...` : `${t('continueWith')} GitLab`}
               </Button>
 
               <Button
@@ -500,13 +562,13 @@ export const LoginPage: React.FC = () => {
                   }
                 }}
               >
-                {oauthLoading === 'google' ? 'Đang kết nối Google...' : 'Continue with Google'}
+                {oauthLoading === 'google' ? `${t('connectingTo')} Google...` : `${t('continueWith')} Google`}
               </Button>
             </Box>
 
             <Divider sx={{ my: 2 }}>
               <Typography variant="caption" sx={{ color: tokens.textSecondary, px: 1, fontWeight: 500 }}>
-                hoặc dùng tài khoản Reported
+                {t('orWithReported')}
               </Typography>
             </Divider>
 
@@ -516,7 +578,7 @@ export const LoginPage: React.FC = () => {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Họ và tên"
+                    label={t('fullName')}
                     placeholder="Hoang Nguyen"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -525,7 +587,7 @@ export const LoginPage: React.FC = () => {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Tên người dùng (Username)"
+                    label={t('username')}
                     placeholder="hoaug"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
@@ -535,7 +597,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     type="email"
-                    label="Địa chỉ Email"
+                    label={t('emailAddress')}
                     placeholder="hoaug@reported.dev"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -545,8 +607,8 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     type="password"
-                    label="Mật khẩu"
-                    placeholder="Tối thiểu 8 ký tự"
+                    label={t('password')}
+                    placeholder={t('passwordPlaceholder')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -557,8 +619,8 @@ export const LoginPage: React.FC = () => {
                   <TextField
                     fullWidth
                     size="small"
-                    label="Username hoặc Email"
-                    placeholder="hoaug hoặc hoaug@reported.dev"
+                    label={t('usernameOrEmail')}
+                    placeholder="hoaug / hoaug@reported.dev"
                     value={loginInput}
                     onChange={(e) => setLoginInput(e.target.value)}
                     required
@@ -567,7 +629,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     type="password"
-                    label="Mật khẩu"
+                    label={t('password')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
@@ -582,7 +644,7 @@ export const LoginPage: React.FC = () => {
                 disabled={loading || Boolean(oauthLoading) || passkeyLoading}
                 sx={{ py: 1.1, mt: 0.5, fontWeight: 600, fontSize: '0.875rem' }}
               >
-                {loading ? 'Đang xác thực...' : isRegister ? 'Tạo tài khoản' : 'Đăng nhập'}
+                {loading ? t('authenticating') : isRegister ? t('createAccount') : t('login')}
               </Button>
 
               {!isRegister && (
@@ -598,7 +660,7 @@ export const LoginPage: React.FC = () => {
                     startIcon={<KeyRound size={14} />}
                     sx={{ fontSize: '0.8125rem', color: tokens.primary }}
                   >
-                    Đăng nhập không cần mật khẩu (Email OTP)
+                    {t('emailOtpLogin')}
                   </Button>
                 </Box>
               )}
@@ -614,7 +676,7 @@ export const LoginPage: React.FC = () => {
                 }}
                 sx={{ fontSize: '0.8125rem', color: tokens.textSecondary }}
               >
-                {isRegister ? 'Đã có tài khoản? Đăng nhập ngay' : 'Chưa có tài khoản? Đăng ký mới'}
+                {isRegister ? t('alreadyHaveAccount') : t('dontHaveAccount')}
               </Button>
             </Box>
           </>
@@ -624,20 +686,19 @@ export const LoginPage: React.FC = () => {
       <Dialog open={linkModalOpen} onClose={() => setLinkModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <ShieldAlert size={20} color={tokens.warning} />
-          <span>Xác thực tài khoản hiện có</span>
+          <span>{t('accountLinkTitle')}</span>
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ color: tokens.textSecondary, mb: 2 }}>
             {linkModalMessage}
           </Typography>
           <Typography variant="body2" sx={{ color: tokens.textPrimary, fontWeight: 600 }}>
-            Để bảo mật, vui lòng đăng nhập bằng mật khẩu hoặc OTP trước, sau đó vào
-            <strong> Cài đặt &gt; Tài khoản đã liên kết</strong> để kết nối phương thức này.
+            {t('accountLinkDesc')}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button variant="contained" onClick={() => setLinkModalOpen(false)}>
-            Đã hiểu
+            {t('gotIt')}
           </Button>
         </DialogActions>
       </Dialog>
