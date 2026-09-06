@@ -17,6 +17,7 @@ import {
   InputLabel,
   Select
 } from '@mui/material';
+import { toast } from '../contexts/ToastContext';
 import {
   Eye,
   Trash2,
@@ -173,7 +174,7 @@ export const CreateReviewPage: React.FC = () => {
   const [isLoadingPr, setIsLoadingPr] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const setErrorMsg = (msg: string | null) => { if (msg) toast.error(msg); };
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   useEffect(() => {
@@ -434,14 +435,9 @@ export const CreateReviewPage: React.FC = () => {
           <Box>
             <Typography
               variant="h5"
-              sx={{ fontWeight: 700, color: tokens.textPrimary, display: 'flex', alignItems: 'center', gap: 1 }}
+              sx={{ fontWeight: 700, color: tokens.textPrimary }}
             >
-              <Eye size={24} color="#a855f7" /> {isVi ? 'Yêu cầu Review Mã nguồn' : 'Request Code Review'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.85rem' }}>
-              {isVi
-                ? 'Liên kết Pull Request, nêu rõ các trọng tâm cần đồng nghiệp soi kỹ để phản hồi nhanh và chính xác.'
-                : 'Link your Pull Request, highlight focus areas, and get rapid, contextual peer feedback.'}
+              {isVi ? 'Yêu cầu Review code' : 'Request Code Review'}
             </Typography>
           </Box>
         </Box>
@@ -463,11 +459,7 @@ export const CreateReviewPage: React.FC = () => {
         )}
       </Box>
 
-      {errorMsg && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setErrorMsg(null)}>
-          {errorMsg}
-        </Alert>
-      )}
+
 
       <form onSubmit={handleSubmit}>
         <Paper

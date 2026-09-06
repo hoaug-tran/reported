@@ -12,6 +12,7 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 import { useLocation } from 'wouter';
 import { buttonSx, inputSx } from '../theme/ui';
+import { toast } from '../contexts/ToastContext';
 
 export const WorkspaceSettingsPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -24,34 +25,34 @@ export const WorkspaceSettingsPage: React.FC = () => {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    setName(activeWorkspace?.name || '');
-    setSlug(activeWorkspace?.slug || '');
+    if (activeWorkspace) {
+      setName(activeWorkspace.name);
+      setSlug(activeWorkspace.slug);
+    }
   }, [activeWorkspace]);
 
   const isOwner = activeWorkspace && user && (activeWorkspace as any).ownerId === user.id;
 
-  const save = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!activeWorkspace) return;
     setSaving(true);
-    setMessage(null);
     try {
       await apiFetch(`/workspaces/${activeWorkspace.id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ name: name.trim(), slug: slug.trim() })
+        body: JSON.stringify({ name, slug })
       });
       await refreshWorkspaces();
-      setMessage({ type: 'success', text: isVi ? 'Đã lưu cài đặt workspace.' : 'Workspace settings saved.' });
+      toast.success(isVi ? 'Đã lưu cài đặt workspace.' : 'Workspace settings saved.');
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : (isVi ? 'Không thể lưu workspace.' : 'Failed to save workspace.');
-      setMessage({ type: 'error', text });
+      toast.error(text);
     } finally {
       setSaving(false);
     }
@@ -63,10 +64,11 @@ export const WorkspaceSettingsPage: React.FC = () => {
     try {
       await apiFetch(`/workspaces/${activeWorkspace.id}`, { method: 'DELETE' });
       await refreshWorkspaces();
+      toast.success(isVi ? 'Đã xoá workspace thành công.' : 'Workspace deleted successfully.');
       setLocation('/');
     } catch (err: unknown) {
       const text = err instanceof Error ? err.message : (isVi ? 'Không thể xoá workspace.' : 'Failed to delete workspace.');
-      setMessage({ type: 'error', text });
+      toast.error(text);
       setDeleteDialogOpen(false);
     } finally {
       setDeleting(false);
@@ -83,25 +85,18 @@ export const WorkspaceSettingsPage: React.FC = () => {
           ? 'Quản lý tên, slug và các tuỳ chọn của workspace.'
           : 'Manage workspace name, slug, and other options.'}
       />
-      {message && (
-        <Alert severity={message.type} sx={{ mb: 2, borderRadius: '8px' }} onClose={() => setMessage(null)}>
-          {message.text}
-        </Alert>
-      )}
 
-      {/* General Settings */}
       <SectionCard sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
           {isVi ? 'Thông tin chung' : 'General Information'}
         </Typography>
-        <Box component="form" onSubmit={save} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box component="form" onSubmit={save} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
           <TextField
             label={isVi ? 'Tên workspace' : 'Workspace name'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
             fullWidth
-            sx={inputSx(tokens)}
           />
           <TextField
             label="Slug"
@@ -110,7 +105,6 @@ export const WorkspaceSettingsPage: React.FC = () => {
             required
             fullWidth
             helperText={isVi ? 'Dùng trong URL và định danh workspace.' : 'Used in URLs and workspace identity.'}
-            sx={inputSx(tokens)}
           />
 
           <Box>

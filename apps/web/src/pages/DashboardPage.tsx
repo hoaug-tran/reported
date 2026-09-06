@@ -31,6 +31,7 @@ import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { apiFetch } from '../api/client';
 import {
@@ -45,6 +46,8 @@ import { DashboardHero } from '../components/dashboard/DashboardHero';
 import { DashboardSidebarWidgets } from '../components/dashboard/DashboardSidebarWidgets';
 import { CreateIssueModal } from '../components/issues/CreateIssueModal';
 import { NewPostModal } from '../components/common/NewPostModal';
+import { DashboardSkeleton } from '../components/common/Skeletons';
+import { useSmoothLoading } from '../hooks/useSmoothLoading';
 
 interface ConversationItem {
   id: string;
@@ -82,6 +85,7 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
 export const DashboardPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
+  const { activeWorkspace } = useWorkspace();
   const { language } = useI18n();
   const [, setLocation] = useLocation();
   const isVi = language === 'vi';
@@ -209,9 +213,14 @@ export const DashboardPage: React.FC = () => {
 
   const totalAttentionItems = pendingReviews.length + mentions.length + urgentIssues.length;
 
+  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
+
   if (loading) {
+    if (smoothLoading) {
+      return <DashboardSkeleton />;
+    }
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+      <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress size={32} />
       </Box>
     );
@@ -292,7 +301,6 @@ export const DashboardPage: React.FC = () => {
           </Card>
         ) : (
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
-            {/* Pending reviews */}
             {pendingReviews.map((rev) => (
               <Card
                 key={rev.id}
@@ -305,6 +313,10 @@ export const DashboardPage: React.FC = () => {
                   boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   p: 2,
+                  minHeight: 124,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                   transition: 'all 0.15s ease',
                   '&:hover': {
                     borderColor: '#a855f7',
@@ -386,7 +398,6 @@ export const DashboardPage: React.FC = () => {
               </Card>
             ))}
 
-            {/* Mentions */}
             {mentions.map((m) => (
               <Card
                 key={m.id}
@@ -399,6 +410,10 @@ export const DashboardPage: React.FC = () => {
                   boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   p: 2,
+                  minHeight: 124,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                   transition: 'all 0.15s ease',
                   '&:hover': {
                     borderColor: '#3b82f6',
@@ -474,7 +489,6 @@ export const DashboardPage: React.FC = () => {
               </Card>
             ))}
 
-            {/* Urgent P0/P1 issues */}
             {urgentIssues.map((iss) => (
               <Card
                 key={iss.id}
@@ -487,6 +501,10 @@ export const DashboardPage: React.FC = () => {
                   boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                   cursor: 'pointer',
                   p: 2,
+                  minHeight: 124,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                   transition: 'all 0.15s ease',
                   '&:hover': {
                     borderColor: '#ef4444',
@@ -551,8 +569,7 @@ export const DashboardPage: React.FC = () => {
 
 
 
-      {/* ━━ SECTION 3: RECENT CONVERSATIONS ━━ */}
-      <Box>
+      <Box id="tour-recent-conversations">
         <Box
           sx={{
             display: 'flex',
@@ -648,14 +665,15 @@ export const DashboardPage: React.FC = () => {
                   key={`${item.kind}-${item.id}`}
                   onClick={() => setLocation(item.link)}
                   sx={{
+                    minHeight: 68,
+                    py: 1.5,
+                    px: 2.2,
+                    borderBottom:
+                      idx < filteredConversations.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     gap: 2,
-                    p: 1.8,
-                    px: 2.2,
-                    borderBottom:
-                      idx < filteredConversations.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                     cursor: 'pointer',
                     transition: 'background-color 0.12s ease',
                     '&:hover': {
@@ -663,71 +681,55 @@ export const DashboardPage: React.FC = () => {
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, minWidth: 0, flex: 1 }}>
                     <Chip
                       label={badgeLabel}
                       size="small"
                       sx={{
-                        height: 20,
-                        fontSize: '0.625rem',
+                        height: 22,
+                        fontSize: '0.65rem',
                         fontWeight: 800,
                         backgroundColor: `${badgeColor}18`,
                         color: badgeColor,
-                        border: `1px solid ${badgeColor}30`,
-                        borderRadius: '4px',
+                        border: `1px solid ${badgeColor}35`,
+                        borderRadius: '6px',
                         flexShrink: 0
                       }}
                     />
 
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        fontWeight: 600,
-                        color: tokens.textPrimary,
-                        fontSize: '0.88rem',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      <span style={{ color: tokens.textSecondary, marginRight: 6 }}>#{item.number}</span>
-                      {item.title}
-                    </Typography>
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: tokens.textPrimary,
+                            fontSize: '0.92rem',
+                            lineHeight: 1.3
+                          }}
+                        >
+                          <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
+                            #{item.number}
+                          </span>
+                          {item.title}
+                        </Typography>
+                      </Box>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                          <UserAvatar user={item.author} size={18} showTooltip={false} />
+                          <span>@{item.author.username}</span>
+                        </Box>
+                        <span>• {formatRelativeTime(item.createdAt, isVi)}</span>
+                      </Box>
+                    </Box>
                   </Box>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                      <UserAvatar user={item.author} size={20} showTooltip={false} />
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          color: tokens.textSecondary,
-                          fontSize: '0.78rem',
-                          display: { xs: 'none', sm: 'inline' }
-                        }}
-                      >
-                        {item.author.displayName || item.author.username}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: tokens.textSecondary }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem' }}>
                       <MessageSquare size={14} />
-                      <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }}>
-                        {item.commentsCount}
-                      </Typography>
+                      <span>{item.commentsCount}</span>
                     </Box>
-
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: tokens.textSecondary,
-                        fontSize: '0.75rem',
-                        minWidth: 60,
-                        textAlign: 'right'
-                      }}
-                    >
-                      {formatRelativeTime(item.updatedAt, isVi)}
-                    </Typography>
                   </Box>
                 </Box>
               );
@@ -742,6 +744,9 @@ export const DashboardPage: React.FC = () => {
         isVi={isVi}
         repositoriesList={repositoriesList}
         waitingReviews={myOutboundReviews}
+        urgentCount={urgentIssues.length}
+        pendingCount={pendingReviews.length}
+        workspace={activeWorkspace}
       />
     </Box>
   </Box>

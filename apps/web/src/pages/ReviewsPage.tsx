@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, InputAdornment, Select, MenuItem, FormControl,
   InputLabel, Button, Chip, Pagination, CircularProgress, Dialog, DialogTitle,
-  DialogContent, DialogActions
+  DialogContent, DialogActions, LinearProgress
 } from '@mui/material';
-import { Search, MessageSquare, X, Plus, Clock, Bookmark } from 'lucide-react';
+import { Search, MessageSquare, X, Plus, Clock, Bookmark, Trash2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useAuthContext } from '../contexts/AuthContext';
@@ -14,16 +14,33 @@ import { StatusBadge } from '../components/issues/StatusBadge';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { apiFetch } from '../api/client';
 import { getLabelColor } from '../utils/labels';
+import { ListSkeleton } from '../components/common/Skeletons';
+import { useSmoothLoading } from '../hooks/useSmoothLoading';
 import { ReviewDetailDto, ReviewType, ReviewStatus, IssueLabelDto, ReviewerAssignmentDto } from '@reported/contracts';
+
+function formatRelativeTime(dateStr: string, isVi: boolean): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  if (diffSec < 60) return isVi ? 'vừa xong' : 'just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return isVi ? `${diffMin} phút trước` : `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return isVi ? `${diffHour} giờ trước` : `${diffHour}h ago`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 30) return isVi ? `${diffDay} ngày trước` : `${diffDay}d ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 export const ReviewsPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const isVi = language === 'vi';
   const { activeWorkspace, activeProject } = useWorkspace();
   const [location, setLocation] = useLocation();
 
   const [loading, setLoading] = useState(true);
+  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
   const [reviews, setReviews] = useState<ReviewDetailDto[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -33,6 +50,8 @@ export const ReviewsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [page, setPage] = useState(1);
   const [waitingOnly, setWaitingOnly] = useState(false);
+  const isOwnerOrAdmin = activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN';
+  const [showDeleted, setShowDeleted] = useState(false);
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveFilterName, setSaveFilterName] = useState('');
@@ -65,6 +84,7 @@ export const ReviewsPage: React.FC = () => {
       if (statusFilter !== 'ALL') q.set('status', statusFilter);
       if (activeProject) q.set('projectId', activeProject.id);
       if (waitingOnly && user) q.set('reviewerId', user.id);
+      if (showDeleted) q.set('onlyDeleted', 'true');
       q.set('page', page.toString());
       q.set('limit', '15');
 
@@ -81,7 +101,7 @@ export const ReviewsPage: React.FC = () => {
 
   useEffect(() => {
     fetchReviews();
-  }, [typeFilter, statusFilter, page, activeWorkspace, activeProject, waitingOnly]);
+  }, [typeFilter, statusFilter, page, activeWorkspace, activeProject, waitingOnly, showDeleted]);
 
   const clearFilters = () => {
     setSearch('');
@@ -135,10 +155,30 @@ export const ReviewsPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 500 }}>
             {totalCount} yêu cầu review
           </Typography>
+          {isOwnerOrAdmin && (
+            <Button
+              variant={showDeleted ? 'contained' : 'outlined'}
+              color={showDeleted ? 'error' : 'inherit'}
+              size="small"
+              startIcon={<Trash2 size={15} />}
+              onClick={() => {
+                setShowDeleted(!showDeleted);
+                setPage(1);
+              }}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: '8px',
+                fontSize: '0.8125rem'
+              }}
+            >
+              {showDeleted ? 'Thùng rác (Đang xem)' : 'Thùng rác'}
+            </Button>
+          )}
           <Button
             variant="contained"
             startIcon={<Plus size={16} />}
@@ -181,7 +221,7 @@ export const ReviewsPage: React.FC = () => {
                 <Search size={16} color={tokens.textSecondary} />
               </InputAdornment>
             ),
-            sx: { fontSize: '0.8125rem' }
+            sx: { fontSize: '0.84rem' }
           }}
           sx={{ flex: 1, minWidth: 200 }}
         />
@@ -250,12 +290,23 @@ export const ReviewsPage: React.FC = () => {
         )}
       </Box>
 
-      <Box sx={{ border: `1px solid ${tokens.border}`, borderRadius: '8px', backgroundColor: tokens.surface, overflow: 'hidden' }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-            <CircularProgress size={26} />
-          </Box>
-        ) : reviews.length === 0 ? (
+      <Box sx={{ border: `1px solid ${tokens.border}`, borderRadius: '8px', backgroundColor: tokens.surface, overflow: 'hidden', position: 'relative' }}>
+        {loading && reviews.length > 0 && (
+          <LinearProgress
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 2,
+              zIndex: 2,
+              backgroundColor: 'transparent'
+            }}
+          />
+        )}
+        {smoothLoading && reviews.length === 0 ? (
+          <ListSkeleton rows={8} />
+        ) : reviews.length === 0 && !loading ? (
           <Box sx={{ py: 8, textAlign: 'center' }}>
             <Typography variant="body1" sx={{ fontWeight: 600, color: tokens.textPrimary, mb: 0.5 }}>
               Không có yêu cầu review nào
@@ -268,100 +319,114 @@ export const ReviewsPage: React.FC = () => {
             </Button>
           </Box>
         ) : (
-          reviews.map((rev) => (
-            <Box
-              key={rev.id}
-              onClick={() => setLocation(`/reviews/${rev.number}`)}
-              sx={{
-                p: 1.5,
-                px: 2,
-                borderBottom: `1px solid ${tokens.divider}`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                cursor: 'pointer',
-                transition: 'background-color 0.12s ease',
-                '&:hover': {
-                  backgroundColor: tokens.hover
-                }
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, mr: 2 }}>
-                <StatusBadge status={rev.status} />
+          <Box sx={{ opacity: loading && reviews.length > 0 ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+            {reviews.map((rev) => (
+              <Box
+                key={rev.id}
+                onClick={() => setLocation(`/reviews/${rev.number}`)}
+                sx={{
+                  minHeight: 68,
+                  py: 1.5,
+                  px: 2.2,
+                  borderBottom: `1px solid ${tokens.divider}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  cursor: 'pointer',
+                  transition: 'background-color 0.12s ease',
+                  '&:hover': {
+                    backgroundColor: tokens.hover
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, minWidth: 0, flex: 1 }}>
+                  <StatusBadge status={rev.status} />
 
-                <Box sx={{ minWidth: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.3 }}>
-                    <Chip
-                      label={rev.reviewType}
-                      size="small"
-                      sx={{
-                        height: 18,
-                        fontSize: '0.625rem',
-                        fontWeight: 700,
-                        backgroundColor: 'rgba(168, 85, 247, 0.12)',
-                        color: '#a855f7',
-                        border: '1px solid rgba(168, 85, 247, 0.3)'
-                      }}
-                    />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
+                      <Chip
+                        label={rev.reviewType === ReviewType.PR ? 'PR' : rev.reviewType === ReviewType.CODE ? 'Code Review' : rev.reviewType}
+                        sx={{
+                          height: 22,
+                          fontSize: '0.72rem',
+                          fontWeight: 700,
+                          borderRadius: '5px',
+                          backgroundColor: tokens.surfaceSecondary,
+                          color: tokens.textPrimary,
+                          border: `1px solid ${tokens.border}`
+                        }}
+                      />
 
-                    <Typography variant="body1" sx={{ fontWeight: 600, color: tokens.textPrimary, fontSize: '0.875rem' }} noWrap>
-                      {rev.title}
-                    </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 700,
+                          color: tokens.textPrimary,
+                          fontSize: '0.92rem',
+                          lineHeight: 1.3
+                        }}
+                      >
+                        <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
+                          #{rev.number}
+                        </span>
+                        {rev.title}
+                      </Typography>
 
-                    {rev.labels?.map((lbl: IssueLabelDto) => {
-                      const style = getLabelColor(lbl.name, lbl.color);
-                      return (
-                        <Chip
-                          key={lbl.id}
-                          label={lbl.name}
-                          size="small"
-                          sx={{
-                            height: 18,
-                            fontSize: '0.6875rem',
-                            fontWeight: 600,
-                            backgroundColor: style.bg,
-                            color: style.text,
-                            border: `1px solid ${style.border}`
-                          }}
-                        />
-                      );
-                    })}
-                  </Box>
-
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.75rem', color: tokens.textSecondary }}>
-                    <span>#{rev.number}</span>
-                    {rev.repository && (
-                      <span>trong <strong>{rev.repository.fullName}</strong></span>
-                    )}
-                    <span>bởi <strong>@{rev.author.username}</strong></span>
-                    {rev.deadline && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: '#ea580c' }}>
-                        <Clock size={13} />
-                        <span>Hạn: {new Date(rev.deadline).toLocaleDateString()}</span>
-                      </Box>
-                    )}
-                  </Box>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
-                  {rev.reviewers?.map((r: ReviewerAssignmentDto) => (
-                    <Box key={r.user.id} sx={{ ml: -0.5 }}>
-                      <UserAvatar user={r.user} size={22} />
+                      {rev.labels?.map((lbl: IssueLabelDto) => {
+                        const style = getLabelColor(lbl.name, lbl.color);
+                        return (
+                          <Chip
+                            key={lbl.id}
+                            label={lbl.name}
+                            sx={{
+                              height: 22,
+                              fontSize: '0.74rem',
+                              fontWeight: 600,
+                              borderRadius: '5px',
+                              backgroundColor: style.bg,
+                              color: style.text,
+                              border: `1px solid ${style.border}`
+                            }}
+                          />
+                        );
+                      })}
                     </Box>
-                  ))}
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
+                      {rev.author && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                          <UserAvatar user={rev.author} size={18} showTooltip={false} />
+                          <span>@{rev.author.username}</span>
+                        </Box>
+                      )}
+                      <span>• {formatRelativeTime(rev.createdAt, isVi)}</span>
+                      {rev.repository && (
+                        <span>• trong <strong>{rev.repository.fullName}</strong></span>
+                      )}
+                    </Box>
+                  </Box>
                 </Box>
 
-                {rev.commentsCount > 0 && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, color: tokens.textSecondary, fontSize: '0.75rem' }}>
-                    <MessageSquare size={14} />
-                    <span>{rev.commentsCount}</span>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
+                    {rev.reviewers?.map((r: ReviewerAssignmentDto) => (
+                      <Box key={r.user.id} sx={{ ml: -0.5 }}>
+                        <UserAvatar user={r.user} size={22} />
+                      </Box>
+                    ))}
                   </Box>
-                )}
+
+                  {rev.commentsCount > 0 && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem', minWidth: 28, justifyContent: 'flex-end' }}>
+                      <MessageSquare size={14} />
+                      <span>{rev.commentsCount}</span>
+                    </Box>
+                  )}
+                </Box>
               </Box>
-            </Box>
-          ))
+            ))}
+          </Box>
         )}
       </Box>
 

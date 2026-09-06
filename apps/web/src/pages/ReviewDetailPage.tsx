@@ -6,7 +6,8 @@ import {
 } from '@mui/material';
 import {
   CheckSquare, CheckCircle2, AlertCircle, Clock, Edit3, Trash2,
-  AlertTriangle, Check, Plus, FolderGit2, GitBranch, GitPullRequest
+  AlertTriangle, Check, Plus, FolderGit2, GitBranch, GitPullRequest,
+  Eye, ListChecks, Code2
 } from 'lucide-react';
 import { useRoute, useLocation, Link } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -19,6 +20,9 @@ import { MarkdownRenderer } from '../components/markdown/MarkdownRenderer';
 import { MarkdownEditor } from '../components/editor/MarkdownEditor';
 import { PullRequestPreview } from '../components/github/PullRequestPreview';
 import { CommentThread } from '../components/discussion/CommentThread';
+import { DetailSkeleton } from '../components/common/Skeletons';
+import { useSmoothLoading } from '../hooks/useSmoothLoading';
+import { MediaFilesLinksSidebar } from '../components/common/MediaFilesLinksSidebar';
 import { ReviewDecisionDialog } from '../components/reviews/ReviewDecisionDialog';
 import { AcknowledgementBadge } from '../components/reviews/AcknowledgementBadge';
 import { CICheckRunsList } from '../components/github/CICheckRunsList';
@@ -35,6 +39,37 @@ const PRESET_LABELS = [
   'review', 'pr', 'architecture', 'security', 'frontend', 'backend',
   'performance', 'refactor', 'urgent', 'blocked'
 ];
+
+const ackStatusConfig: Record<string, { labelVi: string; labelEn: string; icon: React.ReactNode; color: string; bg: string }> = {
+  SEEN: {
+    labelVi: 'Đã xem',
+    labelEn: 'Seen',
+    icon: <Eye size={13} />,
+    color: '#64748b',
+    bg: 'rgba(100, 116, 139, 0.12)'
+  },
+  CHECKING: {
+    labelVi: 'Sẽ xem',
+    labelEn: "I'll check",
+    icon: <ListChecks size={13} />,
+    color: '#3b82f6',
+    bg: 'rgba(59, 130, 246, 0.12)'
+  },
+  REVIEWING: {
+    labelVi: 'Đang review',
+    labelEn: 'Reviewing',
+    icon: <Code2 size={13} />,
+    color: '#f59e0b',
+    bg: 'rgba(245, 158, 11, 0.12)'
+  },
+  DONE: {
+    labelVi: 'Đã xong',
+    labelEn: 'Done',
+    icon: <CheckCircle2 size={13} />,
+    color: '#10b981',
+    bg: 'rgba(16, 185, 129, 0.12)'
+  }
+};
 
 export const ReviewDetailPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -126,10 +161,15 @@ export const ReviewDetailPage: React.FC = () => {
     loadResources();
   }, [activeWorkspace?.id]);
 
+  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
+
   if (loading) {
+    if (smoothLoading) {
+      return <DetailSkeleton />;
+    }
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={28} />
+      <Box sx={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress size={26} />
       </Box>
     );
   }
@@ -226,7 +266,8 @@ export const ReviewDetailPage: React.FC = () => {
     }
   };
 
-  const canEdit = user && (user.id === review?.author.id || user.role === 'ADMIN');
+  const isLeader = activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const canEdit = user && (user.id === review?.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === review.projectId);
 
   return (
@@ -243,7 +284,6 @@ export const ReviewDetailPage: React.FC = () => {
         </Typography>
       </Breadcrumbs>
 
-      {/* Deleted Audit Banner */}
       {review.isDeleted && (
         <Alert
           severity="warning"
@@ -279,7 +319,7 @@ export const ReviewDetailPage: React.FC = () => {
       )}
 
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3.5, alignItems: 'start' }}>
 
         <Box sx={{ minWidth: 0 }}>
 
@@ -333,7 +373,18 @@ export const ReviewDetailPage: React.FC = () => {
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: tokens.textSecondary, fontSize: '0.8125rem' }}>
               <StatusBadge status={review.status} size="medium" />
-              <Chip label={review.reviewType} size="small" sx={{ fontWeight: 600, height: 20 }} />
+              <Chip
+                label={review.reviewType === ReviewType.PR ? 'Pull Request (PR)' : review.reviewType === ReviewType.CODE ? 'Code Review' : review.reviewType}
+                sx={{
+                  fontWeight: 600,
+                  height: 24,
+                  fontSize: '0.78rem',
+                  borderRadius: '6px',
+                  backgroundColor: tokens.surfaceSecondary,
+                  border: `1px solid ${tokens.border}`,
+                  color: tokens.textPrimary
+                }}
+              />
               <span>
                 {isVi ? 'Yêu cầu bởi' : 'Requested by'} <strong>@{review.author.username}</strong> • {new Date(review.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
               </span>
@@ -379,7 +430,24 @@ export const ReviewDetailPage: React.FC = () => {
           />
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2.5,
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: '8px',
+            border: `1px solid ${tokens.border}`,
+            backgroundColor: tokens.surface,
+            position: { xs: 'static', lg: 'sticky' },
+            top: 20,
+            maxHeight: { lg: 'calc(100vh - 40px)' },
+            overflowY: { lg: 'auto' },
+            overscrollBehavior: 'contain',
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+          }}
+        >
 
           <Box>
             <Button
@@ -396,7 +464,6 @@ export const ReviewDetailPage: React.FC = () => {
 
           <Divider />
 
-          {/* Project */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'DỰ ÁN' : 'PROJECT'}
@@ -406,7 +473,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Typography>
           </Box>
 
-          {/* Reviewers */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 1 }}>
               {isVi ? 'DANH SÁCH REVIEWER' : 'REVIEWERS'} ({review.reviewers?.length || 0})
@@ -443,48 +509,77 @@ export const ReviewDetailPage: React.FC = () => {
 
                         {isApproved && (
                           <Chip
-                            icon={<CheckCircle2 size={13} />}
-                            label="Approved"
-                            size="small"
-                            sx={{ height: 20, fontSize: '0.6875rem', backgroundColor: 'rgba(63, 185, 80, 0.15)', color: tokens.success }}
+                            icon={<CheckCircle2 size={14} />}
+                            label={isVi ? 'Đã duyệt' : 'Approved'}
+                            sx={{
+                              height: 24,
+                              fontSize: '0.76rem',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(63, 185, 80, 0.15)',
+                              color: tokens.success,
+                              border: '1px solid rgba(63, 185, 80, 0.25)'
+                            }}
                           />
                         )}
                         {isChangesReq && (
                           <Chip
-                            icon={<AlertCircle size={13} />}
-                            label="Changes"
-                            size="small"
-                            sx={{ height: 20, fontSize: '0.6875rem', backgroundColor: 'rgba(248, 81, 73, 0.15)', color: tokens.error }}
+                            icon={<AlertCircle size={14} />}
+                            label={isVi ? 'Yêu cầu sửa' : 'Changes'}
+                            sx={{
+                              height: 24,
+                              fontSize: '0.76rem',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(248, 81, 73, 0.15)',
+                              color: tokens.error,
+                              border: '1px solid rgba(248, 81, 73, 0.25)'
+                            }}
                           />
                         )}
                         {isPending && (
                           <Chip
-                            icon={<Clock size={13} />}
-                            label="Pending"
-                            size="small"
-                            sx={{ height: 20, fontSize: '0.6875rem', backgroundColor: 'rgba(210, 153, 34, 0.15)', color: tokens.warning }}
+                            icon={<Clock size={14} />}
+                            label={isVi ? 'Chờ review' : 'Pending'}
+                            sx={{
+                              height: 24,
+                              fontSize: '0.76rem',
+                              fontWeight: 600,
+                              borderRadius: '6px',
+                              backgroundColor: 'rgba(210, 153, 34, 0.15)',
+                              color: tokens.warning,
+                              border: '1px solid rgba(210, 153, 34, 0.25)'
+                            }}
                           />
                         )}
                       </Box>
 
-                      {r.acknowledgementStatus && (
-                        <Box sx={{ mt: 0.8, display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                          <Chip
-                            size="small"
-                            label={`Status: ${r.acknowledgementStatus}`}
-                            sx={{
-                              height: 18,
-                              fontSize: '0.625rem',
-                              fontWeight: 700,
-                              backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                              color: '#6366f1'
-                            }}
-                          />
-                        </Box>
-                      )}
+                      {r.acknowledgementStatus && ackStatusConfig[r.acknowledgementStatus] && (() => {
+                        const ack = ackStatusConfig[r.acknowledgementStatus];
+                        return (
+                          <Box sx={{ mt: 1, display: 'flex', alignItems: 'center' }}>
+                            <Chip
+                              icon={ack.icon as React.ReactElement}
+                              label={`${isVi ? 'Xác nhận' : 'Status'}: ${isVi ? ack.labelVi : ack.labelEn}`}
+                              sx={{
+                                height: 24,
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                backgroundColor: ack.bg,
+                                color: ack.color,
+                                border: `1px solid ${ack.color}40`,
+                                '& .MuiChip-icon': {
+                                  color: 'inherit'
+                                }
+                              }}
+                            />
+                          </Box>
+                        );
+                      })()}
 
                       {r.decisionNote && (
-                        <Typography variant="caption" sx={{ display: 'block', color: tokens.textSecondary, fontStyle: 'italic', mt: 0.5 }}>
+                        <Typography variant="caption" sx={{ display: 'block', color: tokens.textSecondary, fontStyle: 'italic', mt: 0.8 }}>
                           "{r.decisionNote}"
                         </Typography>
                       )}
@@ -495,12 +590,11 @@ export const ReviewDetailPage: React.FC = () => {
             )}
           </Box>
 
-          {/* Labels */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
               {isVi ? 'NHÃN' : 'LABELS'}
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
               {!review.labels || review.labels.length === 0 ? (
                 <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.8125rem', fontStyle: 'italic' }}>
                   {isVi ? '(Không có nhãn)' : '(No labels)'}
@@ -510,13 +604,14 @@ export const ReviewDetailPage: React.FC = () => {
                   <Chip
                     key={lbl.id}
                     label={lbl.name}
-                    size="small"
                     sx={{
-                      height: 20,
-                      fontSize: '0.6875rem',
+                      height: 24,
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
                       backgroundColor: `${lbl.color}15`,
                       color: lbl.color,
-                      border: `1px solid ${lbl.color}33`
+                      border: `1px solid ${lbl.color}35`
                     }}
                   />
                 ))
@@ -524,7 +619,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Repository & Branch */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'KHO LƯU TRỮ' : 'REPOSITORY'}
@@ -547,7 +641,6 @@ export const ReviewDetailPage: React.FC = () => {
             )}
           </Box>
 
-          {/* CI / Build Checks */}
           {review.pullRequest && (
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
@@ -559,6 +652,17 @@ export const ReviewDetailPage: React.FC = () => {
               />
             </Box>
           )}
+
+          <Divider sx={{ borderColor: tokens.border, my: 1 }} />
+
+          <MediaFilesLinksSidebar
+            targetType="REVIEW"
+            targetId={review.id}
+            content={review.description}
+            comments={comments}
+            prUrl={review.pullRequest?.url}
+            isVi={isVi}
+          />
         </Box>
       </Box>
 
@@ -570,7 +674,6 @@ export const ReviewDetailPage: React.FC = () => {
         onSuccess={fetchReviewData}
       />
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => !deleting && setDeleteDialogOpen(false)}
@@ -616,7 +719,6 @@ export const ReviewDetailPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Full Edit Review Dialog (100% Parity with CreateReviewPage) */}
       <Dialog
         open={editOpen}
         onClose={() => !editSaving && setEditOpen(false)}
@@ -640,7 +742,6 @@ export const ReviewDetailPage: React.FC = () => {
             <Alert severity="error" sx={{ borderRadius: '6px' }}>{editError}</Alert>
           )}
 
-          {/* Title */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'TIÊU ĐỀ *' : 'TITLE *'}
@@ -655,7 +756,6 @@ export const ReviewDetailPage: React.FC = () => {
             />
           </Box>
 
-          {/* Review Type, Status, Deadline */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -714,7 +814,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Project & Repository */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -753,7 +852,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Branch, Commit, PR Link */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -798,7 +896,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Reviewers */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'NGƯỜI REVIEW' : 'REVIEWERS'}
@@ -830,7 +927,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Select>
           </Box>
 
-          {/* Labels */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'NHÃN (LABELS)' : 'LABELS'}
@@ -883,7 +979,6 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Description */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'MÔ TẢ CHI TIẾT' : 'DESCRIPTION'}
@@ -891,6 +986,8 @@ export const ReviewDetailPage: React.FC = () => {
             <MarkdownEditor
               value={editDescription}
               onChange={setEditDescription}
+              targetType="REVIEW"
+              targetId={review.id}
               placeholder={isVi ? 'Mô tả chi tiết những gì cần review...' : 'Detailed description for reviewers...'}
               minRows={5}
             />

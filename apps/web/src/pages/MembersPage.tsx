@@ -3,7 +3,7 @@ import {
   Box, Typography, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Button, Chip, TextField, Dialog, DialogTitle,
   DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem,
-  Alert, IconButton, Tooltip, CircularProgress
+  Alert, IconButton, Tooltip, CircularProgress, Skeleton
 } from '@mui/material';
 import { UserPlus, Trash2, Users } from 'lucide-react';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -13,8 +13,9 @@ import { useAuthContext } from '../contexts/AuthContext';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { apiFetch } from '../api/client';
 import { WorkspaceMemberDto, WorkspaceRole } from '@reported/contracts';
-import { Page, PageHeader, SectionCard } from '../components/common/Page';
+import { Page, PageHeader } from '../components/common/Page';
 import { buttonSx, inputSx } from '../theme/ui';
+import { toast } from '../contexts/ToastContext';
 
 export const MembersPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -23,11 +24,10 @@ export const MembersPage: React.FC = () => {
   const { activeWorkspace } = useWorkspace();
 
   const [members, setMembers] = useState<WorkspaceMemberDto[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<WorkspaceRole>(WorkspaceRole.MEMBER);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [removeTarget, setRemoveTarget] = useState<WorkspaceMemberDto | null>(null);
@@ -45,7 +45,7 @@ export const MembersPage: React.FC = () => {
       setMembers(res);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Lỗi tải danh sách thành viên';
-      setFeedbackMsg({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     } finally {
       setIsLoading(false);
     }
@@ -65,13 +65,13 @@ export const MembersPage: React.FC = () => {
         method: 'POST',
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole })
       });
-      setFeedbackMsg({ type: 'success', text: `Đã gửi lời mời tới ${inviteEmail}` });
+      toast.success(`Đã gửi lời mời tới ${inviteEmail}`);
       setInviteModalOpen(false);
       setInviteEmail('');
       await fetchMembers();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Không thể mời thành viên';
-      setFeedbackMsg({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -84,11 +84,11 @@ export const MembersPage: React.FC = () => {
         method: 'PATCH',
         body: JSON.stringify({ role: newRole })
       });
-      setFeedbackMsg({ type: 'success', text: 'Cập nhật quyền thành công' });
+      toast.success('Cập nhật quyền thành công');
       await fetchMembers();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Không thể cập nhật quyền';
-      setFeedbackMsg({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     }
   };
 
@@ -99,12 +99,12 @@ export const MembersPage: React.FC = () => {
       await apiFetch(`/workspaces/${activeWorkspace.id}/members/${removeTarget.userId}`, {
         method: 'DELETE'
       });
-      setFeedbackMsg({ type: 'success', text: `Đã xóa ${removeTarget.displayName}` });
+      toast.success(`Đã xóa ${removeTarget.displayName}`);
       setRemoveTarget(null);
       await fetchMembers();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Không thể xóa thành viên';
-      setFeedbackMsg({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     } finally {
       setRemoving(false);
     }
@@ -128,10 +128,10 @@ export const MembersPage: React.FC = () => {
       <PageHeader
         title={t('memberList')}
         subtitle="Quản lý thành viên, vai trò workspace và quyền truy cập theo project khi backend hỗ trợ."
-        icon={<Users size={22} color={tokens.primary} />}
-        action={(
+        action={canManageMembers && (
           <Button
             variant="contained"
+            size="small"
             startIcon={<UserPlus size={16} />}
             onClick={() => setInviteModalOpen(true)}
             sx={buttonSx(tokens)}
@@ -140,11 +140,6 @@ export const MembersPage: React.FC = () => {
           </Button>
         )}
       />
-
-      {feedbackMsg && <Alert severity={feedbackMsg.type} sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setFeedbackMsg(null)}>
-          {feedbackMsg.text}
-        </Alert>
-      }
 
       <Paper
         elevation={0}
@@ -168,11 +163,23 @@ export const MembersPage: React.FC = () => {
             </TableHead>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                    <CircularProgress size={28} />
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Skeleton variant="circular" width={36} height={36} />
+                        <Box>
+                          <Skeleton variant="text" width={120} height={20} />
+                          <Skeleton variant="text" width={80} height={14} sx={{ mt: 0.3 }} />
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell><Skeleton variant="text" width={160} height={20} /></TableCell>
+                    <TableCell><Skeleton variant="rectangular" width={85} height={28} sx={{ borderRadius: '6px' }} /></TableCell>
+                    <TableCell><Skeleton variant="text" width={90} height={18} /></TableCell>
+                    <TableCell align="right"><Skeleton variant="circular" width={28} height={28} sx={{ ml: 'auto' }} /></TableCell>
+                  </TableRow>
+                ))
               ) : members.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center" sx={{ py: 6, color: tokens.textSecondary }}>
@@ -228,9 +235,15 @@ export const MembersPage: React.FC = () => {
                             borderRadius: '6px',
                             '& .MuiSelect-select': {
                               py: '2px !important',
-                              px: '10px !important',
+                              pl: '12px !important',
+                              pr: '28px !important',
                               display: 'flex',
                               alignItems: 'center'
+                            },
+                            '& .MuiSelect-icon': {
+                              color: badge.text,
+                              right: '4px',
+                              fontSize: '1.1rem'
                             },
                             '& .MuiOutlinedInput-notchedOutline': {
                               border: 'none'
@@ -345,7 +358,6 @@ export const MembersPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Remove member confirm dialog */}
       <Dialog
         open={Boolean(removeTarget)}
         onClose={() => !removing && setRemoveTarget(null)}

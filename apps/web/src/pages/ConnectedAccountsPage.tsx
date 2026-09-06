@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Paper, Button, Chip, Avatar, Alert, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Tooltip,
-  CircularProgress
+  CircularProgress, Skeleton
 } from '@mui/material';
+import { ConnectedAccountsSkeleton } from '../components/common/Skeletons';
 import {
   CheckCircle2,
   AlertTriangle,
@@ -23,6 +24,7 @@ import { useThemeContext } from '../contexts/ThemeContext';
 import { useAuthContext } from '../contexts/AuthContext';
 import { apiFetch } from '../api/client';
 import { ConnectedAccountDto, PasskeyDto } from '@reported/contracts';
+import { toast } from '../contexts/ToastContext';
 
 function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -59,14 +61,15 @@ export const ConnectedAccountsPage: React.FC = () => {
   const {
     user,
     connectedAccounts,
+    isLoadingAccounts,
     unlinkAccount,
     reconnectAccount,
     setPassword,
     refreshUser
   } = useAuthContext();
 
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const setActionError = (msg: string | null) => { if (msg) toast.error(msg); };
+  const setActionSuccess = (msg: string | null) => { if (msg) toast.success(msg); };
   const [operatingId, setOperatingId] = useState<string | null>(null);
 
   const [unlinkConfirmTarget, setUnlinkConfirmTarget] = useState<ConnectedAccountDto | null>(null);
@@ -347,16 +350,7 @@ export const ConnectedAccountsPage: React.FC = () => {
         </Typography>
       </Box>
 
-      {actionError && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setActionError(null)}>
-          {actionError}
-        </Alert>
-      )}
-      {actionSuccess && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setActionSuccess(null)}>
-          {actionSuccess}
-        </Alert>
-      )}
+
 
       {!user?.hasPassword && connectedAccounts.length === 1 && (
         <Alert
@@ -379,10 +373,13 @@ export const ConnectedAccountsPage: React.FC = () => {
         Nhà cung cấp danh tính (OAuth Providers)
       </Typography>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
-        {providersList.map((prov) => {
-          const connected = getAccountByProvider(prov.id);
-          const isOperating = operatingId === connected?.id;
+      {isLoadingAccounts ? (
+        <ConnectedAccountsSkeleton />
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 4 }}>
+          {providersList.map((prov) => {
+            const connected = getAccountByProvider(prov.id);
+            const isOperating = operatingId === connected?.id;
 
           return (
             <Paper
@@ -523,6 +520,7 @@ export const ConnectedAccountsPage: React.FC = () => {
           );
         })}
       </Box>
+      )}
 
       <Typography variant="h5" sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 2 }}>
         Khóa bảo mật sinh trắc học (Passkeys / Windows Hello)
@@ -563,8 +561,8 @@ export const ConnectedAccountsPage: React.FC = () => {
         </Box>
 
         {loadingPasskeys ? (
-          <Box sx={{ py: 2, display: 'flex', justifyContent: 'center' }}>
-            <CircularProgress size={24} />
+          <Box sx={{ py: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Skeleton variant="rectangular" width="100%" height={56} sx={{ borderRadius: '6px' }} />
           </Box>
         ) : passkeys.length === 0 ? (
           <Box sx={{ p: 2.5, textAlign: 'center', backgroundColor: tokens.surfaceSecondary, borderRadius: '6px', border: `1px dashed ${tokens.border}` }}>

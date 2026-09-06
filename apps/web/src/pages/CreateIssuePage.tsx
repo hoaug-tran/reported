@@ -19,6 +19,7 @@ import {
   Divider
 } from '@mui/material';
 import { Page } from '../components/common/Page';
+import { toast } from '../contexts/ToastContext';
 import {
   Bug,
   Trash2,
@@ -136,7 +137,7 @@ export const CreateIssuePage: React.FC = () => {
   const [livePullsError, setLivePullsError] = useState<string | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const setErrorMsg = (msg: string | null) => { if (msg) toast.error(msg); };
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   useEffect(() => {
@@ -434,13 +435,11 @@ export const CreateIssuePage: React.FC = () => {
     }
   };
   const copy = intentCopy[(intentParam as keyof typeof intentCopy) in intentCopy ? intentParam as keyof typeof intentCopy : 'bug'];
-  const headerIcon = copy.icon;
   const headerTitle = copy.title;
   const titlePlaceholder = copy.placeholder;
 
   return (
     <Page variant="form">
-      {/* ━━ HEADER ROW ━━ */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Tooltip title={isVi ? 'Quay lại' : 'Back'}>
@@ -451,14 +450,9 @@ export const CreateIssuePage: React.FC = () => {
           <Box>
             <Typography
               variant="h5"
-              sx={{ fontWeight: 700, color: tokens.textPrimary, display: 'flex', alignItems: 'center', gap: 1 }}
+              sx={{ fontWeight: 700, color: tokens.textPrimary }}
             >
-              {headerIcon} {headerTitle}
-            </Typography>
-            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.85rem' }}>
-              {isVi
-                ? 'Nói chuyện thoải mái, giữ đúng ngữ cảnh mã nguồn và không bị trôi thông tin.'
-                : 'Lightweight, high-context developer post with instant peer visibility.'}
+              {headerTitle}
             </Typography>
           </Box>
         </Box>
@@ -480,11 +474,7 @@ export const CreateIssuePage: React.FC = () => {
         )}
       </Box>
 
-      {errorMsg && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setErrorMsg(null)}>
-          {errorMsg}
-        </Alert>
-      )}
+
 
       <form onSubmit={handleSubmit}>
         <Paper
@@ -497,26 +487,32 @@ export const CreateIssuePage: React.FC = () => {
             mb: 3
           }}
         >
-          {/* 1. Title */}
           <TextField
             fullWidth
-            placeholder={titlePlaceholder}
+            label={isVi ? 'Tiêu đề bài viết' : 'Issue Title'}
+            placeholder={isVi ? 'Tóm tắt ngắn gọn lỗi hoặc tác vụ...' : 'Concise summary of the bug or task...'}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             variant="outlined"
             required
             autoFocus
+            InputLabelProps={{ shrink: true }}
             sx={{
               mb: 2.5,
               '& .MuiOutlinedInput-root': {
-                fontSize: '1.15rem',
-                fontWeight: 700,
+                fontSize: '0.95rem',
+                fontWeight: 600,
                 borderRadius: '8px'
+              },
+              '& input::placeholder': {
+                fontSize: '0.875rem !important',
+                fontWeight: '400 !important',
+                color: `${tokens.textSecondary} !important`,
+                opacity: '0.7 !important'
               }
             }}
           />
 
-          {/* 2. Main Markdown Textarea */}
           <Box sx={{ mb: 2 }}>
             <MarkdownEditor
               value={description}
@@ -530,7 +526,6 @@ export const CreateIssuePage: React.FC = () => {
             />
           </Box>
 
-          {/* 3. Action Row for Progressive Disclosure */}
           <Box
             sx={{
               display: 'flex',
@@ -627,7 +622,6 @@ export const CreateIssuePage: React.FC = () => {
             </Button>
           </Box>
 
-          {/* ━━ EXPANDABLE 1: PR LINK ━━ */}
           <Collapse in={showPrLink}>
             <Box
               sx={{
@@ -731,7 +725,6 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          {/* ━━ EXPANDABLE 2: STRUCTURED BUG DETAILS ━━ */}
           <Collapse in={showBugDetails}>
             <Box
               sx={{
@@ -786,7 +779,6 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          {/* ━━ EXPANDABLE 3: ENVIRONMENT & LOGS ━━ */}
           <Collapse in={showEnvDetails}>
             <Box
               sx={{
@@ -834,7 +826,6 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          {/* ━━ EXPANDABLE 4: METADATA, ASSIGNEES, LABELS ━━ */}
           <Collapse in={showMetadata}>
             <Box
               sx={{
@@ -922,7 +913,7 @@ export const CreateIssuePage: React.FC = () => {
                     {['bug', 'frontend', 'backend', 'auth', 'database', 'api', 'ui/ux', 'performance', 'security'].map(
                       (lbl) => {
                         const isSelected = selectedLabels.includes(lbl);
-                        const color = getLabelColor(lbl);
+                        const style = getLabelColor(lbl, undefined, isSelected);
                         return (
                           <Chip
                             key={lbl}
@@ -931,11 +922,16 @@ export const CreateIssuePage: React.FC = () => {
                             size="small"
                             onClick={() => toggleLabel(lbl)}
                             sx={{
-                              backgroundColor: isSelected ? color : 'transparent',
-                              color: isSelected ? '#ffffff' : tokens.textPrimary,
-                              border: `1px solid ${color}`,
+                              backgroundColor: style.bg,
+                              color: style.text,
+                              border: `1px solid ${style.border}`,
                               fontWeight: isSelected ? 700 : 500,
-                              fontSize: '0.75rem'
+                              fontSize: '0.75rem',
+                              transition: 'all 0.15s ease',
+                              '&:hover': {
+                                backgroundColor: style.bg,
+                                filter: 'brightness(1.1)'
+                              }
                             }}
                           />
                         );
@@ -947,7 +943,6 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          {/* ━━ SUBMIT ROW ━━ */}
           <Box
             sx={{
               display: 'flex',

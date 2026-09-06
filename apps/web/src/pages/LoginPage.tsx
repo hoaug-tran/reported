@@ -13,6 +13,7 @@ import { useI18n } from '../contexts/I18nContext';
 import { useAuthContext, LoginResult } from '../contexts/AuthContext';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { apiFetch } from '../api/client';
+import { toast } from '../contexts/ToastContext';
 
 function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -69,8 +70,8 @@ export const LoginPage: React.FC = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [otpCountdown, setOtpCountdown] = useState(0);
 
-  const [error, setError] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const setError = (msg: string | null) => { if (msg) toast.error(msg); };
+  const setInfoMessage = (msg: string | null) => { if (msg) toast.info(msg); };
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
@@ -307,17 +308,7 @@ export const LoginPage: React.FC = () => {
           </Typography>
         </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2.5 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
 
-        {infoMessage && (
-          <Alert severity="info" sx={{ mb: 2.5 }} onClose={() => setInfoMessage(null)}>
-            {infoMessage}
-          </Alert>
-        )}
 
         {authMode === 'MFA_CHALLENGE' && (
           <Box component="form" onSubmit={handleMfaSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

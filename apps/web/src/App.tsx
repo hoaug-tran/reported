@@ -6,6 +6,7 @@ import { AuthProvider, useAuthContext } from './contexts/AuthContext';
 import { I18nProvider } from './contexts/I18nContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
 import { AppLayout } from './components/layout/AppLayout';
+import { ToastProvider } from './contexts/ToastContext';
 
 import { DashboardPage } from './pages/DashboardPage';
 import { PostFeedPage } from './pages/PostFeedPage';
@@ -25,7 +26,7 @@ import { OAuthCallbackPage } from './pages/OAuthCallbackPage';
 import { WorkspaceSettingsPage } from './pages/WorkspaceSettingsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AccessDeniedPage } from './pages/AccessDeniedPage';
-import { Box, CircularProgress } from '@mui/material';
+import { AppShellSkeleton } from './components/common/Skeletons';
 
 const queryClient = new QueryClient();
 
@@ -33,16 +34,12 @@ function ProtectedRoutes() {
   const { user, isLoading } = useAuthContext();
   const [location] = useLocation();
 
-  if (isLoading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={32} />
-      </Box>
-    );
-  }
-
   if (location.startsWith('/oauth/callback')) {
     return <OAuthCallbackPage />;
+  }
+
+  if (isLoading) {
+    return <AppShellSkeleton />;
   }
 
   if (!user) {
@@ -57,9 +54,15 @@ function ProtectedRoutes() {
           <Route path="/posts" component={PostFeedPage} />
           <Route path="/issues" component={IssuesPage} />
           <Route path="/issues/new" component={CreateIssuePage} />
+          <Route path="/issues/create">
+            <Redirect to="/issues/new" />
+          </Route>
           <Route path="/issues/:number" component={IssueDetailPage} />
           <Route path="/reviews" component={ReviewsPage} />
           <Route path="/reviews/new" component={CreateReviewPage} />
+          <Route path="/reviews/create">
+            <Redirect to="/reviews/new" />
+          </Route>
           <Route path="/reviews/:number" component={ReviewDetailPage} />
           <Route path="/repositories" component={RepositoriesPage} />
           <Route path="/projects" component={ProjectsPage} />
@@ -85,11 +88,13 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <I18nProvider>
-          <AuthProvider>
-            <ProtectedRoutes />
-          </AuthProvider>
-        </I18nProvider>
+        <ToastProvider>
+          <I18nProvider>
+            <AuthProvider>
+              <ProtectedRoutes />
+            </AuthProvider>
+          </I18nProvider>
+        </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

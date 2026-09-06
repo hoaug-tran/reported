@@ -23,8 +23,10 @@ import { apiFetch } from '../api/client';
 import { LinkRepoModal } from '../components/github/LinkRepoModal';
 import { RepositoryDto } from '@reported/contracts';
 import { useI18n } from '../contexts/I18nContext';
+import { RepositoryCardSkeleton } from '../components/common/Skeletons';
 import { Page, PageHeader, EmptyState } from '../components/common/Page';
 import { buttonSx } from '../theme/ui';
+import { toast } from '../contexts/ToastContext';
 
 export const RepositoriesPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -34,7 +36,6 @@ export const RepositoriesPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [repos, setRepos] = useState<RepositoryDto[]>([]);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<RepositoryDto | null>(null);
@@ -51,7 +52,7 @@ export const RepositoriesPage: React.FC = () => {
       setRepos(data || []);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to load repositories';
-      setMessage({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -73,7 +74,7 @@ export const RepositoriesPage: React.FC = () => {
       }
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to fetch PRs';
-      setMessage({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     } finally {
       setLoadingPrs(prev => ({ ...prev, [repoId]: false }));
     }
@@ -81,9 +82,8 @@ export const RepositoriesPage: React.FC = () => {
 
   const handleSync = async (repoId: string) => {
     try {
-      setMessage(null);
       await apiFetch(`/github/repositories/${repoId}/sync`, { method: 'POST' });
-      setMessage({ type: 'success', text: 'Repository metadata synced with remote provider.' });
+      toast.success(isVi ? 'Đã đồng bộ kho lưu trữ với GitHub.' : 'Repository metadata synced with remote provider.');
       window.dispatchEvent(new Event('reported:repo-changed'));
       loadRepos();
       setRepoPrs(prev => {
@@ -94,7 +94,7 @@ export const RepositoriesPage: React.FC = () => {
       loadPrsForRepo(repoId);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Sync failed';
-      setMessage({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     }
   };
 
@@ -102,12 +102,12 @@ export const RepositoriesPage: React.FC = () => {
     if (!confirm(`Are you sure you want to unlink repository ${repo.fullName}?`)) return;
     try {
       await apiFetch(`/github/repositories/${repo.id}`, { method: 'DELETE' });
-      setMessage({ type: 'success', text: `Unlinked repository ${repo.fullName}` });
+      toast.success(isVi ? `Đã hủy liên kết kho lưu trữ ${repo.fullName}` : `Unlinked repository ${repo.fullName}`);
       setRepos(prev => prev.filter(item => item.id !== repo.id));
       window.dispatchEvent(new Event('reported:repo-changed'));
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to unlink repository';
-      setMessage({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     }
   };
 
@@ -129,13 +129,13 @@ export const RepositoriesPage: React.FC = () => {
           isPrivate: editPrivate
         })
       });
-      setMessage({ type: 'success', text: `Updated ${selectedRepo.fullName}` });
+      toast.success(isVi ? `Đã cập nhật ${selectedRepo.fullName}` : `Updated ${selectedRepo.fullName}`);
       setEditModalOpen(false);
       window.dispatchEvent(new Event('reported:repo-changed'));
       loadRepos();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to update repository';
-      setMessage({ type: 'error', text: errMsg });
+      toast.error(errMsg);
     }
   };
 
@@ -143,8 +143,10 @@ export const RepositoriesPage: React.FC = () => {
   return (
     <Page>
       <PageHeader
-        title={isVi ? 'Repo & tích hợp code' : 'Repositories & code integration'}
-        subtitle={isVi ? 'Liên kết repo GitHub/GitLab, đồng bộ PR thật và tạo review từ PR đang mở.' : 'Connect GitHub/GitLab repositories, sync real PRs, and create reviews from open PRs.'}
+        title={isVi ? 'Kho lưu trữ' : 'Repositories'}
+        subtitle={isVi
+          ? 'Quản lý các kho mã nguồn đã kết nối từ GitHub.'
+          : 'Manage source code repositories connected from GitHub.'}
         action={(
           <Button
             variant="contained"
@@ -158,16 +160,8 @@ export const RepositoriesPage: React.FC = () => {
         )}
       />
 
-      {message && (
-        <Alert severity={message.type} sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setMessage(null)}>
-          {message.text}
-        </Alert>
-      )}
-
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={32} />
-        </Box>
+        <RepositoryCardSkeleton count={4} />
       ) : repos.length === 0 ? (
         <EmptyState
           icon={<FolderGit2 size={44} color={tokens.textSecondary} />}
@@ -399,7 +393,7 @@ export const RepositoriesPage: React.FC = () => {
         onSuccess={() => {
           loadRepos();
           window.dispatchEvent(new Event('reported:repo-changed'));
-          setMessage({ type: 'success', text: 'Repository linked successfully!' });
+          toast.success(isVi ? 'Đã liên kết repo thành công!' : 'Repository linked successfully!');
         }}
       />
 

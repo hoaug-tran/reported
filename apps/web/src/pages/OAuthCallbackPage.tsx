@@ -69,15 +69,14 @@ export const OAuthCallbackPage: React.FC = () => {
         await refreshUser();
         await fetchConnectedAccounts();
 
-        setSuccessMessage(
-          res.isLinked
-            ? `Đã liên kết thành công tài khoản ${provider.toUpperCase()}!`
-            : 'Đăng nhập thành công! Đang chuyển hướng...'
-        );
-
-        setTimeout(() => {
-          setLocation(res.returnTo || (res.isLinked ? '/settings/connected-accounts' : '/'));
-        }, 1200);
+        if (res.isLinked) {
+          setSuccessMessage(`Đã liên kết thành công tài khoản ${provider.toUpperCase()}!`);
+          setTimeout(() => {
+            setLocation('/settings/connected-accounts');
+          }, 800);
+        } else {
+          setLocation(res.returnTo || '/');
+        }
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Xác thực OAuth thất bại';
         setError(errMsg);

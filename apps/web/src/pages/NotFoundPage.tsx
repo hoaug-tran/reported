@@ -33,7 +33,6 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
         px: 3,
       }}
     >
-      {/* Icon */}
       <Box
         sx={{
           width: 80,
@@ -49,7 +48,6 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
         <FileQuestion size={40} color={tokens.textSecondary} strokeWidth={1.5} />
       </Box>
 
-      {/* Code */}
       <Typography
         variant="h1"
         sx={{
@@ -65,7 +63,6 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
         404
       </Typography>
 
-      {/* Title */}
       <Typography
         variant="h5"
         sx={{ fontWeight: 700, color: tokens.textPrimary, mb: 1 }}
@@ -73,7 +70,6 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
         {message || t('notFound')}
       </Typography>
 
-      {/* Description */}
       <Typography
         variant="body1"
         sx={{ color: tokens.textSecondary, mb: 4, maxWidth: 440 }}
@@ -81,7 +77,6 @@ export const NotFoundPage: React.FC<NotFoundPageProps> = ({
         {description || t('notFoundDesc')}
       </Typography>
 
-      {/* Buttons */}
       <Box sx={{ display: 'flex', gap: 1.5 }}>
         {showBackButton && (
           <Button

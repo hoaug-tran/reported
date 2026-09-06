@@ -23,6 +23,7 @@ import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
+import { PostFeedSkeleton } from '../components/common/Skeletons';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { NewPostModal } from '../components/common/NewPostModal';
 import { apiFetch } from '../api/client';
@@ -178,7 +179,6 @@ export const PostFeedPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', pb: 8 }}>
-      {/* ━━ HEADER & ACTIONS ━━ */}
       <Box
         sx={{
           display: 'flex',
@@ -231,7 +231,6 @@ export const PostFeedPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* ━━ SEARCH & TABS ━━ */}
       <Box
         sx={{
           display: 'flex',
@@ -290,11 +289,8 @@ export const PostFeedPage: React.FC = () => {
         />
       </Box>
 
-      {/* ━━ FEED LIST ━━ */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={32} />
-        </Box>
+        <PostFeedSkeleton count={5} />
       ) : filteredItems.length === 0 ? (
         <Card
           sx={{
@@ -361,14 +357,15 @@ export const PostFeedPage: React.FC = () => {
                 key={`${item.kind}-${item.id}`}
                 onClick={() => setLocation(item.link)}
                 sx={{
+                  minHeight: 68,
+                  py: 1.5,
+                  px: 2.2,
+                  borderBottom:
+                    idx < filteredItems.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   gap: 2,
-                  p: 2,
-                  px: 2.5,
-                  borderBottom:
-                    idx < filteredItems.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                   cursor: 'pointer',
                   transition: 'background-color 0.12s ease',
                   '&:hover': {
@@ -376,7 +373,7 @@ export const PostFeedPage: React.FC = () => {
                   }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, minWidth: 0, flex: 1 }}>
                   <Chip
                     label={badgeLabel}
                     size="small"
@@ -392,20 +389,20 @@ export const PostFeedPage: React.FC = () => {
                     }}
                   />
 
-                  <Box sx={{ minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
                       <Typography
                         variant="body2"
                         sx={{
                           fontWeight: 700,
                           color: tokens.textPrimary,
                           fontSize: '0.92rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
+                          lineHeight: 1.3
                         }}
                       >
-                        <span style={{ color: tokens.textSecondary, marginRight: 6 }}>#{item.number}</span>
+                        <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
+                          #{item.number}
+                        </span>
                         {item.title}
                       </Typography>
 
@@ -417,64 +414,40 @@ export const PostFeedPage: React.FC = () => {
                           sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
                         />
                       )}
+
+                      {item.labels?.slice(0, 3).map((l) => (
+                        <Chip
+                          key={l.name}
+                          label={l.name}
+                          size="small"
+                          sx={{
+                            height: 18,
+                            fontSize: '0.6875rem',
+                            fontWeight: 500,
+                            backgroundColor: 'transparent',
+                            border: `1px solid ${tokens.border}`,
+                            color: tokens.textSecondary
+                          }}
+                        />
+                      ))}
                     </Box>
 
-                    {item.labels && item.labels.length > 0 && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.4 }}>
-                        {item.labels.slice(0, 3).map((l) => (
-                          <Chip
-                            key={l.name}
-                            label={l.name}
-                            size="small"
-                            sx={{
-                              height: 16,
-                              fontSize: '0.6rem',
-                              backgroundColor: 'transparent',
-                              border: `1px solid ${tokens.border}`,
-                              color: tokens.textSecondary
-                            }}
-                          />
-                        ))}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                        <UserAvatar user={item.author} size={18} showTooltip={false} />
+                        <span>@{item.author.username}</span>
                       </Box>
-                    )}
+                      <span>• {formatRelativeTime(item.createdAt, isVi)}</span>
+                    </Box>
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                    <UserAvatar user={item.author} size={22} showTooltip={false} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: tokens.textSecondary,
-                        fontSize: '0.8rem',
-                        display: { xs: 'none', sm: 'inline' }
-                      }}
-                    >
-                      {item.author.displayName || item.author.username}
-                    </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem' }}>
+                    <MessageSquare size={14} />
+                    <span>{item.commentsCount}</span>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary }}>
-                    <MessageSquare size={15} />
-                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.78rem' }}>
-                      {item.commentsCount}
-                    </Typography>
-                  </Box>
-
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: tokens.textSecondary,
-                      fontSize: '0.75rem',
-                      minWidth: 65,
-                      textAlign: 'right'
-                    }}
-                  >
-                    {formatRelativeTime(item.updatedAt, isVi)}
-                  </Typography>
-
-                  {/* Action menu - only for author */}
                   {user && item.author.id === user.id && (
                     <IconButton
                       size="small"
@@ -484,13 +457,11 @@ export const PostFeedPage: React.FC = () => {
                       }}
                       sx={{
                         color: tokens.textSecondary,
-                        '&:hover': { color: tokens.textPrimary },
-                        width: 28,
-                        height: 28,
-                        borderRadius: '6px'
+                        p: 0.5,
+                        '&:hover': { color: tokens.textPrimary }
                       }}
                     >
-                      <MoreVertical size={15} />
+                      <MoreVertical size={16} />
                     </IconButton>
                   )}
                 </Box>
@@ -500,7 +471,6 @@ export const PostFeedPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Action menu */}
       <Menu
         anchorEl={menuAnchor?.el}
         open={Boolean(menuAnchor)}
@@ -550,7 +520,6 @@ export const PostFeedPage: React.FC = () => {
         </MuiMenuItem>
       </Menu>
 
-      {/* Delete confirm dialog */}
       <Dialog
         open={Boolean(deleteTarget)}
         onClose={() => !deleting && setDeleteTarget(null)}
@@ -594,7 +563,6 @@ export const PostFeedPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* New Post Modal */}
       <NewPostModal open={newPostOpen} onClose={() => { setNewPostOpen(false); loadFeed(); }} />
     </Box>
   );

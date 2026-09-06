@@ -6,11 +6,8 @@ import { useThemeContext } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/I18nContext';
 
 interface AccessDeniedPageProps {
-  /** Nếu true: nội dung đã bị xoá và user không có quyền xem */
   isDeleted?: boolean;
-  /** Custom message override */
   message?: string;
-  /** Custom description override */
   description?: string;
   showBackButton?: boolean;
 }
@@ -38,7 +35,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         px: 3,
       }}
     >
-      {/* Icon */}
       <Box
         sx={{
           width: 80,
@@ -54,7 +50,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         <ShieldOff size={40} color="#f85149" strokeWidth={1.5} />
       </Box>
 
-      {/* Code */}
       <Typography
         variant="h1"
         sx={{
@@ -70,7 +65,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         403
       </Typography>
 
-      {/* Title */}
       <Typography
         variant="h5"
         sx={{ fontWeight: 700, color: tokens.textPrimary, mb: 1 }}
@@ -78,7 +72,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         {message || t('notAuthorized')}
       </Typography>
 
-      {/* Description */}
       <Typography
         variant="body1"
         sx={{ color: tokens.textSecondary, mb: isDeleted ? 2 : 4, maxWidth: 480 }}
@@ -86,7 +79,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         {description || t('notAuthorizedDesc')}
       </Typography>
 
-      {/* Extra note for deleted content */}
       {isDeleted && (
         <Alert
           severity="warning"
@@ -103,7 +95,6 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         </Alert>
       )}
 
-      {/* Buttons */}
       <Box sx={{ display: 'flex', gap: 1.5 }}>
         {showBackButton && (
           <Button

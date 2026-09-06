@@ -21,6 +21,10 @@ import { MarkdownEditor } from '../components/editor/MarkdownEditor';
 import { PullRequestPreview } from '../components/github/PullRequestPreview';
 import { ActivityTimeline } from '../components/timeline/ActivityTimeline';
 import { CommentThread } from '../components/discussion/CommentThread';
+import { DetailSkeleton } from '../components/common/Skeletons';
+import { useSmoothLoading } from '../hooks/useSmoothLoading';
+import { MediaFilesLinksSidebar } from '../components/common/MediaFilesLinksSidebar';
+import { getLabelColor } from '../utils/labels';
 import { apiFetch, ApiError } from '../api/client';
 import {
   TargetType, IssueDto, CommentDto, ActivityTimelineDto, UserSummaryDto,
@@ -217,21 +221,21 @@ export const IssueDetailPage: React.FC = () => {
       };
 
       if (
-        editType === IssueType.BUG ||
         editSteps.trim() ||
         editEnvironment.trim() ||
         editActual.trim() ||
         editExpected.trim() ||
+        editPrecondition.trim() ||
         editEvidence.trim()
       ) {
         payload.bugDetails = {
-          environment: editEnvironment.trim() || 'Default Environment',
-          precondition: editPrecondition.trim(),
-          stepsToReproduce: editSteps.trim(),
-          actualResult: editActual.trim(),
-          expectedResult: editExpected.trim(),
+          environment: editEnvironment.trim() || 'Chrome 128, macOS',
+          precondition: editPrecondition.trim() || undefined,
+          stepsToReproduce: editSteps.trim() || 'Xem mô tả chi tiết',
+          actualResult: editActual.trim() || 'Xem mô tả chi tiết',
+          expectedResult: editExpected.trim() || 'Xem mô tả chi tiết',
           frequency: editFrequency,
-          evidenceJsonOrLogs: editEvidence.trim()
+          evidenceJsonOrLogs: editEvidence.trim() || undefined
         };
       }
 
@@ -286,10 +290,15 @@ export const IssueDetailPage: React.FC = () => {
     }
   };
 
+  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
+
   if (loading) {
+    if (smoothLoading) {
+      return <DetailSkeleton />;
+    }
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={28} />
+      <Box sx={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress size={26} />
       </Box>
     );
   }
@@ -301,7 +310,8 @@ export const IssueDetailPage: React.FC = () => {
     return <NotFoundPage message={isVi ? 'Không tìm thấy vấn đề' : 'Issue not found'} />;
   }
 
-  const canEdit = user && (user.id === issue.author.id || user.role === 'ADMIN');
+  const isLeader = activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const canEdit = user && (user.id === issue.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === issue.projectId);
 
   return (
@@ -318,7 +328,6 @@ export const IssueDetailPage: React.FC = () => {
         </Typography>
       </Breadcrumbs>
 
-      {/* Deleted Audit Banner */}
       {issue.isDeleted && (
         <Alert
           severity="warning"
@@ -353,7 +362,7 @@ export const IssueDetailPage: React.FC = () => {
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3.5, alignItems: 'start' }}>
 
         <Box sx={{ minWidth: 0 }}>
 
@@ -429,7 +438,6 @@ export const IssueDetailPage: React.FC = () => {
 
           <Divider sx={{ my: 2 }} />
 
-          {/* Structured Bug & Testing Details Box - ALWAYS rendered with explicit fallbacks */}
           <Box
             sx={{
               mb: 3,
@@ -440,7 +448,7 @@ export const IssueDetailPage: React.FC = () => {
             }}
           >
             <Typography variant="h4" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
-              {isVi ? 'Chi tiết tái hiện & Kiểm thử lỗi' : 'Bug Reproduction & Testing Details'}
+              {isVi ? 'Chi tiết tái hiện lỗi' : 'Bug Reproduction & Testing Details'}
             </Typography>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
@@ -501,13 +509,13 @@ export const IssueDetailPage: React.FC = () => {
 
             <Box sx={{ pt: 1.5, borderTop: `1px dashed ${tokens.border}` }}>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'BẰNG CHỨNG / LOG KIỂM THỬ' : 'EVIDENCE / TEST LOGS'}
+                {isVi ? 'BẰNG CHỨNG / LOG' : 'EVIDENCE / TEST LOGS'}
               </Typography>
               {issue.bugDetails?.evidenceJsonOrLogs ? (
                 <MarkdownRenderer content={issue.bugDetails.evidenceJsonOrLogs} />
               ) : (
                 <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: 'italic' }}>
-                  {isVi ? 'Kiểm thử: Không có log hoặc bằng chứng đính kèm' : 'Testing: No logs or evidence attached'}
+                  {isVi ? 'Không có log hoặc bằng chứng đính kèm' : 'No logs or evidence attached'}
                 </Typography>
               )}
             </Box>
@@ -543,7 +551,24 @@ export const IssueDetailPage: React.FC = () => {
           />
         </Box>
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2.5,
+            p: { xs: 2, sm: 2.5 },
+            borderRadius: '8px',
+            border: `1px solid ${tokens.border}`,
+            backgroundColor: tokens.surface,
+            position: { xs: 'static', lg: 'sticky' },
+            top: 20,
+            maxHeight: { lg: 'calc(100vh - 40px)' },
+            overflowY: { lg: 'auto' },
+            overscrollBehavior: 'contain',
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+          }}
+        >
 
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -580,7 +605,6 @@ export const IssueDetailPage: React.FC = () => {
 
           <Divider />
 
-          {/* Project */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'DỰ ÁN' : 'PROJECT'}
@@ -590,7 +614,6 @@ export const IssueDetailPage: React.FC = () => {
             </Typography>
           </Box>
 
-          {/* Assignees */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
               {isVi ? 'NGƯỜI ĐƯỢC PHÂN CÔNG' : 'ASSIGNEES'}
@@ -613,7 +636,6 @@ export const IssueDetailPage: React.FC = () => {
             )}
           </Box>
 
-          {/* Labels */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
               {isVi ? 'NHÃN' : 'LABELS'}
@@ -624,25 +646,28 @@ export const IssueDetailPage: React.FC = () => {
                   {isVi ? '(Không có nhãn)' : '(No labels)'}
                 </Typography>
               ) : (
-                issue.labels.map((lbl: IssueLabelDto) => (
-                  <Chip
-                    key={lbl.id}
-                    label={lbl.name}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.6875rem',
-                      backgroundColor: `${lbl.color}15`,
-                      color: lbl.color,
-                      border: `1px solid ${lbl.color}33`
-                    }}
-                  />
-                ))
+                issue.labels.map((lbl: IssueLabelDto) => {
+                  const style = getLabelColor(lbl.name, lbl.color);
+                  return (
+                    <Chip
+                      key={lbl.id}
+                      label={lbl.name}
+                      size="small"
+                      sx={{
+                        height: 20,
+                        fontSize: '0.6875rem',
+                        fontWeight: 600,
+                        backgroundColor: style.bg,
+                        color: style.text,
+                        border: `1px solid ${style.border}`
+                      }}
+                    />
+                  );
+                })
               )}
             </Box>
           </Box>
 
-          {/* Repository & Branch */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'KHO LƯU TRỮ' : 'REPOSITORY'}
@@ -664,10 +689,18 @@ export const IssueDetailPage: React.FC = () => {
               </Typography>
             )}
           </Box>
+
+          <MediaFilesLinksSidebar
+            targetType="ISSUE"
+            targetId={issue.id}
+            content={issue.description}
+            comments={comments}
+            prUrl={issue.pullRequest?.url}
+            isVi={isVi}
+          />
         </Box>
       </Box>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={deleteDialogOpen}
         onClose={() => !deleting && setDeleteDialogOpen(false)}
@@ -713,7 +746,6 @@ export const IssueDetailPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Full Edit Issue Dialog (100% Parity with CreateIssuePage) */}
       <Dialog
         open={editOpen}
         onClose={() => !editSaving && setEditOpen(false)}
@@ -737,7 +769,6 @@ export const IssueDetailPage: React.FC = () => {
             <Alert severity="error" sx={{ borderRadius: '6px' }}>{editError}</Alert>
           )}
 
-          {/* Title */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'TIÊU ĐỀ *' : 'TITLE *'}
@@ -747,12 +778,23 @@ export const IssueDetailPage: React.FC = () => {
               size="small"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              placeholder={isVi ? 'Nhập tiêu đề bài viết...' : 'Enter issue title...'}
-              sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+              placeholder={isVi ? 'Tóm tắt ngắn gọn lỗi hoặc tác vụ...' : 'Concise summary of the bug or task...'}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  fontSize: '0.95rem',
+                  fontWeight: 600,
+                  borderRadius: '6px'
+                },
+                '& input::placeholder': {
+                  fontSize: '0.875rem !important',
+                  fontWeight: '400 !important',
+                  color: `${tokens.textSecondary} !important`,
+                  opacity: '0.7 !important'
+                }
+              }}
             />
           </Box>
 
-          {/* Type, Priority, Severity */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -809,7 +851,6 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Project & Repository */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -848,7 +889,6 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Branch, Commit, PR Link */}
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
@@ -893,7 +933,6 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Assignees */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'NGƯỜI PHÂN CÔNG' : 'ASSIGNEES'}
@@ -925,7 +964,6 @@ export const IssueDetailPage: React.FC = () => {
             </Select>
           </Box>
 
-          {/* Labels */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'NHÃN (LABELS)' : 'LABELS'}
@@ -978,10 +1016,9 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Bug Reproduction & Testing Details Section */}
           <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.background, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {isVi ? 'Thông tin tái hiện & Kiểm thử lỗi' : 'Bug Reproduction & Testing Details'}
+              {isVi ? 'Chi tiết tái hiện lỗi' : 'Bug Reproduction & Testing Details'}
             </Typography>
 
             <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
@@ -1077,7 +1114,7 @@ export const IssueDetailPage: React.FC = () => {
 
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'BẰNG CHỨNG / LOG KIỂM THỬ' : 'EVIDENCE / TEST LOGS'}
+                {isVi ? 'BẰNG CHỨNG / LOG' : 'EVIDENCE / TEST LOGS'}
               </Typography>
               <TextField
                 fullWidth
@@ -1091,7 +1128,6 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          {/* Description Markdown Editor */}
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
               {isVi ? 'MÔ TẢ CHI TIẾT' : 'DESCRIPTION'}
@@ -1099,6 +1135,8 @@ export const IssueDetailPage: React.FC = () => {
             <MarkdownEditor
               value={editDescription}
               onChange={setEditDescription}
+              targetType="ISSUE"
+              targetId={issue.id}
               placeholder={isVi ? 'Mô tả chi tiết bài viết...' : 'Detailed issue description...'}
               minRows={5}
             />

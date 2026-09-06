@@ -10,20 +10,49 @@ import { useThemeContext } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/I18nContext';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { ProjectDto } from '@reported/contracts';
+import { ProjectGridSkeleton } from '../components/common/Skeletons';
+import { toast } from '../contexts/ToastContext';
+
+const generateSlug = (text: string) => {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
+
+const generateKey = (text: string) => {
+  const clean = text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toUpperCase()
+    .replace(/[^A-Z0-9\s]/g, '')
+    .trim();
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return words.map(w => w[0]).join('').slice(0, 4);
+  }
+  return clean.replace(/\s+/g, '').slice(0, 3);
+};
 
 export const ProjectsPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { t, language } = useI18n();
   const isVi = language === 'vi';
-  const { activeWorkspace, projects, createProject, updateProject, deleteProject, setActiveProject } = useWorkspace();
+  const { activeWorkspace, projects, createProject, updateProject, deleteProject, setActiveProject, isLoading } = useWorkspace();
   const [, setLocation] = useLocation();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [key, setKey] = useState('');
+  const [isSlugManual, setIsSlugManual] = useState(false);
+  const [isKeyManual, setIsKeyManual] = useState(false);
   const [description, setDescription] = useState('');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -39,20 +68,19 @@ export const ProjectsPage: React.FC = () => {
 
   const handleNameChange = (val: string) => {
     setName(val);
-    if (!slug) {
-      setSlug(val.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'));
+    if (!isSlugManual) {
+      setSlug(generateSlug(val));
     }
-    if (!key && val.length >= 2) {
-      setKey(val.slice(0, 3).toUpperCase().replace(/[^A-Z]/g, ''));
+    if (!isKeyManual && val.trim()) {
+      setKey(generateKey(val));
     }
   };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
 
     if (!name.trim() || !key.trim() || !slug.trim()) {
-      setErrorMsg(isVi ? 'Vui lòng điền đủ tên, slug và mã dự án (Key)' : 'Please fill name, slug and project key');
+      toast.error(isVi ? 'Vui lòng điền đủ tên, slug và mã dự án (Key)' : 'Please fill name, slug and project key');
       return;
     }
 
@@ -64,14 +92,17 @@ export const ProjectsPage: React.FC = () => {
         key: key.trim().toUpperCase(),
         description: description.trim() || undefined
       });
+      toast.success(isVi ? 'Đã tạo dự án thành công' : 'Project created successfully');
       setCreateModalOpen(false);
       setName('');
       setSlug('');
       setKey('');
       setDescription('');
+      setIsSlugManual(false);
+      setIsKeyManual(false);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || (isVi ? 'Lỗi khi tạo dự án' : 'Error creating project');
-      setErrorMsg(errMsg);
+      toast.error(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -89,7 +120,7 @@ export const ProjectsPage: React.FC = () => {
     e.preventDefault();
     if (!editingProject) return;
     if (!editName.trim() || !editKey.trim()) {
-      setErrorMsg(isVi ? 'Tên và mã dự án không được để trống' : 'Name and key cannot be empty');
+      toast.error(isVi ? 'Tên và mã dự án không được để trống' : 'Name and key cannot be empty');
       return;
     }
 
@@ -100,11 +131,12 @@ export const ProjectsPage: React.FC = () => {
         key: editKey.trim().toUpperCase(),
         description: editDescription.trim()
       });
+      toast.success(isVi ? 'Đã cập nhật dự án thành công' : 'Project updated successfully');
       setEditModalOpen(false);
       setEditingProject(null);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || (isVi ? 'Lỗi khi cập nhật dự án' : 'Error updating project');
-      setErrorMsg(errMsg);
+      toast.error(errMsg);
     } finally {
       setEditSaving(false);
     }
@@ -120,11 +152,12 @@ export const ProjectsPage: React.FC = () => {
     try {
       setDeleteDeleting(true);
       await deleteProject(deletingProject.id);
+      toast.success(isVi ? 'Đã xóa dự án thành công' : 'Project deleted successfully');
       setDeleteDialogOpen(false);
       setDeletingProject(null);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || (isVi ? 'Lỗi khi xóa dự án' : 'Error deleting project');
-      setErrorMsg(errMsg);
+      toast.error(errMsg);
     } finally {
       setDeleteDeleting(false);
     }
@@ -163,14 +196,10 @@ export const ProjectsPage: React.FC = () => {
         </Button>
       </Box>
 
-      {errorMsg && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: '8px' }} onClose={() => setErrorMsg(null)}>
-          {errorMsg}
-        </Alert>
-      )}
-
       <Grid container spacing={2.5}>
-        {projects.length === 0 ? (
+        {isLoading ? (
+          <ProjectGridSkeleton count={6} />
+        ) : projects.length === 0 ? (
           <Grid item xs={12}>
             <Paper sx={{ p: 6, textAlign: 'center', backgroundColor: tokens.surface, border: `1px solid ${tokens.border}`, borderRadius: '8px' }}>
               <Typography variant="body1" sx={{ color: tokens.textSecondary }}>
@@ -269,13 +298,42 @@ export const ProjectsPage: React.FC = () => {
         )}
       </Grid>
 
-      {/* Create Project Modal */}
       <Dialog open={createModalOpen} onClose={() => setCreateModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '8px' } }}>
         <form onSubmit={handleCreate}>
           <DialogTitle sx={{ fontWeight: 700 }}>
             {t('createProjectBtn')} vào {activeWorkspace?.name}
           </DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+              {[
+                { label: '🌐 Web Frontend', name: 'Web Frontend', key: 'FE', slug: 'web-frontend' },
+                { label: '⚙️ API Backend', name: 'API Backend', key: 'BE', slug: 'api-backend' },
+                { label: '📱 Mobile App', name: 'Mobile App', key: 'MOB', slug: 'mobile-app' },
+                { label: '☁️ Cloud Infra', name: 'Cloud Infrastructure', key: 'INFRA', slug: 'cloud-infra' }
+              ].map((template) => (
+                <Chip
+                  key={template.key}
+                  label={template.label}
+                  size="small"
+                  onClick={() => {
+                    setName(template.name);
+                    setKey(template.key);
+                    setSlug(template.slug);
+                    setIsKeyManual(true);
+                    setIsSlugManual(true);
+                  }}
+                  sx={{
+                    cursor: 'pointer',
+                    fontSize: '0.72rem',
+                    borderRadius: '4px',
+                    backgroundColor: tokens.surfaceSecondary,
+                    border: `1px solid ${tokens.border}`,
+                    '&:hover': { borderColor: tokens.primary, color: tokens.primary }
+                  }}
+                />
+              ))}
+            </Box>
+
             <TextField
               fullWidth
               label={t('projectName')}
@@ -292,7 +350,10 @@ export const ProjectsPage: React.FC = () => {
                   label={t('projectKey')}
                   placeholder="BE"
                   value={key}
-                  onChange={(e) => setKey(e.target.value.toUpperCase())}
+                  onChange={(e) => {
+                    setIsKeyManual(true);
+                    setKey(e.target.value.toUpperCase());
+                  }}
                   helperText={t('projectKeyHelp')}
                   required
                 />
@@ -303,11 +364,34 @@ export const ProjectsPage: React.FC = () => {
                   label="Slug"
                   placeholder="backend"
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase())}
+                  onChange={(e) => {
+                    setIsSlugManual(true);
+                    setSlug(e.target.value.toLowerCase());
+                  }}
                   required
                 />
               </Grid>
             </Grid>
+
+            <Box
+              sx={{
+                px: 1.4,
+                py: 0.8,
+                borderRadius: '6px',
+                backgroundColor: tokens.surfaceSecondary,
+                border: `1px solid ${tokens.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.8,
+                fontSize: '0.75rem',
+                color: tokens.textSecondary
+              }}
+            >
+              <span>{isVi ? 'Mã mẫu Issue:' : 'Example Issue ID:'}</span>
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, color: tokens.primary, fontSize: '0.75rem' }}>
+                #{key || 'PROJ'}-1
+              </Typography>
+            </Box>
 
             <TextField
               fullWidth
@@ -320,7 +404,14 @@ export const ProjectsPage: React.FC = () => {
             />
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setCreateModalOpen(false)} sx={{ textTransform: 'none', borderRadius: '6px' }}>
+            <Button
+              onClick={() => {
+                setCreateModalOpen(false);
+                setIsSlugManual(false);
+                setIsKeyManual(false);
+              }}
+              sx={{ textTransform: 'none', borderRadius: '6px' }}
+            >
               {t('cancelBtn')}
             </Button>
             <Button
@@ -335,7 +426,6 @@ export const ProjectsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Edit Project Modal */}
       <Dialog open={editModalOpen} onClose={() => !editSaving && setEditModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '8px' } }}>
         <form onSubmit={handleSaveEdit}>
           <DialogTitle sx={{ fontWeight: 700 }}>
@@ -381,7 +471,6 @@ export const ProjectsPage: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* Delete Project Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => !deleteDeleting && setDeleteDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: '8px' } }}>
         <DialogTitle sx={{ fontWeight: 700, color: tokens.error }}>
           {isVi ? 'Xác nhận xóa dự án?' : 'Delete project?'}
