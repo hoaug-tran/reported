@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
   db, workspaces, workspaceMembers, projects, projectMembers, invitations, users, issues, reviewRequests,
-  eq, and, sql
+  eq, ne, and, sql, isNull
 } from '@reported/database';
 import {
   CreateWorkspaceSchema, UpdateWorkspaceSchema, CreateProjectSchema, UpdateProjectSchema,
@@ -81,9 +81,10 @@ workspacesRouter.post('/', async (req: Request, res: Response, next: NextFunctio
   try {
     const user = req.user!;
     const input = CreateWorkspaceSchema.parse(req.body);
+    const cleanSlug = input.slug.toLowerCase().trim();
 
     const existing = await db.query.workspaces.findFirst({
-      where: eq(workspaces.slug, input.slug)
+      where: eq(sql`lower(${workspaces.slug})`, cleanSlug)
     });
     if (existing) {
       throw new AppError(409, 'SLUG_TAKEN', 'Workspace with this identifier already exists');
@@ -258,6 +259,29 @@ workspacesRouter.post('/:id/members/invite', async (req: Request, res: Response,
     const token = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
+    const existingInvite = await db.query.invitations.findFirst({
+      where: and(
+        eq(invitations.workspaceId, id),
+        eq(invitations.email, input.email.toLowerCase()),
+        isNull(invitations.acceptedAt)
+      )
+    });
+
+    if (existingInvite) {
+      const [updatedInvite] = await db.update(invitations).set({
+        role: input.role,
+        token,
+        expiresAt,
+        invitedBy: user.id
+      }).where(eq(invitations.id, existingInvite.id)).returning();
+
+      return res.status(200).json({
+        success: true,
+        message: `Updated invitation for ${input.email}`,
+        invitation: updatedInvite
+      });
+    }
+
     const [invitation] = await db.insert(invitations).values({
       workspaceId: id,
       email: input.email.toLowerCase(),
@@ -385,6 +409,13 @@ workspacesRouter.post('/:id/projects', async (req: Request, res: Response, next:
       throw new AppError(409, 'PROJECT_SLUG_TAKEN', 'Project identifier already exists in this workspace');
     }
 
+    const existingKey = await db.query.projects.findFirst({
+      where: and(eq(projects.workspaceId, id), eq(projects.key, input.key.toUpperCase()))
+    });
+    if (existingKey) {
+      throw new AppError(409, 'PROJECT_KEY_TAKEN', 'Project key already exists in this workspace');
+    }
+
     const [project] = await db.insert(projects).values({
       workspaceId: id,
       name: input.name,
@@ -419,6 +450,19 @@ workspacesRouter.patch('/:id/projects/:projectId', async (req: Request, res: Res
 
     if (!project) {
       throw new AppError(404, 'NOT_FOUND', 'Project not found');
+    }
+
+    if (input.key && input.key.toUpperCase() !== project.key) {
+      const existingKey = await db.query.projects.findFirst({
+        where: and(
+          eq(projects.workspaceId, id),
+          eq(projects.key, input.key.toUpperCase()),
+          ne(projects.id, projectId)
+        )
+      });
+      if (existingKey) {
+        throw new AppError(409, 'PROJECT_KEY_TAKEN', 'Project key already exists in this workspace');
+      }
     }
 
     const updates: Partial<typeof projects.$inferInsert> = {

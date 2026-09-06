@@ -20,7 +20,12 @@ reviewsRouter.get('/', async (req: Request, res: Response, next: NextFunction) =
     const filter = ReviewFilterSchema.parse(req.query);
     const offset = (filter.page - 1) * filter.limit;
 
-    const conditions = [eq(reviewRequests.isDeleted, false)];
+    const conditions = [];
+    if (filter.onlyDeleted) {
+      conditions.push(eq(reviewRequests.isDeleted, true));
+    } else if (!filter.includeDeleted) {
+      conditions.push(eq(reviewRequests.isDeleted, false));
+    }
 
     const workspaceId = (req.headers['x-workspace-id'] as string) || filter.workspaceId;
     if (workspaceId) {
@@ -705,6 +710,40 @@ reviewsRouter.patch('/:id/acknowledgement', requireAuth, async (req: Request, re
     });
 
     return res.json({ message: 'Acknowledgement recorded', status: input.status });
+  } catch (error) {
+    next(error);
+  }
+});
+
+reviewsRouter.delete('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = req.user!;
+    const reviewId = req.params.id;
+
+    const review = await db.query.reviewRequests.findFirst({
+      where: eq(reviewRequests.id, reviewId)
+    });
+    if (!review) {
+      throw new AppError(404, 'NOT_FOUND', 'Review not found');
+    }
+
+    if (review.authorId !== user.id && user.role !== 'ADMIN') {
+      throw new AppError(403, 'FORBIDDEN', 'Only author or admin can delete this review');
+    }
+
+    await db.update(reviewRequests)
+      .set({ isDeleted: true, updatedAt: new Date() })
+      .where(eq(reviewRequests.id, reviewId));
+
+    await db.insert(activities).values({
+      targetType: TargetType.REVIEW,
+      targetId: reviewId,
+      actorId: user.id,
+      actionType: 'DELETED',
+      metadata: { title: review.title }
+    });
+
+    return res.json({ message: 'Review deleted successfully' });
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
-  db, comments, commentReactions, mentions, users, issues, reviewRequests, activities,
+  db, comments, commentReactions, mentions, users, issues, reviewRequests, activities, workspaceMembers,
   eq, and, asc, inArray
 } from '@reported/database';
 import {
@@ -261,7 +261,20 @@ commentsRouter.patch('/:id', requireAuth, async (req: Request, res: Response, ne
       throw new AppError(404, 'NOT_FOUND', 'Comment not found');
     }
 
-    if (comment.authorId !== user.id && user.role !== 'ADMIN') {
+    let isLeader = user.role === 'ADMIN';
+    if (!isLeader) {
+      const wsId = req.headers['x-workspace-id'] as string;
+      if (wsId) {
+        const mem = await db.query.workspaceMembers.findFirst({
+          where: and(eq(workspaceMembers.workspaceId, wsId), eq(workspaceMembers.userId, user.id))
+        });
+        if (mem && (mem.role === 'OWNER' || mem.role === 'ADMIN')) {
+          isLeader = true;
+        }
+      }
+    }
+
+    if (comment.authorId !== user.id && !isLeader) {
       throw new AppError(403, 'FORBIDDEN', 'You cannot edit this comment');
     }
 
@@ -289,7 +302,20 @@ commentsRouter.delete('/:id', requireAuth, async (req: Request, res: Response, n
       throw new AppError(404, 'NOT_FOUND', 'Comment not found');
     }
 
-    if (comment.authorId !== user.id && user.role !== 'ADMIN') {
+    let isLeader = user.role === 'ADMIN';
+    if (!isLeader) {
+      const wsId = req.headers['x-workspace-id'] as string;
+      if (wsId) {
+        const mem = await db.query.workspaceMembers.findFirst({
+          where: and(eq(workspaceMembers.workspaceId, wsId), eq(workspaceMembers.userId, user.id))
+        });
+        if (mem && (mem.role === 'OWNER' || mem.role === 'ADMIN')) {
+          isLeader = true;
+        }
+      }
+    }
+
+    if (comment.authorId !== user.id && !isLeader) {
       throw new AppError(403, 'FORBIDDEN', 'You cannot delete this comment');
     }
 

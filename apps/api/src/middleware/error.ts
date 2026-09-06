@@ -19,7 +19,15 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ) {
-  console.error('[API Error]', err);
+  try {
+    if (err instanceof Error) {
+      console.error(`[API Error] ${err.name}: ${err.message}\n${err.stack || ''}`);
+    } else {
+      console.error('[API Error]', String(err));
+    }
+  } catch {
+    console.error('[API Error] (Unserializable error occurred)');
+  }
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({

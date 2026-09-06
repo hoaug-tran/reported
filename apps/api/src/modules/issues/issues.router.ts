@@ -20,7 +20,12 @@ issuesRouter.get('/', async (req: Request, res: Response, next: NextFunction) =>
     const filter = IssueFilterSchema.parse(req.query);
     const offset = (filter.page - 1) * filter.limit;
 
-    const conditions = [eq(issues.isDeleted, false)];
+    const conditions = [];
+    if (filter.onlyDeleted) {
+      conditions.push(eq(issues.isDeleted, true));
+    } else if (!filter.includeDeleted) {
+      conditions.push(eq(issues.isDeleted, false));
+    }
 
     const workspaceId = (req.headers['x-workspace-id'] as string) || filter.workspaceId;
     if (workspaceId) {
@@ -140,6 +145,7 @@ issuesRouter.get('/', async (req: Request, res: Response, next: NextFunction) =>
         status: item.status,
         priority: item.priority,
         severity: item.severity,
+        isDeleted: item.isDeleted,
         author: {
           id: author!.id,
           username: author!.username,
@@ -509,13 +515,13 @@ issuesRouter.patch('/:id', requireAuth, async (req: Request, res: Response, next
     }
 
     if (input.bugDetails) {
-      updates.environment = input.bugDetails.environment;
-      updates.precondition = input.bugDetails.precondition;
-      updates.stepsToReproduce = input.bugDetails.stepsToReproduce;
-      updates.actualResult = input.bugDetails.actualResult;
-      updates.expectedResult = input.bugDetails.expectedResult;
-      updates.frequency = input.bugDetails.frequency;
-      updates.evidenceJsonOrLogs = input.bugDetails.evidenceJsonOrLogs;
+      if (input.bugDetails.environment !== undefined) updates.environment = input.bugDetails.environment;
+      if (input.bugDetails.precondition !== undefined) updates.precondition = input.bugDetails.precondition;
+      if (input.bugDetails.stepsToReproduce !== undefined) updates.stepsToReproduce = input.bugDetails.stepsToReproduce;
+      if (input.bugDetails.actualResult !== undefined) updates.actualResult = input.bugDetails.actualResult;
+      if (input.bugDetails.expectedResult !== undefined) updates.expectedResult = input.bugDetails.expectedResult;
+      if (input.bugDetails.frequency !== undefined) updates.frequency = input.bugDetails.frequency;
+      if (input.bugDetails.evidenceJsonOrLogs !== undefined) updates.evidenceJsonOrLogs = input.bugDetails.evidenceJsonOrLogs;
     }
 
     if (input.status && input.status !== issue.status) {
@@ -542,9 +548,20 @@ issuesRouter.patch('/:id', requireAuth, async (req: Request, res: Response, next
 
     await db.update(issues).set(updates).where(eq(issues.id, issue.id));
 
+    await db.insert(activities).values({
+      targetType: TargetType.ISSUE,
+      targetId: issue.id,
+      actorId: user.id,
+      actionType: 'EDITED',
+      metadata: {
+        fields: Object.keys(updates).filter(k => k !== 'updatedAt')
+      }
+    });
+
     if (input.assigneeIds !== undefined) {
       await db.delete(issueAssignees).where(eq(issueAssignees.issueId, issue.id));
-      for (const uid of input.assigneeIds) {
+      const uniqueAssignees = [...new Set(input.assigneeIds.filter(Boolean))];
+      for (const uid of uniqueAssignees) {
         await db.insert(issueAssignees).values({
           issueId: issue.id,
           userId: uid
@@ -554,21 +571,30 @@ issuesRouter.patch('/:id', requireAuth, async (req: Request, res: Response, next
 
     if (input.labels !== undefined) {
       await db.delete(issueLabels).where(eq(issueLabels.issueId, issue.id));
-      for (const lblName of input.labels) {
+      const uniqueLabels = [...new Set(input.labels.map(l => l.trim().toLowerCase()).filter(Boolean))];
+      for (const lblName of uniqueLabels) {
         let labelRec = await db.query.labels.findFirst({
-          where: eq(labels.name, lblName.toLowerCase())
+          where: eq(labels.name, lblName)
         });
         if (!labelRec) {
-          const [newL] = await db.insert(labels).values({
-            name: lblName.toLowerCase(),
-            color: '#58a6ff'
-          }).returning();
-          labelRec = newL;
+          try {
+            const [newL] = await db.insert(labels).values({
+              name: lblName,
+              color: '#58a6ff'
+            }).returning();
+            labelRec = newL;
+          } catch {
+            labelRec = await db.query.labels.findFirst({
+              where: eq(labels.name, lblName)
+            });
+          }
         }
-        await db.insert(issueLabels).values({
-          issueId: issue.id,
-          labelId: labelRec.id
-        });
+        if (labelRec) {
+          await db.insert(issueLabels).values({
+            issueId: issue.id,
+            labelId: labelRec.id
+          });
+        }
       }
     }
 
