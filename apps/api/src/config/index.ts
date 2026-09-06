@@ -4,8 +4,8 @@ import path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const jwtSecret = process.env.JWT_SECRET;
-const sessionSecret = process.env.SESSION_SECRET;
+const jwtSecret = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test_jwt_secret_reported_ci_pipeline_token_secret_key_32' : undefined);
+const sessionSecret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'test' ? 'test_session_secret_reported_ci_pipeline_token_secret_key_32' : undefined);
 
 if (!jwtSecret || !sessionSecret) {
   throw new Error('JWT_SECRET and SESSION_SECRET must be set in environment variables');

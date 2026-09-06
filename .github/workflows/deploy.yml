@@ -21,6 +21,20 @@ jobs:
   validate-and-build:
     name: Lint, Typecheck & Build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: hoaug
+          POSTGRES_PASSWORD: testpassword123
+          POSTGRES_DB: reported_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -64,7 +78,17 @@ jobs:
       - name: Build Web Application
         run: pnpm --filter @reported/web build
 
+      - name: Run Database Migrations for Tests
+        env:
+          DATABASE_URL: postgresql://hoaug:testpassword123@localhost:5432/reported_test
+        run: pnpm --filter @reported/database db:migrate
+
       - name: Run Unit & Security Tests
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_jwt_secret_reported_ci_pipeline_token_secret_key_32
+          SESSION_SECRET: test_session_secret_reported_ci_pipeline_token_secret_key_32
+          DATABASE_URL: postgresql://hoaug:testpassword123@localhost:5432/reported_test
         run: pnpm test
 
   deploy:
