@@ -108,14 +108,22 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          printf "%s\n" "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          cat << EOF > ~/.ssh/config
+          Host deploy-target
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_ed25519
+            IdentitiesOnly yes
+            StrictHostKeyChecking accept-new
+          EOF
+          chmod 600 ~/.ssh/config
 
       - name: Sync Code to Server
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST || 'server.trkhoang.com' }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '2222' }}
           SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
         run: |
           tar --exclude="node_modules" \
@@ -124,16 +132,14 @@ jobs:
               --exclude=".cache" \
               --exclude=".env" \
               --exclude="*.log" \
-              -czf - . | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p /home/$SSH_USER/reported && tar -xzf - -C /home/$SSH_USER/reported"
+              -czf - . | ssh deploy-target "mkdir -p /home/$SSH_USER/reported && tar -xzf - -C /home/$SSH_USER/reported"
 
       - name: Execute Docker Compose Build & Deploy
         env:
-          SSH_HOST: ${{ secrets.SSH_HOST || 'server.trkhoang.com' }}
-          SSH_PORT: ${{ secrets.SSH_PORT || '2222' }}
           SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
           PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
         run: |
-          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
+          ssh deploy-target "
             set -e
             cd /home/$SSH_USER/reported
 
