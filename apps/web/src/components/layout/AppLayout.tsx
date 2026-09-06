@@ -27,7 +27,8 @@ import {
   X,
   Check,
   MessageSquare,
-  Inbox
+  Inbox,
+  HelpCircle
 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../../contexts/ThemeContext';
@@ -37,6 +38,7 @@ import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { UserAvatar } from '../common/UserAvatar';
 import { BrandLogo } from '../common/BrandLogo';
 import { NewPostModal } from '../common/NewPostModal';
+import { OnboardingTour } from '../common/OnboardingTour';
 import { CommandPalette } from '../search/CommandPalette';
 import { NotificationCenter } from '../notifications/NotificationCenter';
 import { NotificationPreferencesModal } from '../notifications/NotificationPreferencesModal';
@@ -358,6 +360,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </Tooltip>
       ) : (
         <Box
+          id="tour-workspace"
           onClick={(e) => setWorkspaceMenuAnchor(e.currentTarget)}
           sx={{
             px: 2,
@@ -447,7 +450,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </MenuItem>
       </Menu>
 
-      <Box sx={{ p: 1, flex: 1, overflowY: 'auto' }}>
+      <Box id="tour-sidebar" sx={{ p: 1, flex: 1, overflowY: 'auto' }}>
         {!sidebarCollapsed && (
           <Typography variant="caption" sx={{ px: 1.2, py: 0.5, display: 'block', color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
             {t('coreViews')}
@@ -664,6 +667,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       {user && (
         <Box sx={{ p: 1.5, borderTop: `1px solid ${tokens.divider}`, backgroundColor: tokens.surfaceSecondary }}>
           <Box
+            id="tour-user-menu"
             onClick={(e) => setUserMenuAnchor(e.currentTarget)}
             sx={{
               display: 'flex',
@@ -844,6 +848,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </Box>
 
           <Box
+            id="tour-search"
             onClick={() => setCmdOpen(true)}
             sx={{
               display: 'flex',
@@ -873,7 +878,32 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </span>
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+          <Box id="tour-theme-lang" sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+            <Tooltip title={language === 'vi' ? 'Xem tour hướng dẫn sử dụng tính năng' : 'Take an interactive product tour'}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => window.dispatchEvent(new CustomEvent('reported-start-tour'))}
+                startIcon={<HelpCircle size={15} color={tokens.primary} />}
+                sx={{
+                  height: 38,
+                  px: 1.6,
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  borderColor: tokens.border,
+                  color: tokens.textPrimary,
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  '&:hover': {
+                    borderColor: tokens.primary,
+                    backgroundColor: tokens.hover
+                  }
+                }}
+              >
+                {language === 'vi' ? 'Hướng dẫn' : 'Tour'}
+              </Button>
+            </Tooltip>
+
             <Button
               size="small"
               variant="outlined"
@@ -940,13 +970,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               {t('newPost')}
             </Button>
 
-            <NotificationCenter
-              notifications={notifications}
-              unreadCount={unreadCount}
-              onRefresh={fetchNotifications}
-              onOpenPreferences={() => setPreferencesOpen(true)}
-              onOpenEmailInspector={() => setEmailInspectorOpen(true)}
-            />
+            <Box id="tour-notifications" sx={{ display: 'inline-flex', alignItems: 'center' }}>
+              <NotificationCenter
+                notifications={notifications}
+                unreadCount={unreadCount}
+                onRefresh={fetchNotifications}
+                onOpenPreferences={() => setPreferencesOpen(true)}
+                onOpenEmailInspector={() => setEmailInspectorOpen(true)}
+              />
+            </Box>
 
             <Tooltip title={`Giao diện: ${mode}`}>
               <IconButton
@@ -1076,6 +1108,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         open={newPostModalOpen}
         onClose={() => setNewPostModalOpen(false)}
       />
+
+      <OnboardingTour />
     </Box>
   );
 };

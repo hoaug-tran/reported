@@ -108,8 +108,20 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
         run: |
           mkdir -p ~/.ssh
-          printf "%s\n" "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const raw = (process.env.SSH_PRIVATE_KEY || "").trim();
+            let content = "";
+            if (raw.includes("BEGIN")) {
+              const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+              content = lines.join("\n") + "\n";
+            } else {
+              content = Buffer.from(raw, "base64").toString("utf8").trim() + "\n";
+            }
+            const keyPath = path.join(process.env.HOME, ".ssh", "id_ed25519");
+            fs.writeFileSync(keyPath, content, { mode: 0o600 });
+          '
           ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
           cat << EOF > ~/.ssh/config
           Host deploy-target
@@ -121,6 +133,7 @@ jobs:
             StrictHostKeyChecking accept-new
           EOF
           chmod 600 ~/.ssh/config
+          ssh-keygen -l -f ~/.ssh/id_ed25519
 
       - name: Sync Code to Server
         env:

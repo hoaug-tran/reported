@@ -73,7 +73,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
     : (isVi ? `Bạn có ${pendingReviewsCount} review và ${urgentIssuesCount} issue đang chờ bạn xử lý.` : `You have ${pendingReviewsCount} review(s) and ${urgentIssuesCount} issue(s) waiting.`);
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box id="tour-dev-station" sx={{ mb: 3 }}>
       <Box
         sx={{
           display: 'flex',
@@ -166,7 +166,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           border: `1px solid ${tokens.border}`
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box id="tour-action-buttons" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             size="small"
@@ -189,11 +189,11 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           <Button
             variant="outlined"
             size="small"
-            startIcon={<GitPullRequest size={15} color="#a855f7" />}
-            onClick={() => setLocation('/reviews/new')}
+            startIcon={<GitPullRequest size={14} color="#a855f7" />}
+            onClick={() => setLocation('/reviews/create')}
             sx={{
               borderColor: 'rgba(168, 85, 247, 0.4)',
-              color: '#c084fc',
+              color: '#a855f7',
               fontWeight: 600,
               textTransform: 'none',
               fontSize: '0.8125rem',
@@ -245,7 +245,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           </Button>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Box id="tour-quick-filters" sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Box
             onClick={() => setLocation('/reviews')}
             sx={{
