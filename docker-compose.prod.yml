@@ -66,6 +66,8 @@ services:
       DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:-hoaug}
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-hoaug@reported.dev}
       DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+    volumes:
+      - reported_uploads_data:/app/uploads
     networks:
       - reported-app-network
       - reported-data-network
@@ -125,3 +127,4 @@ networks:
 volumes:
   reported_postgres_data:
   reported_redis_data:
+  reported_uploads_data:
