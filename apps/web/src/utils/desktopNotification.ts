@@ -30,10 +30,21 @@ export function showDesktopNotification(
     return null;
   }
 
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.ready.then((reg) => {
+      reg.showNotification(title, {
+        body: options?.body,
+        icon: options?.icon || '/icon-192.png',
+        tag: options?.tag,
+        badge: '/favicon.svg'
+      });
+    }).catch(() => {});
+  }
+
   try {
     const notif = new Notification(title, {
       body: options?.body,
-      icon: options?.icon || '/favicon.svg',
+      icon: options?.icon || '/icon-192.png',
       tag: options?.tag
     });
 
@@ -48,8 +59,7 @@ export function showDesktopNotification(
     };
 
     return notif;
-  } catch (err) {
-    console.error('Failed to show desktop notification', err);
+  } catch {
     return null;
   }
 }

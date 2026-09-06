@@ -155,6 +155,24 @@ export function createAppTheme(mode: 'light' | 'dark') {
               backgroundColor: tokens.hover,
               borderColor: tokens.primary
             }
+          },
+          sizeSmall: {
+            height: 30,
+            minHeight: 30,
+            padding: '4px 10px',
+            fontSize: '0.8125rem'
+          },
+          sizeMedium: {
+            height: 36,
+            minHeight: 36,
+            padding: '6px 14px',
+            fontSize: '0.84rem'
+          },
+          sizeLarge: {
+            height: 42,
+            minHeight: 42,
+            padding: '8px 20px',
+            fontSize: '0.9rem'
           }
         }
       },
@@ -273,7 +291,7 @@ export function createAppTheme(mode: 'light' | 'dark') {
       MuiOutlinedInput: {
         styleOverrides: {
           root: {
-            borderRadius: 6,
+            borderRadius: 8,
             fontSize: '0.875rem',
             backgroundColor: mode === 'dark' ? tokens.surface : '#ffffff',
             '& .MuiOutlinedInput-notchedOutline': {
@@ -285,10 +303,14 @@ export function createAppTheme(mode: 'light' | 'dark') {
             '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
               borderColor: tokens.primary,
               borderWidth: 1.5
+            },
+            '& input::placeholder, & textarea::placeholder': {
+              color: `${tokens.textSecondary} !important`,
+              opacity: '0.7 !important',
+              fontWeight: '400 !important'
             }
           },
           input: {
-            padding: '8px 12px',
             letterSpacing: 'normal !important'
           }
         }
@@ -301,6 +323,23 @@ export function createAppTheme(mode: 'light' | 'dark') {
             fontSize: '0.75rem',
             borderRadius: 6,
             padding: '4px 8px'
+          }
+        }
+      },
+      MuiSkeleton: {
+        defaultProps: {
+          animation: 'wave'
+        },
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.04)',
+            transition: 'opacity 0.25s ease-in-out',
+            borderRadius: 4,
+            '&::after': {
+              background: mode === 'dark'
+                ? 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent)'
+                : 'linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent)'
+            }
           }
         }
       }

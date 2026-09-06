@@ -37,8 +37,7 @@ export const buttonSx = (tokens: SemanticColors): SxProps<Theme> => ({
 export const inputSx = (tokens: SemanticColors): SxProps<Theme> => ({
   '& .MuiOutlinedInput-root': {
     borderRadius: ui.controlRadius,
-    backgroundColor: tokens.surface,
-    alignItems: 'center'
+    backgroundColor: tokens.surface
   },
   '& .MuiInputBase-input': {
     lineHeight: 1.45,
