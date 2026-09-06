@@ -1,0 +1,26 @@
+{
+  "name": "reported-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Developer issue tracking, code review, technical discussion, and GitHub integration platform",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @reported/api --filter @reported/web dev",
+    "dev:api": "pnpm --filter @reported/api dev",
+    "dev:web": "pnpm --filter @reported/web dev",
+    "build": "pnpm --recursive run build",
+    "typecheck": "pnpm --recursive run typecheck",
+    "test": "pnpm --filter @reported/api test",
+    "lint": "pnpm --recursive run lint",
+    "db:generate": "pnpm --filter @reported/database db:generate",
+    "db:migrate": "pnpm --filter @reported/database db:migrate",
+    "db:seed": "pnpm --filter @reported/database db:seed",
+    "db:clean": "pnpm --filter @reported/database db:clean",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "deploy:prod": "pwsh ./scripts/deploy-remote.ps1",
+    "deploy:prod:bash": "bash ./scripts/deploy-remote.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

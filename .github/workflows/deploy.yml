@@ -1,0 +1,135 @@
+name: CI/CD Pipeline & Remote Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      deploy_to_server:
+        description: 'Deploy to server.trkhoang.com'
+        required: true
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-build:
+    name: Lint, Typecheck & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Contracts
+        run: pnpm --filter @reported/contracts build
+
+      - name: Build Database Layer
+        run: pnpm --filter @reported/database build
+
+      - name: Build Backend API
+        run: pnpm --filter @reported/api build
+
+      - name: Build Web Application
+        run: pnpm --filter @reported/web build
+
+      - name: Run Unit & Security Tests
+        run: pnpm test
+
+  deploy:
+    name: Zero-Downtime Deploy to server.trkhoang.com
+    needs: validate-and-build
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event.inputs.deploy_to_server == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST || 'server.trkhoang.com' }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '2222' }}
+          SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "$SSH_PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Sync Code to Server
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || 'server.trkhoang.com' }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '2222' }}
+          SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
+        run: |
+          tar --exclude="node_modules" \
+              --exclude=".git" \
+              --exclude="dist" \
+              --exclude=".cache" \
+              --exclude=".env" \
+              --exclude="*.log" \
+              -czf - . | ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "mkdir -p /home/$SSH_USER/reported && tar -xzf - -C /home/$SSH_USER/reported"
+
+      - name: Execute Docker Compose Build & Deploy
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST || 'server.trkhoang.com' }}
+          SSH_PORT: ${{ secrets.SSH_PORT || '2222' }}
+          SSH_USER: ${{ secrets.SSH_USER || 'hoaug' }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" "
+            set -e
+            cd /home/$SSH_USER/reported
+
+            if [ -n \"$PRODUCTION_ENV\" ]; then
+              echo \"$PRODUCTION_ENV\" > .env
+              echo 'Updated .env from GitHub Secret PRODUCTION_ENV'
+            elif [ ! -f .env ] && [ -f .env.production ]; then
+              cp .env.production .env
+            fi
+
+            echo 'Starting Docker Compose Build...'
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo 'Waiting for services to become healthy...'
+            sleep 8
+
+            docker compose -f docker-compose.prod.yml ps
+
+            echo 'Cleaning up dangling images...'
+            docker image prune -f || true
+
+            echo 'Deployment finished successfully!'
+          "

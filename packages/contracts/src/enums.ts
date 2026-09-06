@@ -1,0 +1,179 @@
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  MAINTAINER = 'MAINTAINER',
+  REVIEWER = 'REVIEWER',
+  USER = 'USER'
+}
+
+export enum WorkspaceRole {
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
+  GUEST = 'GUEST'
+}
+
+export enum ProjectRole {
+  MAINTAINER = 'MAINTAINER',
+  CONTRIBUTOR = 'CONTRIBUTOR',
+  VIEWER = 'VIEWER'
+}
+
+export enum IssueType {
+  BUG = 'BUG',
+  TASK = 'TASK',
+  FEATURE = 'FEATURE'
+}
+
+export enum IssueStatus {
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  NEEDS_INFO = 'NEEDS_INFO',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+  REOPENED = 'REOPENED'
+}
+
+export enum IssueSeverity {
+  BLOCKER = 'BLOCKER',
+  CRITICAL = 'CRITICAL',
+  MAJOR = 'MAJOR',
+  MINOR = 'MINOR',
+  TRIVIAL = 'TRIVIAL'
+}
+
+export enum IssuePriority {
+  P0 = 'P0',
+  P1 = 'P1',
+  P2 = 'P2',
+  P3 = 'P3',
+  P4 = 'P4'
+}
+
+export enum BugFrequency {
+  ALWAYS = 'ALWAYS',
+  OFTEN = 'OFTEN',
+  SOMETIMES = 'SOMETIMES',
+  RARE = 'RARE'
+}
+
+export enum ReviewType {
+  CODE = 'CODE',
+  ARCHITECTURE = 'ARCHITECTURE',
+  DATABASE = 'DATABASE',
+  API = 'API',
+  UI = 'UI',
+  SECURITY = 'SECURITY',
+  DOCUMENTATION = 'DOCUMENTATION',
+  PR = 'PR'
+}
+
+export enum ReviewStatus {
+  PENDING_REVIEW = 'PENDING_REVIEW',
+  IN_REVIEW = 'IN_REVIEW',
+  CHANGES_REQUESTED = 'CHANGES_REQUESTED',
+  APPROVED = 'APPROVED',
+  COMPLETED = 'COMPLETED',
+  CLOSED = 'CLOSED'
+}
+
+export enum ReviewerDecision {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  CHANGES_REQUESTED = 'CHANGES_REQUESTED',
+  COMMENTED = 'COMMENTED'
+}
+
+export enum NotificationType {
+  MENTIONED = 'MENTIONED',
+  ASSIGNED = 'ASSIGNED',
+  REVIEW_REQUESTED = 'REVIEW_REQUESTED',
+  COMMENTED = 'COMMENTED',
+  REPLIED = 'REPLIED',
+  ISSUE_STATUS_CHANGED = 'ISSUE_STATUS_CHANGED',
+  REVIEW_STATUS_CHANGED = 'REVIEW_STATUS_CHANGED',
+  PR_LINKED = 'PR_LINKED',
+  PR_UPDATED = 'PR_UPDATED',
+  ISSUE_RESOLVED = 'ISSUE_RESOLVED',
+  REVIEW_APPROVED = 'REVIEW_APPROVED',
+  WORKSPACE_INVITED = 'WORKSPACE_INVITED',
+  ROLE_CHANGED = 'ROLE_CHANGED'
+}
+
+export enum NotificationChannel {
+  IN_APP = 'IN_APP',
+  EMAIL = 'EMAIL',
+  BOTH = 'BOTH',
+  DISABLED = 'DISABLED'
+}
+
+export enum ReactionType {
+  LIKE = 'LIKE',
+  USEFUL = 'USEFUL',
+  AGREE = 'AGREE',
+  DISAGREE = 'DISAGREE',
+  EYES = 'EYES'
+}
+
+export enum PullRequestState {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+  MERGED = 'MERGED'
+}
+
+export enum PullRequestChecksStatus {
+  PASSING = 'PASSING',
+  PENDING = 'PENDING',
+  FAILING = 'FAILING'
+}
+
+export enum TargetType {
+  ISSUE = 'ISSUE',
+  REVIEW = 'REVIEW',
+  WORKSPACE = 'WORKSPACE',
+  PROJECT = 'PROJECT'
+}
+
+export enum DomainEventType {
+  ISSUE_CREATED = 'ISSUE_CREATED',
+  ISSUE_UPDATED = 'ISSUE_UPDATED',
+  ISSUE_STATUS_CHANGED = 'ISSUE_STATUS_CHANGED',
+  ISSUE_ASSIGNED = 'ISSUE_ASSIGNED',
+  REVIEW_REQUESTED = 'REVIEW_REQUESTED',
+  REVIEW_DECISION_SUBMITTED = 'REVIEW_DECISION_SUBMITTED',
+  COMMENT_CREATED = 'COMMENT_CREATED',
+  USER_MENTIONED = 'USER_MENTIONED',
+  PR_LINKED = 'PR_LINKED',
+  PR_MERGED = 'PR_MERGED',
+  WORKSPACE_MEMBER_JOINED = 'WORKSPACE_MEMBER_JOINED',
+  WORKSPACE_MEMBER_REMOVED = 'WORKSPACE_MEMBER_REMOVED',
+  PROJECT_CREATED = 'PROJECT_CREATED'
+}
+
+export enum AuthProviderType {
+  GITHUB = 'github',
+  GITLAB = 'gitlab',
+  GOOGLE = 'google',
+  BITBUCKET = 'bitbucket',
+  AZURE_DEVOPS = 'azure_devops'
+}
+
+export enum ConnectionHealth {
+  HEALTHY = 'HEALTHY',
+  NEEDS_ATTENTION = 'NEEDS_ATTENTION',
+  EXPIRED = 'EXPIRED',
+  REVOKED = 'REVOKED'
+}
+
+export enum IdentityConnectionType {
+  AUTH = 'AUTH',
+  INTEGRATION = 'INTEGRATION',
+  BOTH = 'BOTH'
+}
+
+export enum AcknowledgementStatus {
+  SEEN = 'SEEN',
+  CHECKING = 'CHECKING',
+  REVIEWING = 'REVIEWING',
+  DONE = 'DONE'
+}
+

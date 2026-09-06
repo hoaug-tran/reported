@@ -1,0 +1,127 @@
+name: reported
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - reported-edge-network
+    depends_on:
+      - nginx
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - reported-edge-network
+      - reported-app-network
+    depends_on:
+      - web
+      - api
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        VITE_API_URL: ${VITE_API_URL:-/api/v1}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+    restart: unless-stopped
+    networks:
+      - reported-app-network
+
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${DATABASE_USER:-reported_user}:${DATABASE_PASSWORD}@postgres:5432/${DATABASE_NAME:-reported_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      SESSION_SECRET: ${SESSION_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://reported-engwithme.trkhoang.com}
+      CLIENT_URL: ${CLIENT_URL:-https://reported-engwithme.trkhoang.com}
+      MAIL_DRIVER: ${MAIL_DRIVER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      MAIL_FROM: ${MAIL_FROM:-Reported <no-reply@engwithme.trkhoang.com>}
+      EMAIL_FROM: ${EMAIL_FROM:-Reported <no-reply@engwithme.trkhoang.com>}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET}
+      GITLAB_CLIENT_ID: ${GITLAB_CLIENT_ID}
+      GITLAB_CLIENT_SECRET: ${GITLAB_CLIENT_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      DEFAULT_ADMIN_USER: ${DEFAULT_ADMIN_USER:-hoaug}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-hoaug@reported.dev}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD}
+    networks:
+      - reported-app-network
+      - reported-data-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-reported_user}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME:-reported_db}
+    volumes:
+      - reported_postgres_data:/var/lib/postgresql/data
+    networks:
+      - reported-data-network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER:-reported_user} -d $${POSTGRES_DB:-reported_db}']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - 'yes'
+      - --requirepass
+      - ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - reported_redis_data:/data
+    networks:
+      - reported-data-network
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+networks:
+  reported-edge-network:
+    driver: bridge
+  reported-app-network:
+    driver: bridge
+  reported-data-network:
+    driver: bridge
+    internal: true
+
+volumes:
+  reported_postgres_data:
+  reported_redis_data:

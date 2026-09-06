@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: reported_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: reported_user
+      POSTGRES_PASSWORD: reported_password
+      POSTGRES_DB: reported_db
+    ports:
+      - "5435:5432"
+    volumes:
+      - reported_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reported_user -d reported_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: reported_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - reported_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  reported_pgdata:
+  reported_redisdata:

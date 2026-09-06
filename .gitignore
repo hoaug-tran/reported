@@ -1,0 +1,17 @@
+node_modules
+dist
+build
+.cache
+.env
+.env.production
+.env.local
+.env.*
+!.env.example
+!.env.production.example
+*.log
+*.tsbuildinfo
+coverage
+.DS_Store
+.turbo
+apps/api/uploads/*
+!apps/api/uploads/.gitkeep
