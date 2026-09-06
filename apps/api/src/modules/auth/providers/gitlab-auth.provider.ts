@@ -29,13 +29,15 @@ export class GitLabAuthProvider implements IAuthProvider {
     return Boolean(config.oauth.gitlab.clientId && config.oauth.gitlab.clientSecret);
   }
 
-  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = []): string {
+  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = [], redirectUri?: string): string {
     const baseScopes = ['read_user', 'openid', 'profile', 'email'];
     const allScopes = Array.from(new Set([...baseScopes, ...extraScopes]));
 
+    const effectiveRedirectUri = redirectUri || config.oauth.gitlab.redirectUri;
+
     const params = new URLSearchParams({
       client_id: config.oauth.gitlab.clientId,
-      redirect_uri: config.oauth.gitlab.redirectUri,
+      redirect_uri: effectiveRedirectUri,
       response_type: 'code',
       scope: allScopes.join(' '),
       state
@@ -44,7 +46,9 @@ export class GitLabAuthProvider implements IAuthProvider {
     return `https://gitlab.com/oauth/authorize?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<OAuthTokens> {
+  async exchangeCode(code: string, redirectUri?: string): Promise<OAuthTokens> {
+    const effectiveRedirectUri = redirectUri || config.oauth.gitlab.redirectUri;
+
     const res = await fetch('https://gitlab.com/oauth/token', {
       method: 'POST',
       headers: {
@@ -56,7 +60,7 @@ export class GitLabAuthProvider implements IAuthProvider {
         client_secret: config.oauth.gitlab.clientSecret,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: config.oauth.gitlab.redirectUri
+        redirect_uri: effectiveRedirectUri
       })
     });
 

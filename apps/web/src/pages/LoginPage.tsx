@@ -432,7 +432,7 @@ export const LoginPage: React.FC = () => {
                   }
                 }}
               >
-                {passkeyLoading ? 'Đang quét sinh trắc học...' : 'Đăng nhập nhanh bằng Passkey / Windows Hello'}
+                {passkeyLoading ? 'Đang quét sinh trắc học...' : 'Đăng nhập nhanh bằng Passkey'}
               </Button>
             </Box>
 

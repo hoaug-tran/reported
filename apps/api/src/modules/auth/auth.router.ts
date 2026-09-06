@@ -257,9 +257,23 @@ authRouter.get('/oauth/:provider/authorize', async (req: Request, res: Response,
     const returnTo = req.query.returnTo as string;
     const extraScopes = req.query.scopes ? (req.query.scopes as string).split(',') : [];
 
+    const allowedOrigins = (config.corsOrigin || '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
+    let clientOrigin = '';
+    const rawOrigin = (req.headers.origin as string) || (req.headers.referer ? new URL(req.headers.referer as string).origin : '');
+    if (rawOrigin && (allowedOrigins.includes(rawOrigin) || allowedOrigins.includes('*'))) {
+      clientOrigin = rawOrigin;
+    }
+
+    const defaultRedirectUri = `${config.clientUrl}/oauth/callback`;
+    const redirectUri = clientOrigin ? `${clientOrigin}/oauth/callback` : defaultRedirectUri;
+
     const provider = authProviders.get(providerId);
-    const state = oauthService.generateState(intent, req.user?.id, returnTo, providerId);
-    const authUrl = provider.getAuthorizationUrl(state, intent, extraScopes);
+    const state = oauthService.generateState(intent, req.user?.id, returnTo, providerId, redirectUri);
+    const authUrl = provider.getAuthorizationUrl(state, intent, extraScopes, redirectUri);
 
     return res.json({
       provider: providerId,

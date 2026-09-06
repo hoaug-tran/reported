@@ -28,12 +28,13 @@ export class GoogleAuthProvider implements IAuthProvider {
     return Boolean(config.oauth.google.clientId && config.oauth.google.clientSecret);
   }
 
-  getAuthorizationUrl(state: string, _intent: 'login' | 'link'): string {
+  getAuthorizationUrl(state: string, _intent: 'login' | 'link', _extraScopes: string[] = [], redirectUri?: string): string {
     const scopes = ['openid', 'email', 'profile'];
+    const effectiveRedirectUri = redirectUri || config.oauth.google.redirectUri;
 
     const params = new URLSearchParams({
       client_id: config.oauth.google.clientId,
-      redirect_uri: config.oauth.google.redirectUri,
+      redirect_uri: effectiveRedirectUri,
       response_type: 'code',
       scope: scopes.join(' '),
       state,
@@ -44,7 +45,9 @@ export class GoogleAuthProvider implements IAuthProvider {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<OAuthTokens> {
+  async exchangeCode(code: string, redirectUri?: string): Promise<OAuthTokens> {
+    const effectiveRedirectUri = redirectUri || config.oauth.google.redirectUri;
+
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -55,7 +58,7 @@ export class GoogleAuthProvider implements IAuthProvider {
         client_secret: config.oauth.google.clientSecret,
         code,
         grant_type: 'authorization_code',
-        redirect_uri: config.oauth.google.redirectUri
+        redirect_uri: effectiveRedirectUri
       }).toString()
     });
 

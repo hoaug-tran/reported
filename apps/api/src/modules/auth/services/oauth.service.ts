@@ -12,17 +12,19 @@ export interface OAuthStatePayload {
   intent: 'login' | 'link';
   userId?: string;
   returnTo?: string;
+  redirectUri?: string;
   nonce: string;
   timestamp: number;
 }
 
 export class OAuthService {
-  generateState(intent: 'login' | 'link', userId?: string, returnTo?: string, provider?: string): string {
+  generateState(intent: 'login' | 'link', userId?: string, returnTo?: string, provider?: string, redirectUri?: string): string {
     const payload: OAuthStatePayload = {
       provider,
       intent,
       userId,
       returnTo,
+      redirectUri,
       nonce: crypto.randomBytes(16).toString('hex'),
       timestamp: Date.now()
     };
@@ -79,7 +81,7 @@ export class OAuthService {
     const statePayload = this.verifyState(state);
     const provider = authProviders.get(providerId);
 
-    const tokens = await provider.exchangeCode(code);
+    const tokens = await provider.exchangeCode(code, statePayload.redirectUri);
     const profile = await provider.getUserProfile(tokens.accessToken);
 
     const tokenExpiresAt = tokens.expiresIn ? new Date(Date.now() + tokens.expiresIn * 1000) : null;

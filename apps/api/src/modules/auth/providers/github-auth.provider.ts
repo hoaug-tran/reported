@@ -35,14 +35,15 @@ export class GitHubAuthProvider implements IAuthProvider {
     return Boolean(config.oauth.github.clientId && config.oauth.github.clientSecret);
   }
 
-  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = []): string {
+  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = [], redirectUri?: string): string {
     const baseScopes = ['read:user', 'user:email', 'repo'];
 
     const allScopes = Array.from(new Set([...baseScopes, ...extraScopes]));
+    const effectiveRedirectUri = redirectUri || config.oauth.github.redirectUri;
 
     const params = new URLSearchParams({
       client_id: config.oauth.github.clientId,
-      redirect_uri: config.oauth.github.redirectUri,
+      redirect_uri: effectiveRedirectUri,
       scope: allScopes.join(' '),
       state,
       allow_signup: 'true'
@@ -51,7 +52,9 @@ export class GitHubAuthProvider implements IAuthProvider {
     return `https://github.com/login/oauth/authorize?${params.toString()}`;
   }
 
-  async exchangeCode(code: string): Promise<OAuthTokens> {
+  async exchangeCode(code: string, redirectUri?: string): Promise<OAuthTokens> {
+    const effectiveRedirectUri = redirectUri || config.oauth.github.redirectUri;
+
     const res = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
       headers: {
@@ -62,7 +65,7 @@ export class GitHubAuthProvider implements IAuthProvider {
         client_id: config.oauth.github.clientId,
         client_secret: config.oauth.github.clientSecret,
         code,
-        redirect_uri: config.oauth.github.redirectUri
+        redirect_uri: effectiveRedirectUri
       })
     });
 
