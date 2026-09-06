@@ -46,10 +46,10 @@ export const UpdateIssueSchema = z.object({
   labels: z.array(z.string()).optional(),
   assigneeIds: z.array(z.string()).optional(),
   repositoryId: z.string().uuid().optional().nullable(),
-  prUrl: z.string().url().optional().nullable(),
+  prUrl: z.union([z.string().url(), z.literal('')]).optional().nullable(),
   branch: z.string().optional().nullable(),
   commitHash: z.string().optional().nullable(),
-  bugDetails: BugTemplateDataSchema.optional().nullable()
+  bugDetails: BugTemplateDataSchema.partial().optional().nullable()
 });
 
 export type UpdateIssueDto = z.infer<typeof UpdateIssueSchema>;
@@ -66,6 +66,8 @@ export const IssueFilterSchema = z.object({
   assigneeId: z.string().optional(),
   repositoryId: z.string().optional(),
   label: z.string().optional(),
+  includeDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
+  onlyDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
   sortBy: z.enum(['newest', 'oldest', 'updated', 'priority', 'severity', 'comments']).default('newest'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25)
@@ -92,6 +94,7 @@ export interface IssueDetailDto {
   priority: IssuePriority;
   severity: IssueSeverity;
   isDeleted?: boolean;
+  deletedAt?: string | null;
   author: UserSummaryDto;
   assignees: UserSummaryDto[];
   labels: IssueLabelDto[];

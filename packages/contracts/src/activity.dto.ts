@@ -21,7 +21,7 @@ export interface SavedViewDto {
 
 export interface SearchResultItemDto {
   id: string;
-  type: 'ISSUE' | 'REVIEW' | 'USER' | 'REPOSITORY';
+  type: 'ISSUE' | 'REVIEW' | 'USER' | 'REPOSITORY' | 'PROJECT' | 'COMMENT';
   number?: number;
   title: string;
   snippet?: string;

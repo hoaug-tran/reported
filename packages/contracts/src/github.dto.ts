@@ -35,11 +35,9 @@ export interface PullRequestSummaryDto {
   url: string;
   updatedAt: string;
   repository?: RepositorySummaryDto;
-  /** Diff stats from GitHub API */
   additions?: number | null;
   deletions?: number | null;
   changedFiles?: number | null;
-  /** Raw GitHub check_runs and other metadata */
   rawMetadata?: Record<string, unknown> | null;
 }
 

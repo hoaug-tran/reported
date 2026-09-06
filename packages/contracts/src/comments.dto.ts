@@ -18,13 +18,13 @@ export const UpdateCommentSchema = z.object({
 export type UpdateCommentDto = z.infer<typeof UpdateCommentSchema>;
 
 export const ToggleReactionSchema = z.object({
-  reaction: z.nativeEnum(ReactionType)
+  reaction: z.union([z.nativeEnum(ReactionType), z.string().min(1).max(32)])
 });
 
 export type ToggleReactionDto = z.infer<typeof ToggleReactionSchema>;
 
 export interface ReactionSummaryDto {
-  reaction: ReactionType;
+  reaction: ReactionType | string;
   count: number;
   users: Array<{ id: string; username: string; displayName: string }>;
   hasReacted: boolean;

@@ -108,10 +108,17 @@ export enum NotificationChannel {
 
 export enum ReactionType {
   LIKE = 'LIKE',
+  DISLIKE = 'DISLIKE',
+  HEART = 'HEART',
+  HOORAY = 'HOORAY',
+  ROCKET = 'ROCKET',
+  EYES = 'EYES',
+  FIRE = 'FIRE',
   USEFUL = 'USEFUL',
   AGREE = 'AGREE',
   DISAGREE = 'DISAGREE',
-  EYES = 'EYES'
+  BUG = 'BUG',
+  CONFUSED = 'CONFUSED'
 }
 
 export enum PullRequestState {

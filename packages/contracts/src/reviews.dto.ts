@@ -64,6 +64,8 @@ export const ReviewFilterSchema = z.object({
   authorId: z.string().optional(),
   reviewerId: z.string().optional(),
   repositoryId: z.string().optional(),
+  includeDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
+  onlyDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
   sortBy: z.enum(['newest', 'oldest', 'deadline', 'updated']).default('newest'),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25)
