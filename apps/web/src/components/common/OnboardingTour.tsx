@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Typography, Button, IconButton, Checkbox, FormControlLabel, Portal
+  Box, Typography, Button, IconButton, Portal
 } from '@mui/material';
 import {
-  Sparkles, X, ChevronRight, ChevronLeft, CheckCircle2,
-  Compass, Bug, GitPullRequest, Globe, Shield, Terminal
+  X, ChevronRight, ChevronLeft, CheckCircle2,
+  Compass, Bug, GitPullRequest, Globe, Shield, Terminal,
+  MessageSquare, Layers, Search, Bell
 } from 'lucide-react';
+import { useLocation } from 'wouter';
 import { useThemeContext } from '../../contexts/ThemeContext';
+import { useAuthContext } from '../../contexts/AuthContext';
 import { useI18n } from '../../contexts/I18nContext';
 
 export interface TourStep {
@@ -22,100 +25,111 @@ export interface TourStep {
 const TOUR_STEPS: TourStep[] = [
   {
     targetId: 'tour-dev-station',
-    titleVi: 'Góc làm việc của bạn',
+    titleVi: 'Trạm làm việc Dev Station',
     titleEn: 'Your Dev Station',
     contentVi:
-      'Một góc nhỏ dành riêng cho bạn với lời chào, thời tiết, đồng hồ theo thời gian thực và một câu nói về Clean Code mỗi ngày.',
+      'Trung tâm khởi đầu ngày làm việc: hiển thị lời chào cá nhân hóa, đồng hồ thời gian thực, thời tiết trực tiếp theo vị trí và câu danh ngôn Clean Code / Architecture mỗi ngày giúp khởi động ngày mới tràn đầy cảm hứng.',
     contentEn:
-      'Your personal space with a greeting, weather, live clock, and a daily Clean Code quote.',
+      'Your daily launchpad featuring personalized greetings, real-time clock, live local weather, and an inspiring Clean Code quote to kick off your day.',
     icon: <Terminal size={20} color="#6366f1" />,
     position: 'bottom'
   },
   {
     targetId: 'tour-action-buttons',
-    titleVi: 'Bắt đầu nhanh',
-    titleEn: 'Quick Actions',
+    titleVi: 'Khởi tạo nhanh & Thao tác kỹ thuật',
+    titleEn: 'Quick Actions & Reports',
     contentVi:
-      'Tạo Bug Report, gửi yêu cầu Review PR hoặc bắt đầu một cuộc thảo luận. Bạn cũng có thể nhấn [Ctrl + K] để mở Command Palette.',
+      'Nơi tạo nhanh bài viết theo đúng mục đích kỹ thuật: Báo lỗi (Bug) với cấu trúc chi tiết môi trường & các bước tái hiện, Yêu cầu Duyệt mã (PR Review), Đặt câu hỏi hoặc Đề xuất ý tưởng mới. Bạn cũng có thể bấm [Ctrl + K] để mở Command Palette mọi lúc.',
     contentEn:
-      'Create a bug report, request a PR review, or start a discussion. You can also press [Ctrl + K] to open the Command Palette.',
+      'Fast entry points to report bugs with structured environments and steps, request PR reviews, ask technical questions, or propose ideas. Press [Ctrl + K] anytime for Command Palette.',
     icon: <Bug size={20} color="#ef4444" />,
     position: 'bottom'
   },
   {
     targetId: 'tour-quick-filters',
-    titleVi: 'Theo dõi nhanh',
-    titleEn: 'Quick Filters',
+    titleVi: 'Bộ lọc ưu tiên & Nhiệm vụ khẩn cấp',
+    titleEn: 'Smart Filters & Critical Tasks',
     contentVi:
-      'Xem nhanh những gì cần chú ý: Review đang chờ bạn, Bug P0/P1, công việc đang chờ người khác và các repository đã liên kết. Chọn một mục để lọc ngay.',
+      'Nắm bắt ngay các tác vụ cần bạn xử lý tức thì: PR đang chờ bạn duyệt, Bug P0/P1 nghiêm trọng đang blocker hệ thống, công việc đang chờ đồng nghiệp phản hồi và danh sách repository đã liên kết. Nhấp vào để lọc danh sách ngay.',
     contentEn:
-      'See what needs your attention: reviews waiting for you, P0/P1 bugs, work waiting on others, and linked repositories. Select one to filter instantly.',
+      'Instantly spot high-priority items: reviews waiting on you, P0/P1 critical blockers, work pending teammate feedback, and linked repositories. Click any pill to filter immediately.',
     icon: <GitPullRequest size={20} color="#a855f7" />,
     position: 'bottom'
   },
   {
+    targetId: 'tour-recent-conversations',
+    titleVi: 'Luồng thảo luận kỹ thuật (Feed)',
+    titleEn: 'Recent Conversations & Feed',
+    contentVi:
+      'Cập nhật thảo luận kỹ thuật thời gian thực giữa các thành viên: hỗ trợ trình soạn thảo Markdown cao cấp, chèn đoạn code tô màu cú pháp (Syntax Highlight), ghi âm giọng nói trực tiếp (Voice Notes) và trình phát video xem ngay clip tái hiện lỗi.',
+    contentEn:
+      'Real-time technical discussions among team members. Features rich Markdown, syntax-highlighted code blocks, live voice notes recording, and inline HTML5 video playback for bug reproduction clips.',
+    icon: <MessageSquare size={20} color="#3b82f6" />,
+    position: 'top'
+  },
+  {
     targetId: 'tour-workspace',
-    titleVi: 'Workspace & Dự án',
+    titleVi: 'Workspace & Phân loại Dự án',
     titleEn: 'Workspaces & Projects',
     contentVi:
-      'Chuyển đổi giữa các Workspace và làm việc theo từng Project. Mỗi dự án có Issues, Reviews và repository riêng để mọi thứ luôn rõ ràng.',
+      'Hỗ trợ mô hình đa tổ chức (Multi-tenancy): chuyển đổi linh hoạt giữa các Workspace. Mỗi dự án bên trong sở hữu kho mã nguồn, bộ nhãn, danh sách Issues và Reviews riêng biệt, đảm bảo dữ liệu luôn ngăn nắp và bảo mật.',
     contentEn:
-      'Switch between workspaces and organize your work by project. Each project keeps its issues, reviews, and repositories in one place.',
-    icon: <Compass size={20} color="#3b82f6" />,
+      'Multi-tenant workspace switcher. Organize work cleanly by project—each project isolates its repositories, labels, issues, and reviews with dedicated access control.',
+    icon: <Compass size={20} color="#06b6d4" />,
     position: 'right'
   },
   {
     targetId: 'tour-sidebar',
-    titleVi: 'Khám phá workspace',
-    titleEn: 'Explore Your Workspace',
+    titleVi: 'Hệ thống mô-đun nghiệp vụ',
+    titleEn: 'Platform Modules',
     contentVi:
-      'Đi đến Issues, Reviews, Repositories, Members hoặc Feed — mọi thứ trong workspace đều có thể truy cập từ đây.',
+      'Thanh điều hướng truy cập toàn bộ chức năng cốt lõi: Bảng tổng quan (Dashboard), Luồng tin (Feed), Quản lý lỗi (Issues), Duyệt mã (Reviews), Kho lưu trữ GitHub (Repositories), Danh mục Dự án (Projects) và Thành viên nhóm (Members).',
     contentEn:
-      'Jump to Issues, Reviews, Repositories, Members, or Feed — everything in your workspace is accessible from here.',
-    icon: <Compass size={20} color="#10b981" />,
+      'Navigation center for all platform modules: Dashboard, Technical Feed, Bug Issues, PR Reviews, GitHub Repositories, Projects Management, and Workspace Members.',
+    icon: <Layers size={20} color="#10b981" />,
     position: 'right'
   },
   {
     targetId: 'tour-search',
-    titleVi: 'Tìm mọi thứ',
-    titleEn: 'Find Anything',
+    titleVi: 'Tìm kiếm toàn năng (Command Palette)',
+    titleEn: 'Global Command Palette',
     contentVi:
-      'Tìm nhanh Issue, Pull Request, commit, thành viên hoặc label mà không cần nhớ chúng nằm ở đâu.',
+      'Tìm kiếm tức thời mọi đối tượng trong toàn bộ workspace: tìm theo mã số bài (#12), tên thành viên (@username), Pull Request, commit hash hoặc nhãn. Hỗ trợ điều hướng hoàn toàn bằng bàn phím với phím tắt [Ctrl + K].',
     contentEn:
-      'Quickly find issues, pull requests, commits, teammates, or labels without worrying about where they live.',
-    icon: <Sparkles size={20} color="#f59e0b" />,
+      'Instantly query anything across your workspace: search by issue number (#12), teammate (@username), pull request, commit hash, or labels. Fully keyboard-driven via [Ctrl + K].',
+    icon: <Search size={20} color="#f59e0b" />,
     position: 'bottom'
   },
   {
     targetId: 'tour-notifications',
-    titleVi: 'Không bỏ lỡ cập nhật',
-    titleEn: 'Stay in the Loop',
+    titleVi: 'Trung tâm thông báo & Email Outbox',
+    titleEn: 'Notifications & Email Inspector',
     contentVi:
-      'Theo dõi mention, phân công và các cập nhật liên quan đến bạn. Email Outbox cũng cho phép kiểm tra email đã gửi, OTP và mã xác thực.',
+      'Nhận thông báo khi được nhắc tên (@mention), giao việc hoặc có quyết định duyệt mã. Tích hợp sẵn Email Inspector giúp kiểm tra chi tiết nội dung email OTP, email kích hoạt và mã xác nhận hệ thống gửi ra mà không cần mở hộp thư thật.',
     contentEn:
-      'Keep up with mentions, assignments, and updates that involve you. The Email Outbox also lets you inspect sent emails, OTPs, and verification codes.',
-    icon: <Sparkles size={20} color="#ec4899" />,
+      'Receive instant alerts for mentions, assignments, and review approvals. Includes an integrated Email Inspector to preview outgoing OTPs, activation links, and system notifications.',
+    icon: <Bell size={20} color="#ec4899" />,
     position: 'bottom'
   },
   {
     targetId: 'tour-theme-lang',
-    titleVi: 'Giao diện & Ngôn ngữ',
-    titleEn: 'Theme & Language',
+    titleVi: 'Chế độ hiển thị & Song ngữ',
+    titleEn: 'Theme & Dual-Language',
     contentVi:
-      'Chọn giao diện Sáng hoặc Tối và chuyển đổi giữa Tiếng Việt và English bất cứ lúc nào.',
+      'Chuyển đổi giao diện Dark Mode tương phản cao (chống mỏi mắt khi code ban đêm) hoặc Light Mode trang nhã. Chuyển đổi linh hoạt song ngữ chuẩn xác Tiếng Việt và English trên toàn bộ hệ thống bất cứ lúc nào.',
     contentEn:
-      'Switch between Light and Dark themes, and choose Vietnamese or English whenever you like.',
-    icon: <Globe size={20} color="#06b6d4" />,
+      'Toggle between high-contrast Dark Mode and clean Light Mode. Switch seamlessly between Vietnamese and English across all UI labels, views, and system messages.',
+    icon: <Globe size={20} color="#3b82f6" />,
     position: 'bottom'
   },
   {
     targetId: 'tour-user-menu',
-    titleVi: 'Tài khoản & Bảo mật',
-    titleEn: 'Account & Security',
+    titleVi: 'Hồ sơ cá nhân, Sinh trắc học & Bảo mật',
+    titleEn: 'Account & Biometric Security',
     contentVi:
-      'Quản lý hồ sơ, thiết lập 2FA, đăng nhập bằng Passkey và liên kết tài khoản GitHub, GitLab hoặc Google.',
+      'Quản lý hồ sơ lập trình viên, kích hoạt bảo mật 2 lớp (2FA TOTP), đăng nhập một chạm không cần mật khẩu với Passkeys (vân tay / khuôn mặt / Windows Hello) và liên kết tài khoản GitHub, GitLab hoặc Google.',
     contentEn:
-      'Manage your profile, set up 2FA, sign in with Passkeys, and connect your GitHub, GitLab, or Google account.',
+      'Manage your developer profile, enable 2FA TOTP, sign in passwordless with biometric Passkeys (Touch ID, Face ID, Windows Hello), and connect your GitHub, GitLab, or Google accounts.',
     icon: <Shield size={20} color="#8b5cf6" />,
     position: 'left'
   }
@@ -123,13 +137,23 @@ const TOUR_STEPS: TourStep[] = [
 
 export const OnboardingTour: React.FC = () => {
   const { tokens } = useThemeContext();
+  const { user } = useAuthContext();
   const { language } = useI18n();
   const isVi = language === 'vi';
+  const [location, setLocation] = useLocation();
 
   const [isOpen, setIsOpen] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
+
+  const markTourAsSeen = useCallback(() => {
+    try {
+      localStorage.setItem('reported_tour_seen', 'true');
+      if (user?.id) {
+        localStorage.setItem(`reported_tour_seen_${user.id}`, 'true');
+      }
+    } catch {}
+  }, [user?.id]);
 
   const updateTargetRect = useCallback((targetId: string) => {
     const el = document.getElementById(targetId);
@@ -143,9 +167,14 @@ export const OnboardingTour: React.FC = () => {
   }, []);
 
   const startTour = useCallback(() => {
-    setCurrentStepIndex(0);
-    setIsOpen(true);
-  }, []);
+    if (location !== '/') {
+      setLocation('/');
+    }
+    setTimeout(() => {
+      setCurrentStepIndex(0);
+      setIsOpen(true);
+    }, 150);
+  }, [location, setLocation]);
 
   useEffect(() => {
     const handleStartEvent = () => startTour();
@@ -154,14 +183,18 @@ export const OnboardingTour: React.FC = () => {
   }, [startTour]);
 
   useEffect(() => {
-    const seen = localStorage.getItem('reported_tour_seen');
-    if (!seen) {
+    try {
+      const userSeen = user?.id ? localStorage.getItem(`reported_tour_seen_${user.id}`) : null;
+      const globalSeen = localStorage.getItem('reported_tour_seen');
+      if (userSeen || globalSeen) {
+        return;
+      }
       const timer = setTimeout(() => {
         startTour();
-      }, 1200);
+      }, 1500);
       return () => clearTimeout(timer);
-    }
-  }, [startTour]);
+    } catch {}
+  }, [startTour, user?.id]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -208,14 +241,12 @@ export const OnboardingTour: React.FC = () => {
   };
 
   const handleSkip = () => {
-    if (dontShowAgain) {
-      localStorage.setItem('reported_tour_seen', 'true');
-    }
+    markTourAsSeen();
     setIsOpen(false);
   };
 
   const handleComplete = () => {
-    localStorage.setItem('reported_tour_seen', 'true');
+    markTourAsSeen();
     setIsOpen(false);
   };
 
@@ -224,10 +255,20 @@ export const OnboardingTour: React.FC = () => {
   const currentStep = TOUR_STEPS[currentStepIndex];
   const progressPercent = ((currentStepIndex + 1) / TOUR_STEPS.length) * 100;
 
+  const pad = 4;
+  const spotlight = targetRect
+    ? {
+        x: Math.max(3, targetRect.left - pad),
+        y: Math.max(3, targetRect.top - pad),
+        w: Math.min(window.innerWidth - Math.max(3, targetRect.left - pad) - 3, targetRect.width + pad * 2),
+        h: Math.min(window.innerHeight - Math.max(3, targetRect.top - pad) - 3, targetRect.height + pad * 2)
+      }
+    : null;
+
   let tooltipTop = 0;
   let tooltipLeft = 0;
-  const tooltipWidth = 380;
-  const padding = 16;
+  const tooltipWidth = 410;
+  const padding = 14;
 
   if (targetRect) {
     const pos = currentStep.position || 'bottom';
@@ -236,24 +277,24 @@ export const OnboardingTour: React.FC = () => {
       tooltipTop = targetRect.bottom + padding;
       tooltipLeft = Math.max(padding, Math.min(window.innerWidth - tooltipWidth - padding, targetRect.left + (targetRect.width / 2) - (tooltipWidth / 2)));
     } else if (pos === 'top') {
-      tooltipTop = Math.max(padding, targetRect.top - 260 - padding);
+      tooltipTop = Math.max(padding, targetRect.top - 320 - padding);
       tooltipLeft = Math.max(padding, Math.min(window.innerWidth - tooltipWidth - padding, targetRect.left + (targetRect.width / 2) - (tooltipWidth / 2)));
     } else if (pos === 'right') {
-      tooltipTop = Math.max(padding, Math.min(window.innerHeight - 300, targetRect.top));
+      tooltipTop = Math.max(padding, Math.min(window.innerHeight - 340, targetRect.top));
       tooltipLeft = Math.min(window.innerWidth - tooltipWidth - padding, targetRect.right + padding);
     } else if (pos === 'left') {
-      tooltipTop = Math.max(padding, Math.min(window.innerHeight - 300, targetRect.top));
+      tooltipTop = Math.max(padding, Math.min(window.innerHeight - 340, targetRect.top));
       tooltipLeft = Math.max(padding, targetRect.left - tooltipWidth - padding);
     } else {
-      tooltipTop = (window.innerHeight / 2) - 140;
+      tooltipTop = (window.innerHeight / 2) - 160;
       tooltipLeft = (window.innerWidth / 2) - (tooltipWidth / 2);
     }
 
-    if (tooltipTop + 260 > window.innerHeight) {
-      tooltipTop = Math.max(padding, window.innerHeight - 280);
+    if (tooltipTop + 340 > window.innerHeight) {
+      tooltipTop = Math.max(padding, window.innerHeight - 350);
     }
   } else {
-    tooltipTop = (window.innerHeight / 2) - 140;
+    tooltipTop = (window.innerHeight / 2) - 160;
     tooltipLeft = (window.innerWidth / 2) - (tooltipWidth / 2);
   }
 
@@ -282,17 +323,17 @@ export const OnboardingTour: React.FC = () => {
           <defs>
             <mask id="tour-spotlight-mask">
               <rect x="0" y="0" width="100%" height="100%" fill="white" />
-              {targetRect && (
+              {spotlight && (
                 <rect
-                  x={targetRect.left - 6}
-                  y={targetRect.top - 6}
-                  width={targetRect.width + 12}
-                  height={targetRect.height + 12}
-                  rx="10"
-                  ry="10"
+                  x={spotlight.x}
+                  y={spotlight.y}
+                  width={spotlight.w}
+                  height={spotlight.h}
+                  rx="8"
+                  ry="8"
                   fill="black"
                   style={{
-                    transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+                    transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
                   }}
                 />
               )}
@@ -303,24 +344,24 @@ export const OnboardingTour: React.FC = () => {
             y="0"
             width="100%"
             height="100%"
-            fill="rgba(5, 7, 15, 0.76)"
+            fill="rgba(10, 15, 26, 0.48)"
             mask="url(#tour-spotlight-mask)"
           />
         </svg>
 
-        {targetRect && (
+        {spotlight && (
           <Box
             sx={{
               position: 'absolute',
-              top: targetRect.top - 6,
-              left: targetRect.left - 6,
-              width: targetRect.width + 12,
-              height: targetRect.height + 12,
-              borderRadius: '10px',
+              top: spotlight.y,
+              left: spotlight.x,
+              width: spotlight.w,
+              height: spotlight.h,
+              borderRadius: '8px',
               border: `2px solid ${tokens.primary}`,
-              boxShadow: `0 0 0 4px ${tokens.primary}33, 0 0 35px ${tokens.primary}66`,
+              boxShadow: `0 0 0 3px ${tokens.primary}25`,
               pointerEvents: 'none',
-              transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
             }}
           />
         )}
@@ -333,13 +374,13 @@ export const OnboardingTour: React.FC = () => {
             width: { xs: 'calc(100vw - 32px)', sm: tooltipWidth },
             maxWidth: tooltipWidth,
             backgroundColor: tokens.surface,
-            borderRadius: '14px',
+            borderRadius: '12px',
             border: `1px solid ${tokens.border}`,
-            boxShadow: '0 20px 45px rgba(0, 0, 0, 0.45), 0 0 1px rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 18px 40px rgba(0, 0, 0, 0.4)',
             backdropFilter: 'blur(24px)',
-            p: 2.6,
+            p: 2.5,
             zIndex: 100000,
-            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             overflow: 'hidden'
           }}
         >
@@ -358,7 +399,7 @@ export const OnboardingTour: React.FC = () => {
                 height: '100%',
                 width: `${progressPercent}%`,
                 backgroundColor: tokens.primary,
-                transition: 'width 0.3s ease'
+                transition: 'width 0.25s ease'
               }}
             />
           </Box>
@@ -393,7 +434,7 @@ export const OnboardingTour: React.FC = () => {
               </Typography>
             </Box>
 
-            <IconButton size="small" onClick={handleSkip} sx={{ color: tokens.textSecondary }}>
+            <IconButton size="small" onClick={handleSkip} sx={{ color: tokens.textSecondary, p: 0.5 }}>
               <X size={16} />
             </IconButton>
           </Box>
@@ -401,11 +442,11 @@ export const OnboardingTour: React.FC = () => {
           <Typography
             variant="h6"
             sx={{
-              fontSize: '1rem',
+              fontSize: '0.98rem',
               fontWeight: 700,
               color: tokens.textPrimary,
               mb: 0.8,
-              lineHeight: 1.3
+              lineHeight: 1.35
             }}
           >
             {isVi ? currentStep.titleVi : currentStep.titleEn}
@@ -416,29 +457,43 @@ export const OnboardingTour: React.FC = () => {
             sx={{
               fontSize: '0.84rem',
               color: tokens.textSecondary,
-              lineHeight: 1.5,
-              mb: 2.2
+              lineHeight: 1.55,
+              mb: 2
             }}
           >
             {isVi ? currentStep.contentVi : currentStep.contentEn}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1, borderTop: `1px solid ${tokens.border}` }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  size="small"
-                  checked={dontShowAgain}
-                  onChange={(e) => setDontShowAgain(e.target.checked)}
-                  sx={{ p: 0.5, color: tokens.textSecondary }}
-                />
-              }
-              label={
-                <Typography sx={{ fontSize: '0.72rem', color: tokens.textSecondary, userSelect: 'none' }}>
-                  {isVi ? 'Không tự mở lại' : 'Don\'t auto-show'}
-                </Typography>
-              }
-            />
+          {!targetRect && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setLocation('/');
+                setTimeout(() => updateTargetRect(currentStep.targetId), 250);
+              }}
+              sx={{
+                mb: 2,
+                textTransform: 'none',
+                fontSize: '0.78rem',
+                borderRadius: '6px',
+                borderColor: tokens.border,
+                color: tokens.primary
+              }}
+            >
+              {isVi ? 'Đi đến Dashboard để xem vị trí này' : 'Go to Dashboard to highlight this'}
+            </Button>
+          )}
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pt: 1.2, borderTop: `1px solid ${tokens.border}` }}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleSkip}
+              sx={{ color: tokens.textSecondary, textTransform: 'none', fontSize: '0.78rem' }}
+            >
+              {isVi ? 'Đóng hướng dẫn' : 'Dismiss'}
+            </Button>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {currentStepIndex > 0 && (
@@ -450,7 +505,7 @@ export const OnboardingTour: React.FC = () => {
                   sx={{
                     height: 30,
                     px: 1.2,
-                    fontSize: '0.75rem',
+                    fontSize: '0.78rem',
                     textTransform: 'none',
                     borderRadius: '6px',
                     borderColor: tokens.border,
@@ -474,7 +529,7 @@ export const OnboardingTour: React.FC = () => {
                   textTransform: 'none',
                   borderRadius: '6px',
                   backgroundColor: tokens.primary,
-                  boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                  boxShadow: 'none',
                   '&:hover': {
                     backgroundColor: tokens.primaryHover
                   }

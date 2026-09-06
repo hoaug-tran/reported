@@ -25,7 +25,11 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities }
 
   if (!activities || activities.length === 0) return null;
 
-  const filteredActivities = activities.filter(act => act.actionType !== 'COMMENT_ADDED');
+  const sortedActivities = [...activities].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  const filteredActivities = sortedActivities.filter(act => act.actionType !== 'COMMENT_ADDED');
   if (filteredActivities.length === 0) return null;
 
   const deduped: ActivityTimelineDto[] = [];
@@ -100,6 +104,18 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities }
             </span>
           </>
         );
+      case 'EDITED': {
+        const fields = Array.isArray(meta.fields) ? (meta.fields as string[]).join(', ') : '';
+        return (
+          <>
+            <RefreshCw size={15} color={tokens.info} />
+            <span>
+              {isVi ? 'đã chỉnh sửa nội dung' : 'edited details'}
+              {fields ? ` (${fields})` : ''}
+            </span>
+          </>
+        );
+      }
       case 'DELETED':
       case 'COMMENT_DELETED':
         return (

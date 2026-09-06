@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Typography, Button, Tooltip } from '@mui/material';
 import {
   Sun,
@@ -11,11 +11,13 @@ import {
   Clock,
   Plus,
   GitPullRequest,
-  Search
+  Search,
+  Calendar
 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import { useWeatherAndClock } from '../../hooks/useWeatherAndClock';
+import { MiniCalendarPopover } from './MiniCalendarPopover';
 
 interface DashboardHeroProps {
   user: { displayName?: string | null; username?: string } | null;
@@ -40,7 +42,8 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
 }) => {
   const { tokens } = useThemeContext();
   const [, setLocation] = useLocation();
-  const { timeString, dateString, weather } = useWeatherAndClock(isVi);
+  const { timeString, dateString, shortDateString, weather } = useWeatherAndClock(isVi);
+  const [calendarAnchor, setCalendarAnchor] = useState<HTMLElement | null>(null);
 
   const hour = new Date().getHours();
   let greeting = isVi ? 'Chào buổi sáng' : 'Good morning';
@@ -56,17 +59,15 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
 
   const renderWeatherIcon = () => {
     const code = weather.weatherCode;
-    if (code === 0) return <Sun size={17} color="#f59e0b" />;
-    if (code >= 1 && code <= 3) return <CloudSun size={17} color="#38bdf8" />;
-    if (code >= 51 && code <= 65) return <CloudRain size={17} color="#60a5fa" />;
-    if (code >= 71 && code <= 77) return <Snowflake size={17} color="#93c5fd" />;
-    if (code >= 95 && code <= 99) return <CloudLightning size={17} color="#fbbf24" />;
-    return <Cloud size={17} color="#94a3b8" />;
+    if (code === 0) return <Sun size={14} color="#f59e0b" />;
+    if (code >= 1 && code <= 3) return <CloudSun size={14} color="#38bdf8" />;
+    if (code >= 51 && code <= 65) return <CloudRain size={14} color="#60a5fa" />;
+    if (code >= 71 && code <= 77) return <Snowflake size={14} color="#93c5fd" />;
+    if (code >= 95 && code <= 99) return <CloudLightning size={14} color="#fbbf24" />;
+    return <Cloud size={14} color="#94a3b8" />;
   };
 
-  const handleOpenCommandPalette = () => {
-    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }));
-  };
+
 
   const statusSummary = pendingReviewsCount === 0 && urgentIssuesCount === 0
     ? (isVi ? 'Mọi việc đang tiến triển tốt - Bạn không có yêu cầu review hay lỗi khẩn cấp nào cần xử lý.' : 'All caught up - No pending reviews or blocker issues waiting for you.')
@@ -94,7 +95,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
               fontSize: { xs: '1.45rem', sm: '1.8rem' }
             }}
           >
-            {greeting}, {user?.displayName || user?.username || (isVi ? 'Kỹ sư' : 'Engineer')}
+            {greeting}, {user?.displayName || user?.username || (isVi ? 'Kỹ sư' : 'Engineer') } 👋
           </Typography>
 
           <Typography
@@ -110,46 +111,75 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
         </Box>
 
         <Box
+          onClick={(e) => setCalendarAnchor(e.currentTarget)}
           sx={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
-            gap: 1.5,
-            px: 1.8,
-            py: 0.8,
-            borderRadius: '24px',
+            gap: 1.2,
+            px: 1.5,
+            height: 38,
+            boxSizing: 'border-box',
+            borderRadius: '8px',
             backgroundColor: tokens.surface,
             border: `1px solid ${tokens.border}`,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-            flexShrink: 0
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            flexShrink: 0,
+            cursor: 'pointer',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.15s ease',
+            '&:hover': {
+              borderColor: tokens.primary,
+              backgroundColor: tokens.hover
+            }
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-            <Clock size={15} color={tokens.primary} />
-            <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '0.875rem', color: tokens.textPrimary }}>
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+            <Clock size={14} color={tokens.textSecondary} />
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
               {timeString}
             </Typography>
           </Box>
 
-          <Box sx={{ width: 1, height: 16, backgroundColor: tokens.divider }} />
+          <Box sx={{ width: '1px', minWidth: '1px', maxWidth: '1px', height: 14, backgroundColor: tokens.divider, flexShrink: 0 }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+          <Tooltip title={`${dateString} • Bấm để xem lịch chi tiết`}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+              <Calendar size={14} color={tokens.textSecondary} />
+              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                {shortDateString}
+              </Typography>
+            </Box>
+          </Tooltip>
+
+          <Box sx={{ width: '1px', minWidth: '1px', maxWidth: '1px', height: 14, backgroundColor: tokens.divider, flexShrink: 0 }} />
+
+          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
             {renderWeatherIcon()}
-            <Typography sx={{ fontWeight: 700, fontSize: '0.875rem', color: tokens.textPrimary }}>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
               {weather.temperature}°C
             </Typography>
           </Box>
 
-          <Box sx={{ width: 1, height: 16, backgroundColor: tokens.divider }} />
+          <Box sx={{ width: '1px', minWidth: '1px', maxWidth: '1px', height: 14, backgroundColor: tokens.divider, flexShrink: 0 }} />
 
-          <Tooltip title={`${dateString} • ${weather.description} • Gió ${weather.windSpeed} km/h`}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, cursor: 'default' }}>
-              <MapPin size={13} color={tokens.textSecondary} />
-              <Typography sx={{ fontSize: '0.75rem', color: tokens.textSecondary, fontWeight: 500, maxWidth: 130 }} noWrap>
+          <Tooltip title={`${weather.description} • Gió ${weather.windSpeed} km/h`}>
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+              <MapPin size={14} color={tokens.textSecondary} />
+              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
                 {weather.location}
               </Typography>
             </Box>
           </Tooltip>
         </Box>
+
+        <MiniCalendarPopover
+          open={Boolean(calendarAnchor)}
+          anchorEl={calendarAnchor}
+          onClose={() => setCalendarAnchor(null)}
+          weatherTemp={weather.temperature}
+          weatherDesc={weather.description}
+          isVi={isVi}
+        />
       </Box>
 
       <Box
@@ -171,7 +201,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
             variant="contained"
             size="small"
             startIcon={<Plus size={15} />}
-            onClick={onOpenCreateIssue}
+            onClick={() => setLocation('/issues/new')}
             sx={{
               backgroundColor: tokens.primary,
               color: '#ffffff',
@@ -190,7 +220,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
             variant="outlined"
             size="small"
             startIcon={<GitPullRequest size={14} color="#a855f7" />}
-            onClick={() => setLocation('/reviews/create')}
+            onClick={() => setLocation('/reviews/new')}
             sx={{
               borderColor: 'rgba(168, 85, 247, 0.4)',
               color: '#a855f7',
@@ -226,22 +256,6 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
             }}
           >
             {isVi ? 'Thảo luận' : 'Discussion'}
-          </Button>
-
-          <Button
-            variant="text"
-            size="small"
-            startIcon={<Search size={13} />}
-            onClick={handleOpenCommandPalette}
-            sx={{
-              color: tokens.textSecondary,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              textTransform: 'none',
-              height: 28
-            }}
-          >
-            Ctrl + K
           </Button>
         </Box>
 

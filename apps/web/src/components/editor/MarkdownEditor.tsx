@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box, Tabs, Tab, IconButton, Tooltip, TextField, Paper, List, ListItemButton,
-  ListItemAvatar, ListItemText, Typography
+  ListItemAvatar, ListItemText, Typography, LinearProgress, CircularProgress
 } from '@mui/material';
 import {
   Heading,
@@ -13,13 +13,19 @@ import {
   FileCode,
   Link as LinkIcon,
   Undo2,
-  Redo2
+  Redo2,
+  Image as ImageIcon,
+  Paperclip,
+  Mic,
+  X
 } from 'lucide-react';
 import { MarkdownRenderer } from '../markdown/MarkdownRenderer';
 import { UserAvatar } from '../common/UserAvatar';
 import { UserSummaryDto } from '@reported/contracts';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import { apiFetch } from '../../api/client';
+import { uploadFileWithChunking } from '../../utils/chunkedUpload';
+import { VoiceRecorder } from '../common/VoiceRecorder';
 
 interface HistoryEntry {
   value: string;
@@ -33,6 +39,8 @@ interface MarkdownEditorProps {
   placeholder?: string;
   minRows?: number;
   onSubmit?: () => void;
+  targetType?: string;
+  targetId?: string;
 }
 
 const MAX_HISTORY = 100;
@@ -43,7 +51,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   onChange,
   placeholder = 'Leave a comment or description (Markdown supported)...',
   minRows = 4,
-  onSubmit
+  onSubmit,
+  targetType,
+  targetId
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
   const [tabIndex, setTabIndex] = useState<'write' | 'preview'>('write');
@@ -52,7 +62,110 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   const [suggestedUsers, setSuggestedUsers] = useState<UserSummaryDto[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
 
+  const [localValue, setLocalValue] = useState(value);
+  const localValueRef = useRef(value);
+  localValueRef.current = localValue;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
+  const [uploadingFileSize, setUploadingFileSize] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const insertAtCursor = (insertStr: string) => {
+    const currentVal = localValueRef.current || '';
+    const textarea = textareaRef.current;
+    let cursor = currentVal.length;
+    if (textarea && typeof textarea.selectionStart === 'number' && document.activeElement === textarea) {
+      cursor = textarea.selectionStart;
+    }
+    const textBefore = currentVal.substring(0, cursor);
+    const textAfter = currentVal.substring(cursor);
+    const nextValue = textBefore + insertStr + textAfter;
+    setLocalValue(nextValue);
+    localValueRef.current = nextValue;
+    onChange(nextValue);
+    pushHistory(nextValue, cursor + insertStr.length, cursor + insertStr.length);
+  };
+
+  const handleUploadFile = async (file: File, isImg: boolean) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    setUploadError(null);
+    setUploadingFileName(file.name);
+    const sizeStr = file.size < 1024 * 1024
+      ? `${(file.size / 1024).toFixed(1)} KB`
+      : `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+    setUploadingFileSize(sizeStr);
+
+    try {
+      const res = await uploadFileWithChunking(file, file.name, {
+        targetType,
+        targetId,
+        onProgress: (pct) => setUploadProgress(pct)
+      });
+      const isImage = isImg || file.type.startsWith('image/');
+      const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|mkv|avi)$/i.test(file.name);
+
+      if (isImage) {
+        insertAtCursor(`\n![${file.name}](${res.inlineUrl})\n`);
+      } else if (isVideo) {
+        insertAtCursor(`\n[🎬 Video: ${file.name}](${res.inlineUrl})\n`);
+      } else {
+        insertAtCursor(`\n[📎 ${file.name}](${res.url})\n`);
+      }
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : 'Tải lên tệp thất bại';
+      setUploadError(msg);
+    } finally {
+      setIsUploading(false);
+      setUploadingFileName(null);
+      setUploadingFileSize(null);
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      e.preventDefault();
+      handleUploadFile(file, file.type.startsWith('image/'));
+      return;
+    }
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].kind === 'file') {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleUploadFile(file, file.type.startsWith('image/'));
+          return;
+        }
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      handleUploadFile(file, file.type.startsWith('image/'));
+    }
+  };
+
+  useEffect(() => {
+    if (!isComposingRef.current && value !== localValue) {
+      setLocalValue(value);
+      localValueRef.current = value;
+    }
+  }, [value]);
 
   const historyRef = useRef<HistoryEntry[]>([{ value, selectionStart: 0, selectionEnd: 0 }]);
   const historyIndexRef = useRef<number>(0);
@@ -77,6 +190,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
   const applyHistoryEntry = useCallback((entry: HistoryEntry) => {
     isSuppressingHistoryRef.current = true;
+    setLocalValue(entry.value);
     onChange(entry.value);
     requestAnimationFrame(() => {
       const textarea = textareaRef.current;
@@ -129,6 +243,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
     const replacement = prefix + (selected || 'text') + suffix;
     const newValue = value.substring(0, start) + replacement + value.substring(end);
 
+    setLocalValue(newValue);
     onChange(newValue);
     const newCursorPos = start + prefix.length + (selected.length || 4);
     pushHistory(newValue, start + prefix.length, newCursorPos);
@@ -185,6 +300,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
     const cursor = e.target.selectionStart;
+    setLocalValue(text);
+
+    if (isComposingRef.current) return;
+
     onChange(text);
 
     if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -193,8 +312,6 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       const sel = textarea ? textarea.selectionStart : cursor;
       pushHistory(text, sel, sel);
     }, HISTORY_DEBOUNCE_MS);
-
-    if (isComposingRef.current) return;
 
     const textBeforeCursor = text.substring(0, cursor);
     const match = textBeforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
@@ -263,7 +380,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         </Tabs>
 
         {tabIndex === 'write' && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.2, overflowX: 'auto', maxWidth: '100%', py: 0.2 }}>
             <Tooltip title="Undo (Ctrl+Z)">
               <span>
                 <IconButton size="small" onClick={undo} disabled={!canUndo} sx={{ color: canUndo ? tokens.textSecondary : tokens.border }}>
@@ -319,22 +436,158 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <LinkIcon size={15} />
               </IconButton>
             </Tooltip>
+
+            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.divider, mx: 0.5 }} />
+
+            <Tooltip title="Chèn ảnh (hoặc dán Ctrl+V)">
+              <IconButton
+                size="small"
+                onClick={() => imageInputRef.current?.click()}
+                disabled={isUploading}
+                sx={{ color: tokens.textSecondary }}
+              >
+                <ImageIcon size={15} />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Đính kèm tệp tin">
+              <IconButton
+                size="small"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                sx={{ color: tokens.textSecondary }}
+              >
+                <Paperclip size={15} />
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Ghi âm tin nhắn thoại">
+              <IconButton
+                size="small"
+                onClick={() => setIsRecordingVoice(prev => !prev)}
+                sx={{ color: isRecordingVoice ? tokens.error : tokens.textSecondary }}
+              >
+                <Mic size={15} />
+              </IconButton>
+            </Tooltip>
+
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadFile(file, true);
+                e.target.value = '';
+              }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleUploadFile(file, false);
+                e.target.value = '';
+              }}
+            />
           </Box>
         )}
       </Box>
 
+      {isUploading && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1.2,
+            backgroundColor: `${tokens.primary}0c`,
+            borderBottom: `1px solid ${tokens.border}`,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.8
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+              <CircularProgress size={14} thickness={5} sx={{ color: tokens.primary, flexShrink: 0 }} />
+              <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary, fontSize: '0.8125rem' }} noWrap>
+                Đang tải lên: {uploadingFileName || 'tệp tin'}
+              </Typography>
+              {uploadingFileSize && (
+                <Typography variant="caption" sx={{ color: tokens.textSecondary, flexShrink: 0 }}>
+                  ({uploadingFileSize})
+                </Typography>
+              )}
+            </Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: tokens.primary, ml: 1, flexShrink: 0 }}>
+              {uploadProgress}%
+            </Typography>
+          </Box>
+          <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 4, borderRadius: 2 }} />
+        </Box>
+      )}
+
+      {uploadError && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1,
+            backgroundColor: `${tokens.error}10`,
+            borderBottom: `1px solid ${tokens.error}30`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            color: tokens.error
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            {uploadError}
+          </Typography>
+          <IconButton size="small" onClick={() => setUploadError(null)} sx={{ p: 0.2, color: tokens.error }}>
+            <X size={14} />
+          </IconButton>
+        </Box>
+      )}
+
+      {isRecordingVoice && (
+        <Box sx={{ px: 1.5, pt: 1 }}>
+          <VoiceRecorder
+            targetType={targetType}
+            targetId={targetId}
+            onRecorded={(res) => {
+              insertAtCursor(`\n[🎙️ Tin nhắn thoại](${res.url})\n`);
+              setIsRecordingVoice(false);
+            }}
+            onCancel={() => setIsRecordingVoice(false)}
+          />
+        </Box>
+      )}
+
       {tabIndex === 'write' ? (
-        <Box sx={{ p: 1.5, position: 'relative' }}>
+        <Box
+          onDrop={handleDrop}
+          onDragOver={(e) => e.preventDefault()}
+          sx={{ p: 1.5, position: 'relative' }}
+        >
           <TextField
             inputRef={textareaRef}
             multiline
             minRows={minRows}
             fullWidth
-            value={value}
+            value={localValue}
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             onCompositionStart={() => { isComposingRef.current = true; }}
-            onCompositionEnd={() => { isComposingRef.current = false; }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false;
+              const target = e.target as HTMLTextAreaElement;
+              const text = target.value;
+              setLocalValue(text);
+              onChange(text);
+              pushHistory(text, target.selectionStart, target.selectionEnd);
+            }}
             placeholder={placeholder}
             variant="standard"
             InputProps={{

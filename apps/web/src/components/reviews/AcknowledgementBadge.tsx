@@ -95,17 +95,16 @@ export const AcknowledgementBadge: React.FC<AcknowledgementBadgeProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.textPrimary, fontSize: '0.88rem' }}>
-            {isVi ? 'Tình trạng phản hồi (Acknowledgement)' : 'Quick Acknowledgement'}
+            {isVi ? 'Trạng thái xác nhận' : 'Acknowledgement Status'}
           </Typography>
           <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.74rem' }}>
             {isVi
-              ? 'Báo nhanh trạng thái cho tác giả mà không cần gửi nhận xét chính thức'
+              ? 'Phản hồi nhanh trạng thái cho tác giả mà không cần gửi nhận xét chính thức'
               : 'Let author know you have seen or are reviewing without formal comments'}
           </Typography>
         </Box>
       </Box>
 
-      {/* Buttons for current user */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         {statuses.map((s) => {
           const cfg = statusConfig[s];
@@ -140,7 +139,6 @@ export const AcknowledgementBadge: React.FC<AcknowledgementBadgeProps> = ({
         })}
       </Box>
 
-      {/* Overview of all reviewers' acknowledgement */}
       {reviewers.length > 0 && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2, pt: 1.5, borderTop: `1px solid ${tokens.divider}` }}>
           {reviewers.map((r) => {

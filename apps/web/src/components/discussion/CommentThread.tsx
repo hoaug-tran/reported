@@ -96,6 +96,8 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
             <MarkdownEditor
               value={newComment}
               onChange={setNewComment}
+              targetType={targetType}
+              targetId={targetId}
               placeholder="Leave technical feedback, paste logs, JSON, code blocks, or tag colleagues with @..."
               minRows={4}
               onSubmit={handleSubmit}

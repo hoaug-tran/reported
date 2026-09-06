@@ -212,7 +212,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         }
       }}
     >
-      {/* Header row: State badge + Title + Action buttons */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minWidth: 0, flex: 1 }}>
           <Box
@@ -255,7 +254,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
           </Link>
         </Box>
 
-        {/* Action buttons: Sync & Edit */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexShrink: 0 }}>
           <Tooltip title={isVi ? 'Đồng bộ dữ liệu trực tiếp từ GitHub' : 'Sync fresh data directly from GitHub'}>
             <span>
@@ -300,7 +298,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         </Box>
       </Box>
 
-      {/* Sync feedback notification if any */}
       {syncFeedback && (
         <Box sx={{ mt: 1.5 }}>
           <Alert
@@ -313,7 +310,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         </Box>
       )}
 
-      {/* Branch flow row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1.2, flexWrap: 'wrap' }}>
         <Box
           sx={{
@@ -356,7 +352,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         </Box>
       </Box>
 
-      {/* Author attribution & repository source */}
       <Box
         sx={{
           display: 'flex',
@@ -370,7 +365,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
           flexWrap: 'wrap'
         }}
       >
-        {/* Author info */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 500 }}>
@@ -426,7 +420,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
             </Box>
           )}
 
-          {/* Diff statistics with visual mini-bar */}
           {(pr.additions != null || pr.deletions != null || pr.changedFiles != null) && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, ml: 0.5 }}>
               {pr.changedFiles != null && (
@@ -482,7 +475,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
           )}
         </Box>
 
-        {/* Right side: CI Checks + toggle button */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {renderChecks()}
 
@@ -506,7 +498,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         </Box>
       </Box>
 
-      {/* Expandable CI Check Runs Details */}
       {checkRunsCount > 0 && (
         <Collapse in={showCheckRuns}>
           <Box sx={{ mt: 1.5, pt: 1.5, borderTop: `1px dashed ${tokens.border}` }}>
@@ -524,7 +515,6 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         </Collapse>
       )}
 
-      {/* Manual Edit Dialog */}
       <Dialog open={isEditOpen} onClose={() => setIsEditOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem', borderBottom: `1px solid ${tokens.border}` }}>
           {isVi ? 'Chỉnh sửa thông tin Pull Request liên kết' : 'Edit Linked Pull Request'}

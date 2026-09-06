@@ -134,10 +134,15 @@ export function useWeatherAndClock(isVi = true) {
     ? `${dayOfWeek}, ngày ${now.getDate()} tháng ${now.getMonth() + 1}, ${now.getFullYear()}`
     : `${dayOfWeek}, ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 
+  const shortDateString = isVi
+    ? `${dayOfWeek}, ${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}`
+    : `${dayOfWeek.slice(0, 3)}, ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
   return {
     now,
     timeString,
     dateString,
+    shortDateString,
     weather
   };
 }

@@ -37,6 +37,7 @@ import { ContextualCodeHostingNotice } from '../common/ConnectedAccountNotice';
 import { apiFetch } from '../../api/client';
 import { buttonSx, inputSx } from '../../theme/ui';
 import { UserAvatar } from '../common/UserAvatar';
+import { getLabelColor } from '../../utils/labels';
 
 interface CreateIssueModalProps {
   open: boolean;
@@ -412,15 +413,25 @@ export const CreateIssueModal: React.FC<CreateIssueModalProps> = ({ open, onClos
             value={labels}
             onChange={(_, vals) => setLabels(vals)}
             renderTags={(val, getTagProps) =>
-              val.map((option, index) => (
-                <Chip
-                  {...getTagProps({ index })}
-                  key={option}
-                  label={option}
-                  size="small"
-                  sx={{ height: 20, fontSize: '0.72rem' }}
-                />
-              ))
+              val.map((option, index) => {
+                const style = getLabelColor(option);
+                return (
+                  <Chip
+                    {...getTagProps({ index })}
+                    key={option}
+                    label={option}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      backgroundColor: style.bg,
+                      color: style.text,
+                      border: `1px solid ${style.border}`
+                    }}
+                  />
+                );
+              })
             }
             renderInput={(params) => (
               <TextField

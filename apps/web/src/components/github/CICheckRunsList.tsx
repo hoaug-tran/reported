@@ -16,7 +16,6 @@ interface CheckRun {
 
 interface CICheckRunsListProps {
   rawMetadata?: Record<string, unknown> | null;
-  /** Fallback aggregate status when no detailed runs available */
   aggregateStatus?: string;
 }
 
@@ -87,7 +86,6 @@ export const CICheckRunsList: React.FC<CICheckRunsListProps> = ({
 
   return (
     <Box>
-      {/* Summary row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
         {passCount > 0 && (
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.success, fontSize: '0.75rem' }}>
@@ -109,7 +107,6 @@ export const CICheckRunsList: React.FC<CICheckRunsListProps> = ({
         )}
       </Box>
 
-      {/* Individual check rows */}
       <Box
         sx={{
           borderRadius: '6px',

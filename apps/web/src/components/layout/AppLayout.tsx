@@ -16,6 +16,7 @@ import {
   Users,
   LogOut,
   User,
+  Bell,
   ChevronDown,
   ChevronsUpDown,
   Mail,
@@ -28,8 +29,11 @@ import {
   Check,
   MessageSquare,
   Inbox,
-  HelpCircle
+  HelpCircle,
+  Download,
+  Settings
 } from 'lucide-react';
+import { usePwaInstall } from '../../hooks/usePwaInstall';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../../contexts/ThemeContext';
 import { useAuthContext } from '../../contexts/AuthContext';
@@ -37,7 +41,8 @@ import { useI18n } from '../../contexts/I18nContext';
 import { useWorkspace } from '../../contexts/WorkspaceContext';
 import { UserAvatar } from '../common/UserAvatar';
 import { BrandLogo } from '../common/BrandLogo';
-import { NewPostModal } from '../common/NewPostModal';
+import { slugify } from '../../utils/slugify';
+
 import { OnboardingTour } from '../common/OnboardingTour';
 import { CommandPalette } from '../search/CommandPalette';
 import { NotificationCenter } from '../notifications/NotificationCenter';
@@ -66,6 +71,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'));
+  const { canInstall, installApp } = usePwaInstall();
   const workspaceRoleLabel = (role?: string | null) => {
     if (role === 'OWNER') return language === 'vi' ? 'Chủ sở hữu' : 'Owner';
     if (role === 'ADMIN') return language === 'vi' ? 'Quản trị' : 'Admin';
@@ -88,7 +94,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const [linkRepoOpen, setLinkRepoOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [emailInspectorOpen, setEmailInspectorOpen] = useState(false);
-  const [newPostModalOpen, setNewPostModalOpen] = useState(false);
+
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const [workspaceSlug, setWorkspaceSlug] = useState('');
@@ -434,7 +440,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                <Chip label={workspaceRoleLabel(ws.role)} size="small" sx={{ height: 18, fontSize: '0.625rem', fontWeight: 600 }} />
                 {isSelected && <Check size={16} color={tokens.primary} />}
               </Box>
             </MenuItem>
@@ -446,13 +451,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           <Typography variant="body2">{language === 'vi' ? 'Tạo workspace' : 'Create workspace'}</Typography>
         </MenuItem>
         <MenuItem onClick={() => { setWorkspaceMenuAnchor(null); setLocation('/settings/workspace'); }}>
+          <Settings size={16} style={{ marginRight: 12, color: tokens.primary }} />
           <Typography variant="body2">{language === 'vi' ? 'Cài đặt Workspace' : 'Workspace Settings'}</Typography>
         </MenuItem>
       </Menu>
 
-      <Box id="tour-sidebar" sx={{ p: 1, flex: 1, overflowY: 'auto' }}>
+      <Box id="tour-sidebar" sx={{ p: 1.2, flex: 1, overflowY: 'auto' }}>
         {!sidebarCollapsed && (
-          <Typography variant="caption" sx={{ px: 1.2, py: 0.5, display: 'block', color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
+          <Typography variant="caption" sx={{ px: 1.4, pt: 1, pb: 0.8, display: 'block', color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
             {t('coreViews')}
           </Typography>
         )}
@@ -470,9 +476,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: sidebarCollapsed ? 'center' : 'space-between',
-                  px: 1.2,
-                  py: 0.85,
-                  my: 0.3,
+                  px: 1.4,
+                  py: 1.15,
+                  my: 0.5,
+                  minHeight: 40,
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '0.84rem',
@@ -512,8 +519,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         {!sidebarCollapsed && projects.length > 0 && (
           <>
-            <Divider sx={{ my: 1.4 }} />
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.2, py: 0.4 }}>
+            <Divider sx={{ my: 1.8 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.4, pt: 1, pb: 0.8 }}>
               <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
                 {t('projects').toUpperCase()}
               </Typography>
@@ -549,9 +556,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    px: 1.2,
-                    py: 0.65,
-                    my: 0.2,
+                    px: 1.4,
+                    py: 0.95,
+                    my: 0.4,
                     borderRadius: '6px',
                     cursor: 'pointer',
                     fontSize: '0.8rem',
@@ -599,8 +606,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
         {!sidebarCollapsed && savedViewsList.length > 0 && (
           <>
-            <Divider sx={{ my: 1.4 }} />
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.2, py: 0.4 }}>
+            <Divider sx={{ my: 1.8 }} />
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.4, pt: 1, pb: 0.8 }}>
               <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
                 {t('savedViews')}
               </Typography>
@@ -614,9 +621,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  px: 1.2,
-                  py: 0.65,
-                  my: 0.2,
+                  px: 1.4,
+                  py: 0.95,
+                  my: 0.4,
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '0.8rem',
@@ -662,6 +669,68 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </>
         )}
 
+        {isMobile && (
+          <Box sx={{ mt: 2, pt: 1.5, borderTop: `1px solid ${tokens.divider}`, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {canInstall && (
+              <Button
+                size="small"
+                variant="outlined"
+                fullWidth
+                startIcon={<Download size={16} color={tokens.primary} />}
+                onClick={() => {
+                  setMobileDrawerOpen(false);
+                  installApp();
+                }}
+                sx={{
+                  justifyContent: 'flex-start',
+                  borderColor: tokens.primary,
+                  color: tokens.primary,
+                  textTransform: 'none',
+                  fontSize: '0.8125rem'
+                }}
+              >
+                {language === 'vi' ? 'Cài đặt App' : 'Install App'}
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="outlined"
+              fullWidth
+              startIcon={<Globe size={16} />}
+              onClick={() => {
+                setLanguage(language === 'vi' ? 'en' : 'vi');
+              }}
+              sx={{
+                justifyContent: 'flex-start',
+                borderColor: tokens.border,
+                color: tokens.textPrimary,
+                textTransform: 'none',
+                fontSize: '0.8125rem'
+              }}
+            >
+              {language === 'vi' ? 'Ngôn ngữ: English' : 'Language: Tiếng Việt'}
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              fullWidth
+              startIcon={<HelpCircle size={16} color={tokens.primary} />}
+              onClick={() => {
+                setMobileDrawerOpen(false);
+                window.dispatchEvent(new CustomEvent('reported-start-tour'));
+              }}
+              sx={{
+                justifyContent: 'flex-start',
+                borderColor: tokens.border,
+                color: tokens.textPrimary,
+                textTransform: 'none',
+                fontSize: '0.8125rem'
+              }}
+            >
+              {language === 'vi' ? 'Hướng dẫn sử dụng' : 'Product Tour'}
+            </Button>
+          </Box>
+        )}
       </Box>
 
       {user && (
@@ -716,7 +785,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               <GitBranch size={16} style={{ marginRight: 12, color: tokens.primary }} /> {t('connectedAccounts')}
             </MenuItem>
             <MenuItem onClick={() => { setUserMenuAnchor(null); setPreferencesOpen(true); }}>
-              {t('notificationPrefs')}
+              <Bell size={16} style={{ marginRight: 12, color: tokens.primary }} /> {t('notificationPrefs')}
             </MenuItem>
             <Divider />
             <MenuItem onClick={() => { setUserMenuAnchor(null); logout(); setLocation('/login'); }}>
@@ -847,38 +916,83 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </Breadcrumbs>
           </Box>
 
-          <Box
-            id="tour-search"
-            onClick={() => setCmdOpen(true)}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1.5,
-              px: 2,
-              py: 0.8,
-              height: 40,
-              boxSizing: 'border-box',
-              borderRadius: '8px',
-              backgroundColor: tokens.surfaceSecondary,
-              border: `1px solid ${tokens.border}`,
-              cursor: 'pointer',
-              color: tokens.textSecondary,
-              fontSize: '0.875rem',
-              width: { xs: 160, sm: 300, md: 420 },
-              transition: 'all 0.15s ease',
-              '&:hover': {
-                borderColor: tokens.primary,
-                backgroundColor: tokens.hover
-              }
-            }}
-          >
-            <Search size={16} color={tokens.textSecondary} />
-            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {t('searchPlaceholder')}
-            </span>
-          </Box>
+          {!isMobile && (
+            <Box
+              id="tour-search"
+              onClick={() => setCmdOpen(true)}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                px: 2,
+                py: 0.8,
+                height: 40,
+                boxSizing: 'border-box',
+                borderRadius: '8px',
+                backgroundColor: tokens.surfaceSecondary,
+                border: `1px solid ${tokens.border}`,
+                cursor: 'pointer',
+                color: tokens.textSecondary,
+                fontSize: '0.875rem',
+                width: { xs: 160, sm: 260, md: 360, lg: 420 },
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  borderColor: tokens.primary,
+                  backgroundColor: tokens.hover
+                }
+              }}
+            >
+              <Search size={16} color={tokens.textSecondary} />
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {t('searchPlaceholder')}
+              </span>
+            </Box>
+          )}
 
-          <Box id="tour-theme-lang" sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+          <Box id="tour-theme-lang" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, sm: 1.2 } }}>
+            {isMobile && (
+              <IconButton
+                size="small"
+                onClick={() => setCmdOpen(true)}
+                sx={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: '8px',
+                  border: `1px solid ${tokens.border}`,
+                  color: tokens.textSecondary
+                }}
+              >
+                <Search size={18} />
+              </IconButton>
+            )}
+            {canInstall && (
+              <Tooltip title={language === 'vi' ? 'Cài đặt ứng dụng Reported' : 'Install Reported App'}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={installApp}
+                  startIcon={<Download size={15} color={tokens.primary} />}
+                  sx={{
+                    height: 38,
+                    px: 1.5,
+                    fontSize: '0.84rem',
+                    fontWeight: 600,
+                    borderColor: tokens.primary,
+                    color: tokens.primary,
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    display: { xs: 'none', sm: 'inline-flex' },
+                    '&:hover': {
+                      borderColor: tokens.primary,
+                      backgroundColor: tokens.hover
+                    }
+                  }}
+                >
+                  {language === 'vi' ? 'Cài đặt App' : 'Install App'}
+                </Button>
+              </Tooltip>
+            )}
+
             <Tooltip title={language === 'vi' ? 'Xem tour hướng dẫn sử dụng tính năng' : 'Take an interactive product tour'}>
               <Button
                 size="small"
@@ -894,6 +1008,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                   color: tokens.textPrimary,
                   borderRadius: '8px',
                   textTransform: 'none',
+                  display: { xs: 'none', md: 'inline-flex' },
                   '&:hover': {
                     borderColor: tokens.primary,
                     backgroundColor: tokens.hover
@@ -917,7 +1032,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 borderColor: tokens.border,
                 color: tokens.textPrimary,
                 borderRadius: '8px',
-                textTransform: 'none'
+                textTransform: 'none',
+                display: { xs: 'none', md: 'inline-flex' }
               }}
             >
               {language === 'vi' ? 'Tiếng Việt' : 'English'}
@@ -947,28 +1063,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 English
               </MenuItem>
             </Menu>
-
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<Plus size={16} />}
-              onClick={() => setNewPostModalOpen(true)}
-              sx={{
-                height: 38,
-                px: 2,
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                backgroundColor: tokens.primary,
-                borderRadius: '8px',
-                textTransform: 'none',
-                boxShadow: '0 2px 8px rgba(99, 102, 241, 0.25)',
-                '&:hover': {
-                  backgroundColor: tokens.primaryHover
-                }
-              }}
-            >
-              {t('newPost')}
-            </Button>
 
             <Box id="tour-notifications" sx={{ display: 'inline-flex', alignItems: 'center' }}>
               <NotificationCenter
@@ -1002,7 +1096,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           component="main"
           sx={{
             flex: 1,
-            p: { xs: 2, sm: 3, md: 3.5 },
+            p: { xs: 1.5, sm: 2.5, md: 3 },
             overflowY: 'auto',
             overflowX: 'hidden',
             width: '100%',
@@ -1059,31 +1153,73 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         <DialogTitle sx={{ fontWeight: 700 }}>{language === 'vi' ? 'Tạo không gian làm việc mới' : 'Create New Workspace'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
           {workspaceError && <Alert severity="error" sx={{ borderRadius: '6px' }} onClose={() => setWorkspaceError(null)}>{workspaceError}</Alert>}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
+            {[
+              { label: language === 'vi' ? '⚡ Kỹ thuật' : '⚡ Engineering', name: 'Engineering' },
+              { label: language === 'vi' ? '🚀 Sản phẩm' : '🚀 Product', name: 'Product Team' },
+              { label: language === 'vi' ? '🎨 Thiết kế' : '🎨 Design', name: 'Design Studio' },
+              { label: language === 'vi' ? '🛠 Hạ tầng' : '🛠 Infrastructure', name: 'Infrastructure' }
+            ].map((preset) => (
+              <Chip
+                key={preset.name}
+                label={preset.label}
+                size="small"
+                onClick={() => {
+                  setWorkspaceName(preset.name);
+                  setWorkspaceSlug(slugify(preset.name));
+                }}
+                sx={{
+                  cursor: 'pointer',
+                  fontSize: '0.72rem',
+                  borderRadius: '4px',
+                  backgroundColor: tokens.surfaceSecondary,
+                  border: `1px solid ${tokens.border}`,
+                  '&:hover': { borderColor: tokens.primary, color: tokens.primary }
+                }}
+              />
+            ))}
+          </Box>
           <TextField
             label={language === 'vi' ? 'Tên workspace' : 'Workspace name'}
             value={workspaceName}
             onChange={(e) => {
               const val = e.target.value;
               setWorkspaceName(val);
-              setWorkspaceSlug(val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+              setWorkspaceSlug(slugify(val));
             }}
             placeholder="Engineering, Design Team..."
             required
             fullWidth
-            size="small"
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
           />
           <TextField
             label="Slug"
             value={workspaceSlug}
-            onChange={(e) => setWorkspaceSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+            onChange={(e) => setWorkspaceSlug(slugify(e.target.value))}
             placeholder="engineering"
-            helperText={language === 'vi' ? 'Dùng trong URL, chỉ gồm chữ thường, số và dấu gạch nối' : 'Used in URLs, only lowercase alphanumeric and dashes'}
+            helperText={language === 'vi' ? 'Tự động tạo từ tên workspace, có thể tùy chỉnh theo ý bạn' : 'Automatically generated from name, fully customizable'}
             required
             fullWidth
-            size="small"
-            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
           />
+          <Box
+            sx={{
+              px: 1.4,
+              py: 0.9,
+              borderRadius: '6px',
+              backgroundColor: tokens.surfaceSecondary,
+              border: `1px solid ${tokens.border}`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.8,
+              fontSize: '0.75rem',
+              color: tokens.textSecondary
+            }}
+          >
+            <Globe size={13} color={tokens.primary} />
+            <span>URL: </span>
+            <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 600, color: tokens.primary, fontSize: '0.75rem' }}>
+              reported.dev/@{workspaceSlug || 'workspace-slug'}
+            </Typography>
+          </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>
           <Button
@@ -1103,11 +1239,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           </Button>
         </DialogActions>
       </Dialog>
-
-      <NewPostModal
-        open={newPostModalOpen}
-        onClose={() => setNewPostModalOpen(false)}
-      />
 
       <OnboardingTour />
     </Box>
