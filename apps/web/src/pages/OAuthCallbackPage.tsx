@@ -59,6 +59,8 @@ export const OAuthCallbackPage: React.FC = () => {
 
     processedRef.current = true;
 
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
     const processOAuth = async () => {
       try {
         const res = await apiFetch<OAuthExchangeResponse>(`/auth/oauth/${provider}/callback`, {
@@ -71,7 +73,7 @@ export const OAuthCallbackPage: React.FC = () => {
 
         if (res.isLinked) {
           setSuccessMessage(`Đã liên kết thành công tài khoản ${provider.toUpperCase()}!`);
-          setTimeout(() => {
+          timer = setTimeout(() => {
             setLocation('/settings/connected-accounts');
           }, 800);
         } else {
@@ -85,6 +87,10 @@ export const OAuthCallbackPage: React.FC = () => {
     };
 
     processOAuth();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [fetchConnectedAccounts, refreshUser, setLocation]);
 
   return (

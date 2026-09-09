@@ -66,7 +66,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
   const [localValue, setLocalValue] = useState(value);
   const localValueRef = useRef(value);
-  localValueRef.current = localValue;
+  useEffect(() => {
+    localValueRef.current = localValue;
+  }, [localValue]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [isUploading, setIsUploading] = useState(false);

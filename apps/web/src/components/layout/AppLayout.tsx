@@ -84,11 +84,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   });
 
   const toggleSidebar = () => {
-    setSidebarCollapsed(prev => {
-      const next = !prev;
-      localStorage.setItem('reported_sidebar_collapsed', String(next));
-      return next;
-    });
+    const next = !sidebarCollapsed;
+    localStorage.setItem('reported_sidebar_collapsed', String(next));
+    setSidebarCollapsed(next);
   };
 
   const [cmdOpen, setCmdOpen] = useState(false);
