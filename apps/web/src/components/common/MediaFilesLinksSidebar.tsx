@@ -111,8 +111,15 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
     return parts.join('\n\n');
   }, [content, comments]);
 
+  const isImageFile = (filenameOrUrl: string, mimeType?: string) => {
+    if (mimeType && mimeType.startsWith('image/')) return true;
+    return /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?.*)?$/i.test(filenameOrUrl);
+  };
+
   const images = useMemo(() => {
-    const list: AttachmentItem[] = [...attachments.filter(a => a.mimeType.startsWith('image/'))];
+    const list: AttachmentItem[] = [
+      ...attachments.filter(a => isImageFile(a.url || a.filename || a.originalName, a.mimeType))
+    ];
     const existingUrls = new Set(list.map(a => a.inlineUrl || a.url));
 
     const imgMatches = combinedContent.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g);
@@ -133,17 +140,40 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         });
       }
     }
+
+    const fileMatches = combinedContent.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g);
+    for (const m of fileMatches) {
+      const alt = m[1];
+      const url = m[2];
+      if (isImageFile(url) && !existingUrls.has(url)) {
+        existingUrls.add(url);
+        list.push({
+          id: url,
+          filename: alt,
+          originalName: alt,
+          mimeType: 'image/png',
+          sizeBytes: 0,
+          url,
+          inlineUrl: url,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+
     return list;
   }, [attachments, combinedContent]);
 
   const nonMediaFiles = useMemo(() => {
-    const list: AttachmentItem[] = [...attachments.filter(a => !a.mimeType.startsWith('image/'))];
+    const list: AttachmentItem[] = [
+      ...attachments.filter(a => !isImageFile(a.url || a.filename || a.originalName, a.mimeType))
+    ];
     const existingUrls = new Set(list.map(a => a.url));
 
     const fileMatches = combinedContent.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g);
     for (const m of fileMatches) {
       const title = m[1];
       const url = m[2];
+      if (isImageFile(url)) continue;
       const isVoice = title.includes('🎙️') || title.toLowerCase().includes('tin nhắn thoại') || title.toLowerCase().includes('voice');
       const isAttachmentUrl = url.includes('/api/v1/attachments/');
       const hasFileExt = /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|webm|mp3|wav|m4a|log|sql)(\?.*)?$/i.test(url);
@@ -177,7 +207,8 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
       return (
         url.includes('/api/v1/attachments/') ||
         url.startsWith('#') ||
-        /\.(png|jpe?g|gif|webp|svg|webm|mp4)(\?.*)?$/i.test(url)
+        isImageFile(url) ||
+        /\.(mp4|mov|webm|mkv|avi)(\?.*)?$/i.test(url)
       );
     };
 

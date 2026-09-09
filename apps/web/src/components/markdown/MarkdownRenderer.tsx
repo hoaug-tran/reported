@@ -155,8 +155,17 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
     formatted = formatted.replace(/^- (.*$)/gim, '<li>$1</li>');
 
-    formatted = formatted.replace(/\n\n/g, '<br/><br/>');
-    formatted = formatted.replace(/<\/blockquote>\s*(?:<br\s*\/?>)+/gi, '</blockquote>');
+    const paragraphs = formatted.split(/\n{2,}/);
+    formatted = paragraphs
+      .map((p) => {
+        const trimmed = p.trim();
+        if (!trimmed) return '';
+        if (/^<(h[1-6]|div|table|blockquote|hr|ul|ol|li)/i.test(trimmed)) {
+          return trimmed;
+        }
+        return `<p>${trimmed.replace(/\n/g, '<br/>')}</p>`;
+      })
+      .join('\n');
 
     const cleanHtml = DOMPurify.sanitize(formatted, {
       ALLOWED_TAGS: [
@@ -171,9 +180,10 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     return (
       <Box
         sx={{
-          lineHeight: 1.65,
+          lineHeight: 1.6,
           color: tokens.textPrimary,
           fontSize: '0.875rem',
+          '& p': { m: 0, mb: 1.25, '&:last-child': { mb: 0 } },
           '& h1': { fontSize: '1.4rem', fontWeight: 600, my: 1.5, pb: 0.5, borderBottom: `1px solid ${tokens.border}` },
           '& h2': { fontSize: '1.2rem', fontWeight: 600, my: 1.25, pb: 0.5, borderBottom: `1px solid ${tokens.border}` },
           '& h3': { fontSize: '1.05rem', fontWeight: 600, my: 1 },

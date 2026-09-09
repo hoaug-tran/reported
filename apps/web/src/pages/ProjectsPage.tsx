@@ -4,7 +4,7 @@ import {
   DialogContent, DialogActions, Chip, Alert, Card, CardContent, CardActionArea,
   IconButton, Tooltip
 } from '@mui/material';
-import { Plus, Bug, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Bug, Eye, Edit2, Trash2, FolderGit2 } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -58,6 +58,7 @@ export const ProjectsPage: React.FC = () => {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<ProjectDto | null>(null);
   const [editName, setEditName] = useState('');
+  const [editSlug, setEditSlug] = useState('');
   const [editKey, setEditKey] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editSaving, setEditSaving] = useState(false);
@@ -71,7 +72,7 @@ export const ProjectsPage: React.FC = () => {
     if (!isSlugManual) {
       setSlug(generateSlug(val));
     }
-    if (!isKeyManual && val.trim()) {
+    if (!isKeyManual) {
       setKey(generateKey(val));
     }
   };
@@ -79,8 +80,8 @@ export const ProjectsPage: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !key.trim() || !slug.trim()) {
-      toast.error(isVi ? 'Vui lòng điền đủ tên, slug và mã dự án (Key)' : 'Please fill name, slug and project key');
+    if (!name.trim() || !slug.trim() || !key.trim()) {
+      toast.error(isVi ? 'Vui lòng điền đầy đủ các thông tin bắt buộc' : 'Please fill all required fields');
       return;
     }
 
@@ -92,7 +93,7 @@ export const ProjectsPage: React.FC = () => {
         key: key.trim().toUpperCase(),
         description: description.trim() || undefined
       });
-      toast.success(isVi ? 'Đã tạo dự án thành công' : 'Project created successfully');
+      toast.success(isVi ? 'Tạo dự án mới thành công!' : 'Project created successfully!');
       setCreateModalOpen(false);
       setName('');
       setSlug('');
@@ -111,6 +112,7 @@ export const ProjectsPage: React.FC = () => {
   const handleOpenEdit = (proj: ProjectDto) => {
     setEditingProject(proj);
     setEditName(proj.name);
+    setEditSlug(proj.slug);
     setEditKey(proj.key);
     setEditDescription(proj.description || '');
     setEditModalOpen(true);
@@ -119,8 +121,8 @@ export const ProjectsPage: React.FC = () => {
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProject) return;
-    if (!editName.trim() || !editKey.trim()) {
-      toast.error(isVi ? 'Tên và mã dự án không được để trống' : 'Name and key cannot be empty');
+    if (!editName.trim() || !editKey.trim() || !editSlug.trim()) {
+      toast.error(isVi ? 'Tên, slug và mã dự án không được để trống' : 'Name, slug, and key cannot be empty');
       return;
     }
 
@@ -128,6 +130,7 @@ export const ProjectsPage: React.FC = () => {
       setEditSaving(true);
       await updateProject(editingProject.id, {
         name: editName.trim(),
+        slug: editSlug.trim().toLowerCase(),
         key: editKey.trim().toUpperCase(),
         description: editDescription.trim()
       });
@@ -170,30 +173,60 @@ export const ProjectsPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', pb: 8 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-        <Box>
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: '-0.025em', color: tokens.textPrimary }}>
             {t('projectList')}
           </Typography>
-          <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
+          <Typography variant="body2" sx={{ color: tokens.textSecondary, mt: 0.5 }}>
             Phân chia các thành phần kiến trúc, microservices và frontend theo dự án chuyên biệt
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<Plus size={16} />}
-          onClick={() => setCreateModalOpen(true)}
+        <Box
           sx={{
-            textTransform: 'none',
-            fontWeight: 700,
-            borderRadius: '8px',
-            backgroundColor: tokens.primary,
-            boxShadow: 'none'
+            display: 'flex',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: { xs: 'flex-start', sm: 'space-between' },
+            gap: 1.5,
+            flexWrap: 'wrap'
           }}
         >
-          {t('createProjectBtn')}
-        </Button>
+          <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {projects.length} {t('projects') || 'dự án'}
+          </Typography>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.2,
+              flexWrap: 'wrap',
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+            }}
+          >
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={16} />}
+              onClick={() => setCreateModalOpen(true)}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                borderRadius: '8px',
+                backgroundColor: tokens.primary,
+                boxShadow: 'none',
+                whiteSpace: 'nowrap',
+                py: 0.8,
+                px: 1.8,
+                fontSize: '0.8125rem'
+              }}
+            >
+              {t('createProjectBtn')}
+            </Button>
+          </Box>
+        </Box>
       </Box>
 
       <Grid container spacing={2.5}>
@@ -300,8 +333,9 @@ export const ProjectsPage: React.FC = () => {
 
       <Dialog open={createModalOpen} onClose={() => setCreateModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '8px' } }}>
         <form onSubmit={handleCreate}>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            {t('createProjectBtn')} vào {activeWorkspace?.name}
+          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1.2 }}>
+            <FolderGit2 size={20} color={tokens.primary} />
+            <span>{t('createProjectBtn')} vào {activeWorkspace?.name}</span>
           </DialogTitle>
           <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8 }}>
@@ -403,14 +437,14 @@ export const ProjectsPage: React.FC = () => {
               onChange={(e) => setDescription(e.target.value)}
             />
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
+          <DialogActions sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
             <Button
               onClick={() => {
                 setCreateModalOpen(false);
                 setIsSlugManual(false);
                 setIsKeyManual(false);
               }}
-              sx={{ textTransform: 'none', borderRadius: '6px' }}
+              sx={{ textTransform: 'none', borderRadius: '6px', whiteSpace: 'nowrap' }}
             >
               {t('cancelBtn')}
             </Button>
@@ -418,7 +452,7 @@ export const ProjectsPage: React.FC = () => {
               type="submit"
               variant="contained"
               disabled={isSubmitting}
-              sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: tokens.primary, borderRadius: '6px' }}
+              sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: tokens.primary, borderRadius: '6px', whiteSpace: 'nowrap' }}
             >
               {isSubmitting ? (isVi ? 'Đang tạo...' : 'Creating...') : t('createProjectBtn')}
             </Button>
@@ -428,10 +462,11 @@ export const ProjectsPage: React.FC = () => {
 
       <Dialog open={editModalOpen} onClose={() => !editSaving && setEditModalOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: '8px' } }}>
         <form onSubmit={handleSaveEdit}>
-          <DialogTitle sx={{ fontWeight: 700 }}>
-            {isVi ? 'Chỉnh sửa dự án' : 'Edit Project'}
+          <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1.2 }}>
+            <FolderGit2 size={20} color={tokens.primary} />
+            <span>{isVi ? 'Chỉnh sửa dự án' : 'Edit Project'}</span>
           </DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
             <TextField
               fullWidth
               label={t('projectName')}
@@ -439,13 +474,48 @@ export const ProjectsPage: React.FC = () => {
               onChange={(e) => setEditName(e.target.value)}
               required
             />
-            <TextField
-              fullWidth
-              label={t('projectKey')}
-              value={editKey}
-              onChange={(e) => setEditKey(e.target.value.toUpperCase())}
-              required
-            />
+
+            <Grid container spacing={2}>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label={t('projectKey')}
+                  value={editKey}
+                  onChange={(e) => setEditKey(e.target.value.toUpperCase())}
+                  required
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Slug"
+                  value={editSlug}
+                  onChange={(e) => setEditSlug(e.target.value.toLowerCase())}
+                  required
+                />
+              </Grid>
+            </Grid>
+
+            <Box
+              sx={{
+                px: 1.4,
+                py: 0.8,
+                borderRadius: '6px',
+                backgroundColor: tokens.surfaceSecondary,
+                border: `1px solid ${tokens.border}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.8,
+                fontSize: '0.75rem',
+                color: tokens.textSecondary
+              }}
+            >
+              <span>{isVi ? 'Mã mẫu Issue:' : 'Example Issue ID:'}</span>
+              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, color: tokens.primary, fontSize: '0.75rem' }}>
+                #{editKey || 'PROJ'}-1
+              </Typography>
+            </Box>
+
             <TextField
               fullWidth
               multiline
@@ -455,15 +525,15 @@ export const ProjectsPage: React.FC = () => {
               onChange={(e) => setEditDescription(e.target.value)}
             />
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={() => setEditModalOpen(false)} disabled={editSaving} sx={{ textTransform: 'none', borderRadius: '6px' }}>
+          <DialogActions sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+            <Button onClick={() => setEditModalOpen(false)} disabled={editSaving} sx={{ textTransform: 'none', borderRadius: '6px', whiteSpace: 'nowrap' }}>
               {t('cancelBtn')}
             </Button>
             <Button
               type="submit"
               variant="contained"
               disabled={editSaving}
-              sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: tokens.primary, borderRadius: '6px' }}
+              sx={{ textTransform: 'none', fontWeight: 600, backgroundColor: tokens.primary, borderRadius: '6px', whiteSpace: 'nowrap' }}
             >
               {editSaving ? (isVi ? 'Đang lưu...' : 'Saving...') : (isVi ? 'Lưu thay đổi' : 'Save Changes')}
             </Button>

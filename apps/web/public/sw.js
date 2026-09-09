@@ -1,4 +1,4 @@
-const CACHE_NAME = 'reported-cache-v2';
+const CACHE_NAME = 'reported-cache-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -38,9 +38,30 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  const isViteDev =
+    url.pathname.includes('/node_modules/') ||
+    url.pathname.includes('/.vite/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/@') ||
+    url.searchParams.has('v') ||
+    url.searchParams.has('t') ||
+    url.pathname.endsWith('.ts') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.includes('hot-update');
+
+  if (isViteDev) {
+    return;
+  }
+
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(async () => {
+      fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200 && !url.port) {
+          const toCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/', toCache)).catch(() => {});
+        }
+        return networkResponse;
+      }).catch(async () => {
         const cached = await caches.match('/');
         if (cached) return cached;
         return new Response('<!DOCTYPE html><html><body>Offline</body></html>', {
@@ -48,6 +69,14 @@ self.addEventListener('fetch', (event) => {
         });
       })
     );
+    return;
+  }
+
+  const isStaticAsset =
+    url.pathname.startsWith('/assets/') ||
+    STATIC_ASSETS.includes(url.pathname);
+
+  if (!isStaticAsset) {
     return;
   }
 

@@ -234,15 +234,16 @@ export const UserProfilePage: React.FC = () => {
     <Box sx={{ maxWidth: 1100, mx: 'auto', pb: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Box
         sx={{
-          p: 3,
+          p: { xs: 2.5, sm: 3 },
           borderRadius: '10px',
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
           display: 'flex',
-          gap: 3,
-          alignItems: 'flex-start',
-          position: 'relative',
-          flexWrap: { xs: 'wrap', md: 'nowrap' }
+          flexDirection: { xs: 'column', sm: 'row' },
+          alignItems: { xs: 'center', sm: 'flex-start' },
+          textAlign: { xs: 'center', sm: 'left' },
+          gap: { xs: 2, sm: 3 },
+          position: 'relative'
         }}
       >
         <Box sx={{ position: 'relative' }}>
@@ -268,9 +269,16 @@ export const UserProfilePage: React.FC = () => {
           )}
         </Box>
 
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, mb: 0.5, flexWrap: 'wrap' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+        <Box sx={{ flex: 1, minWidth: 0, width: { xs: '100%', sm: 'auto' } }}>
+          <Box sx={{
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'center', sm: 'flex-start' },
+            justifyContent: 'space-between',
+            gap: 1.5,
+            mb: 0.5
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: { xs: 'center', sm: 'flex-start' }, gap: 1.2, flexWrap: 'wrap' }}>
               <Typography variant="h1" sx={{ fontWeight: 800, fontSize: '1.45rem', letterSpacing: '-0.015em' }}>
                 {profile.displayName}
               </Typography>
@@ -317,7 +325,15 @@ export const UserProfilePage: React.FC = () => {
             </Typography>
           )}
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap', color: tokens.textSecondary, fontSize: '0.8125rem' }}>
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: { xs: 'center', sm: 'flex-start' },
+            gap: 2.5,
+            flexWrap: 'wrap',
+            color: tokens.textSecondary,
+            fontSize: '0.8125rem'
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
               <Mail size={14} />
               <span>{profile.email}</span>
@@ -344,31 +360,31 @@ export const UserProfilePage: React.FC = () => {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
-        <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
-          <Typography variant="h2" sx={{ fontWeight: 800, color: tokens.primary, fontSize: '1.75rem' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: { xs: 1, sm: 2 } }}>
+        <Box sx={{ p: { xs: 1.2, sm: 2 }, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ fontWeight: 800, color: tokens.primary, fontSize: { xs: '1.25rem', sm: '1.75rem' } }}>
             {profile.createdIssuesCount || 0}
           </Typography>
-          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.04em' }}>
-            {isVi ? 'BÀI VIẾT ĐÃ TẠO' : 'ISSUES OPENED'}
+          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.02em', fontSize: { xs: '0.625rem', sm: '0.75rem' }, display: 'block', lineHeight: 1.2 }}>
+            {isVi ? 'ĐÃ TẠO' : 'OPENED'}
           </Typography>
         </Box>
 
-        <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
-          <Typography variant="h2" sx={{ fontWeight: 800, color: tokens.warning, fontSize: '1.75rem' }}>
+        <Box sx={{ p: { xs: 1.2, sm: 2 }, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ fontWeight: 800, color: tokens.warning, fontSize: { xs: '1.25rem', sm: '1.75rem' } }}>
             {profile.assignedIssuesCount || 0}
           </Typography>
-          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.04em' }}>
-            {isVi ? 'BÀI VIẾT ĐƯỢC GIAO' : 'ASSIGNED ISSUES'}
+          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.02em', fontSize: { xs: '0.625rem', sm: '0.75rem' }, display: 'block', lineHeight: 1.2 }}>
+            {isVi ? 'ĐƯỢC GIAO' : 'ASSIGNED'}
           </Typography>
         </Box>
 
-        <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
-          <Typography variant="h2" sx={{ fontWeight: 800, color: '#a855f7', fontSize: '1.75rem' }}>
+        <Box sx={{ p: { xs: 1.2, sm: 2 }, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.surface, textAlign: 'center' }}>
+          <Typography variant="h2" sx={{ fontWeight: 800, color: '#a855f7', fontSize: { xs: '1.25rem', sm: '1.75rem' } }}>
             {profile.pendingReviewsCount || 0}
           </Typography>
-          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.04em' }}>
-            {isVi ? 'REVIEW ĐÃ THAM GIA' : 'REVIEWS INVOLVED'}
+          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.02em', fontSize: { xs: '0.625rem', sm: '0.75rem' }, display: 'block', lineHeight: 1.2 }}>
+            {isVi ? 'REVIEW' : 'REVIEWS'}
           </Typography>
         </Box>
       </Box>
@@ -409,8 +425,8 @@ export const UserProfilePage: React.FC = () => {
           </Box>
         </Box>
 
-        <Box sx={{ width: '100%', overflowX: 'auto', pb: 1 }}>
-          <Box sx={{ width: '100%', minWidth: 780 }}>
+        <Box sx={{ width: '100%', overflowX: 'auto', pb: 1, pr: 0.5 }}>
+          <Box sx={{ width: '100%', minWidth: 780, pr: 2, boxSizing: 'border-box' }}>
             <Box
               sx={{
                 display: 'grid',
@@ -496,7 +512,8 @@ export const UserProfilePage: React.FC = () => {
                             transition: 'all 0.12s ease',
                             cursor: 'pointer',
                             '&:hover': {
-                              transform: 'scale(1.3)',
+                              transform: 'scale(1.25)',
+                              transformOrigin: wIdx >= weeks.length - 2 ? 'right center' : 'center center',
                               boxShadow: `0 0 0 2px ${tokens.primary}`,
                               zIndex: 2
                             }
@@ -542,17 +559,30 @@ export const UserProfilePage: React.FC = () => {
           <Tabs
             value={activeTab}
             onChange={(_, val) => setActiveTab(val)}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             textColor="primary"
             indicatorColor="primary"
-            sx={{ minHeight: 44 }}
+            sx={{
+              minHeight: 44,
+              maxWidth: '100%',
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                minHeight: 44,
+                fontSize: '0.84rem',
+                whiteSpace: 'nowrap'
+              }
+            }}
           >
-            <Tab label={isVi ? 'Hoạt động gần đây' : 'Recent Activity'} sx={{ textTransform: 'none', fontWeight: 600, minHeight: 44, fontSize: '0.84rem' }} />
-            <Tab label={isVi ? 'Bài viết đã tạo' : 'Opened Issues'} sx={{ textTransform: 'none', fontWeight: 600, minHeight: 44, fontSize: '0.84rem' }} />
-            <Tab label={isVi ? 'Yêu cầu Review' : 'Code Reviews'} sx={{ textTransform: 'none', fontWeight: 600, minHeight: 44, fontSize: '0.84rem' }} />
+            <Tab label={isVi ? 'Hoạt động gần đây' : 'Recent Activity'} />
+            <Tab label={isVi ? 'Bài viết đã tạo' : 'Opened Issues'} />
+            <Tab label={isVi ? 'Yêu cầu Review' : 'Code Reviews'} />
           </Tabs>
         </Box>
 
-        <Box sx={{ p: 2.5 }}>
+        <Box sx={{ p: 2.5, minHeight: 320 }}>
           {activeTab === 0 && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
               {(!activityData?.recentItems || activityData.recentItems.length === 0) ? (
@@ -568,7 +598,10 @@ export const UserProfilePage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 1.2,
+                      height: 48,
+                      minHeight: 48,
+                      boxSizing: 'border-box',
+                      px: 1.5,
                       borderRadius: '6px',
                       backgroundColor: tokens.surfaceSecondary,
                       cursor: 'pointer',
@@ -576,13 +609,13 @@ export const UserProfilePage: React.FC = () => {
                       '&:hover': { backgroundColor: tokens.hover }
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1, mr: 1 }}>
                       {item.type === 'issue' ? (
-                        <FileText size={16} color={tokens.primary} />
+                        <FileText size={16} color={tokens.primary} style={{ flexShrink: 0 }} />
                       ) : (
-                        <CheckCircle2 size={16} color={tokens.accent} />
+                        <CheckCircle2 size={16} color={tokens.accent} style={{ flexShrink: 0 }} />
                       )}
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary }} noWrap>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} noWrap>
                         {item.title}
                       </Typography>
                     </Box>
@@ -613,16 +646,20 @@ export const UserProfilePage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 1.2,
+                      height: 48,
+                      minHeight: 48,
+                      boxSizing: 'border-box',
+                      px: 1.5,
                       borderRadius: '6px',
                       backgroundColor: tokens.surfaceSecondary,
                       cursor: 'pointer',
+                      transition: 'background-color 0.12s ease',
                       '&:hover': { backgroundColor: tokens.hover }
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
-                      <FileText size={16} color={tokens.primary} />
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary }} noWrap>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1, mr: 1 }}>
+                      <FileText size={16} color={tokens.primary} style={{ flexShrink: 0 }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} noWrap>
                         {issue.title}
                       </Typography>
                     </Box>
@@ -653,16 +690,20 @@ export const UserProfilePage: React.FC = () => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      p: 1.2,
+                      height: 48,
+                      minHeight: 48,
+                      boxSizing: 'border-box',
+                      px: 1.5,
                       borderRadius: '6px',
                       backgroundColor: tokens.surfaceSecondary,
                       cursor: 'pointer',
+                      transition: 'background-color 0.12s ease',
                       '&:hover': { backgroundColor: tokens.hover }
                     }}
                   >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
-                      <CheckCircle2 size={16} color={tokens.accent} />
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary }} noWrap>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0, flex: 1, mr: 1 }}>
+                      <CheckCircle2 size={16} color={tokens.accent} style={{ flexShrink: 0 }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} noWrap>
                         {rev.title}
                       </Typography>
                     </Box>

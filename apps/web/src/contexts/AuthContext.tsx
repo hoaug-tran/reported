@@ -178,8 +178,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await fetchConnectedAccounts();
   };
 
-  const hasCodeHostingConnected = connectedAccounts.some(
-    (acc) => (acc.provider === 'github' || acc.provider === 'gitlab') && acc.healthStatus === 'HEALTHY'
+  const hasCodeHostingConnected = Boolean(
+    Boolean(user?.githubUsername) ||
+    connectedAccounts.some(
+      (acc) => (acc.provider === 'github' || acc.provider === 'gitlab') && acc.healthStatus !== 'REVOKED'
+    )
   );
 
   return (

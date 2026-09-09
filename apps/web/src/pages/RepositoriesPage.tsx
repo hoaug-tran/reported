@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Box, Typography, Button, CircularProgress, Chip, Link as MuiLink,
+  Box, Typography, Button, Skeleton, Chip, Link as MuiLink,
   Card, CardContent, Divider, IconButton, Tooltip, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, FormControlLabel, Switch, Alert,
   Accordion, AccordionSummary, AccordionDetails, Paper
@@ -299,9 +299,9 @@ export const RepositoriesPage: React.FC = () => {
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 0 }}>
                     {loadingPrs[repo.id] ? (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 2 }}>
-                        <CircularProgress size={18} />
-                        <Typography variant="caption">{isVi ? 'Đang tải PR từ GitHub...' : 'Loading open PRs from GitHub...'}</Typography>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, py: 1 }}>
+                        <Skeleton variant="rectangular" width="100%" height={48} sx={{ borderRadius: '6px' }} />
+                        <Skeleton variant="rectangular" width="100%" height={48} sx={{ borderRadius: '6px' }} />
                       </Box>
                     ) : !repoPrs[repo.id] || repoPrs[repo.id].length === 0 ? (
                       <Box sx={{ py: 1.5, color: tokens.textSecondary }}>

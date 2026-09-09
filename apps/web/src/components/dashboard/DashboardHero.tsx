@@ -115,9 +115,16 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           sx={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 1.2,
-            px: 1.5,
+            flexWrap: 'nowrap',
+            gap: { xs: 0.8, sm: 1.2 },
+            px: { xs: 1.2, sm: 1.5 },
+            py: 0,
             height: 38,
+            minHeight: 38,
+            maxWidth: '100%',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            '&::-webkit-scrollbar': { display: 'none' },
             boxSizing: 'border-box',
             borderRadius: '8px',
             backgroundColor: tokens.surface,
@@ -125,7 +132,6 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
             boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
             flexShrink: 0,
             cursor: 'pointer',
-            whiteSpace: 'nowrap',
             transition: 'all 0.15s ease',
             '&:hover': {
               borderColor: tokens.primary,
@@ -135,7 +141,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
         >
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
             <Clock size={14} color={tokens.textSecondary} />
-            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
               {timeString}
             </Typography>
           </Box>
@@ -145,7 +151,7 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
           <Tooltip title={`${dateString} • Bấm để xem lịch chi tiết`}>
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
               <Calendar size={14} color={tokens.textSecondary} />
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
+              <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
                 {shortDateString}
               </Typography>
             </Box>
@@ -155,18 +161,18 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
 
           <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
             {renderWeatherIcon()}
-            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
+            <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, fontWeight: 600, color: tokens.textPrimary, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1 }}>
               {weather.temperature}°C
             </Typography>
           </Box>
 
           <Box sx={{ width: '1px', minWidth: '1px', maxWidth: '1px', height: 14, backgroundColor: tokens.divider, flexShrink: 0 }} />
 
-          <Tooltip title={`${weather.description} • Gió ${weather.windSpeed} km/h`}>
+          <Tooltip title={`${weather.location} • ${weather.description} • Gió ${weather.windSpeed} km/h`}>
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
               <MapPin size={14} color={tokens.textSecondary} />
-              <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
-                {weather.location}
+              <Typography sx={{ fontSize: { xs: '0.75rem', sm: '0.8125rem' }, fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap', lineHeight: 1 }}>
+                {weather.location ? weather.location.split(',')[0].trim() : ''}
               </Typography>
             </Box>
           </Tooltip>

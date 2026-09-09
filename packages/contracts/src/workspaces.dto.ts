@@ -64,6 +64,7 @@ export type CreateProjectDto = z.infer<typeof CreateProjectSchema>;
 
 export const UpdateProjectSchema = z.object({
   name: z.string().min(2).max(50).optional(),
+  slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/).optional(),
   key: z.string().min(2).max(10).regex(/^[A-Z0-9]+$/).optional(),
   description: z.string().max(250).optional()
 });

@@ -26,11 +26,12 @@ import { MediaFilesLinksSidebar } from '../components/common/MediaFilesLinksSide
 import { ReviewDecisionDialog } from '../components/reviews/ReviewDecisionDialog';
 import { AcknowledgementBadge } from '../components/reviews/AcknowledgementBadge';
 import { CICheckRunsList } from '../components/github/CICheckRunsList';
+import { toast } from '../contexts/ToastContext';
 import { apiFetch, ApiError } from '../api/client';
 import {
   TargetType, ReviewDetailDto, ReviewerAssignmentDto, CommentDto,
   ReviewerDecision, ReviewType, ReviewStatus, UserSummaryDto, RepositoryDto,
-  IssueLabelDto
+  IssueLabelDto, ActivityTimelineDto
 } from '@reported/contracts';
 import { NotFoundPage } from './NotFoundPage';
 import { AccessDeniedPage } from './AccessDeniedPage';
@@ -84,6 +85,7 @@ export const ReviewDetailPage: React.FC = () => {
   const [review, setReview] = useState<ReviewDetailDto | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [comments, setComments] = useState<CommentDto[]>([]);
+  const [activities, setActivities] = useState<ActivityTimelineDto[]>([]);
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
 
   const [usersList, setUsersList] = useState<UserSummaryDto[]>([]);
@@ -117,8 +119,23 @@ export const ReviewDetailPage: React.FC = () => {
       setReview(data);
       setErrorStatus(null);
 
-      const commData = await apiFetch<CommentDto[]>(`/comments?targetType=REVIEW&targetId=${data.id}`);
+      const [commData, actData] = await Promise.all([
+        apiFetch<CommentDto[]>(`/comments?targetType=REVIEW&targetId=${data.id}`),
+        apiFetch<ActivityTimelineDto[]>(`/activity?targetType=REVIEW&targetId=${data.id}`).catch(() => [])
+      ]);
       setComments(commData);
+      setActivities(actData || []);
+
+      if (data.pullRequest?.id) {
+        apiFetch<{ success: boolean; hasChanges?: boolean }>(`/github/pull-requests/${data.pullRequest.id}/sync`, { method: 'POST' })
+          .then((res) => {
+            if (res?.hasChanges) {
+              toast.info(isVi ? 'Pull Request có cập nhật mới. Đã chuyển trạng thái sang Chờ review.' : 'Pull Request synced with new changes. Status updated to Pending.');
+              fetchReviewData();
+            }
+          })
+          .catch(() => {});
+      }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setErrorStatus(err.status);
@@ -161,17 +178,8 @@ export const ReviewDetailPage: React.FC = () => {
     loadResources();
   }, [activeWorkspace?.id]);
 
-  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
-
   if (loading) {
-    if (smoothLoading) {
-      return <DetailSkeleton />;
-    }
-    return (
-      <Box sx={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={26} />
-      </Box>
-    );
+    return <DetailSkeleton />;
   }
 
   if (!review) {
@@ -266,7 +274,20 @@ export const ReviewDetailPage: React.FC = () => {
     }
   };
 
-  const isLeader = activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const handleStatusChange = async (newStatus: ReviewStatus) => {
+    if (!review || !canEdit) return;
+    try {
+      await apiFetch(`/reviews/${review.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus })
+      });
+      await fetchReviewData();
+    } catch (err) {
+      console.error('Failed to change status:', err);
+    }
+  };
+
+  const isLeader = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
   const canEdit = user && (user.id === review?.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === review.projectId);
 
@@ -416,17 +437,21 @@ export const ReviewDetailPage: React.FC = () => {
             </Box>
           )}
 
-          <AcknowledgementBadge
-            reviewId={review.id}
-            reviewers={review.reviewers || []}
-            onUpdated={fetchReviewData}
-          />
-
           <CommentThread
             targetType={TargetType.REVIEW}
             targetId={review.id}
             comments={comments}
+            activities={activities}
             onRefresh={fetchReviewData}
+            childrenBeforeEditor={
+              <Box sx={{ mb: 2 }}>
+                <AcknowledgementBadge
+                  reviewId={review.id}
+                  reviewers={review.reviewers || []}
+                  onUpdated={fetchReviewData}
+                />
+              </Box>
+            }
           />
         </Box>
 
@@ -448,6 +473,26 @@ export const ReviewDetailPage: React.FC = () => {
             '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
           }}
         >
+
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
+              {isVi ? 'TRẠNG THÁI' : 'STATUS'}
+            </Typography>
+            <Select
+              size="small"
+              fullWidth
+              value={review.status}
+              disabled={review.isDeleted || !canEdit}
+              onChange={(e) => handleStatusChange(e.target.value as ReviewStatus)}
+              sx={{ fontSize: '0.8125rem' }}
+            >
+              <MenuItem value={ReviewStatus.PENDING_REVIEW}>{isVi ? 'Chờ review' : 'Pending Review'}</MenuItem>
+              <MenuItem value={ReviewStatus.IN_REVIEW}>{isVi ? 'Đang review' : 'In Review'}</MenuItem>
+              <MenuItem value={ReviewStatus.CHANGES_REQUESTED}>{isVi ? 'Yêu cầu chỉnh sửa' : 'Changes Requested'}</MenuItem>
+              <MenuItem value={ReviewStatus.APPROVED}>{isVi ? 'Đã duyệt' : 'Approved'}</MenuItem>
+              <MenuItem value={ReviewStatus.CLOSED}>{isVi ? 'Đã đóng' : 'Closed'}</MenuItem>
+            </Select>
+          </Box>
 
           <Box>
             <Button
@@ -768,14 +813,14 @@ export const ReviewDetailPage: React.FC = () => {
                 onChange={(e) => setEditReviewType(e.target.value as ReviewType)}
                 sx={{ borderRadius: '6px' }}
               >
-                <MenuItem value={ReviewType.CODE}>Code Implementation</MenuItem>
-                <MenuItem value={ReviewType.PR}>Pull Request Review</MenuItem>
-                <MenuItem value={ReviewType.ARCHITECTURE}>Architecture & Design</MenuItem>
-                <MenuItem value={ReviewType.SECURITY}>Security Review</MenuItem>
-                <MenuItem value={ReviewType.API}>API & Integration</MenuItem>
-                <MenuItem value={ReviewType.DATABASE}>Database & Schema</MenuItem>
-                <MenuItem value={ReviewType.UI}>UI & Frontend</MenuItem>
-                <MenuItem value={ReviewType.DOCUMENTATION}>Documentation</MenuItem>
+                <MenuItem value={ReviewType.CODE}>{isVi ? 'Triển khai Code' : 'Code Implementation'}</MenuItem>
+                <MenuItem value={ReviewType.PR}>{isVi ? 'Review Pull Request' : 'Pull Request Review'}</MenuItem>
+                <MenuItem value={ReviewType.ARCHITECTURE}>{isVi ? 'Kiến trúc & Thiết kế' : 'Architecture & Design'}</MenuItem>
+                <MenuItem value={ReviewType.SECURITY}>{isVi ? 'Bảo mật' : 'Security Review'}</MenuItem>
+                <MenuItem value={ReviewType.API}>{isVi ? 'API & Tích hợp' : 'API & Integration'}</MenuItem>
+                <MenuItem value={ReviewType.DATABASE}>{isVi ? 'Cơ sở dữ liệu' : 'Database & Schema'}</MenuItem>
+                <MenuItem value={ReviewType.UI}>{isVi ? 'Giao diện & Frontend' : 'UI & Frontend'}</MenuItem>
+                <MenuItem value={ReviewType.DOCUMENTATION}>{isVi ? 'Tài liệu' : 'Documentation'}</MenuItem>
               </Select>
             </Box>
 
@@ -790,11 +835,11 @@ export const ReviewDetailPage: React.FC = () => {
                 onChange={(e) => setEditStatus(e.target.value as ReviewStatus)}
                 sx={{ borderRadius: '6px' }}
               >
-                <MenuItem value={ReviewStatus.PENDING_REVIEW}>Pending Review</MenuItem>
-                <MenuItem value={ReviewStatus.IN_REVIEW}>In Review</MenuItem>
-                <MenuItem value={ReviewStatus.CHANGES_REQUESTED}>Changes Requested</MenuItem>
-                <MenuItem value={ReviewStatus.APPROVED}>Approved</MenuItem>
-                <MenuItem value={ReviewStatus.CLOSED}>Closed</MenuItem>
+                <MenuItem value={ReviewStatus.PENDING_REVIEW}>{isVi ? 'Chờ review' : 'Pending Review'}</MenuItem>
+                <MenuItem value={ReviewStatus.IN_REVIEW}>{isVi ? 'Đang review' : 'In Review'}</MenuItem>
+                <MenuItem value={ReviewStatus.CHANGES_REQUESTED}>{isVi ? 'Yêu cầu chỉnh sửa' : 'Changes Requested'}</MenuItem>
+                <MenuItem value={ReviewStatus.APPROVED}>{isVi ? 'Đã duyệt' : 'Approved'}</MenuItem>
+                <MenuItem value={ReviewStatus.CLOSED}>{isVi ? 'Đã đóng' : 'Closed'}</MenuItem>
               </Select>
             </Box>
 

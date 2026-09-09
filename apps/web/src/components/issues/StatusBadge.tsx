@@ -15,9 +15,10 @@ import { IssueStatus, ReviewStatus } from '@reported/contracts';
 interface StatusBadgeProps {
   status: IssueStatus | ReviewStatus | string;
   size?: 'small' | 'medium';
+  width?: number | string;
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small' }) => {
+export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small', width }) => {
   let label = status;
   let color = '#8b949e';
   let bg = 'rgba(139, 148, 158, 0.15)';
@@ -98,15 +99,23 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small'
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: width ? 'center' : 'flex-start',
+        width: width,
+        minWidth: width,
+        maxWidth: width,
         gap: 0.6,
-        px: 1,
-        py: 0.25,
-        borderRadius: '4px',
+        px: 1.1,
+        py: 0,
+        height: size === 'small' ? 24 : 28,
+        boxSizing: 'border-box',
+        borderRadius: '6px',
         backgroundColor: bg,
         color,
         fontSize: size === 'small' ? '0.75rem' : '0.8125rem',
         fontWeight: 600,
-        lineHeight: 1.4,
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+        flexShrink: 0,
         border: `1px solid ${color}33`,
         userSelect: 'none'
       }}

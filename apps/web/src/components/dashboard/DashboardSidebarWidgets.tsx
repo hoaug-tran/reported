@@ -295,7 +295,7 @@ export const DashboardSidebarWidgets: React.FC<DashboardSidebarWidgetsProps> = (
               key={tag.name}
               label={`#${tag.name}`}
               size="small"
-              onClick={() => setLocation(`/issues`)}
+              onClick={() => setLocation(`/issues?search=${encodeURIComponent(tag.name)}`)}
               sx={{
                 height: 22,
                 fontSize: '0.72rem',

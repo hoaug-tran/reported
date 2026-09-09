@@ -61,6 +61,8 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   const [mentionIndex, setMentionIndex] = useState<number>(-1);
   const [suggestedUsers, setSuggestedUsers] = useState<UserSummaryDto[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
+  const [editorHeight, setEditorHeight] = useState<number | undefined>(undefined);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [localValue, setLocalValue] = useState(value);
   const localValueRef = useRef(value);
@@ -349,6 +351,16 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   const canUndo = historyIndexRef.current > 0;
   const canRedo = historyIndexRef.current < historyRef.current.length - 1;
 
+  const handleTabChange = (_: React.SyntheticEvent, newTab: 'write' | 'preview') => {
+    if (newTab === 'preview') {
+      const h = textareaRef.current?.offsetHeight || containerRef.current?.offsetHeight;
+      if (h && h > 120) {
+        setEditorHeight(h);
+      }
+    }
+    setTabIndex(newTab);
+  };
+
   return (
     <Box
       sx={{
@@ -372,7 +384,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       >
         <Tabs
           value={tabIndex}
-          onChange={(_, v) => setTabIndex(v)}
+          onChange={handleTabChange}
           sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5, px: 1.5, fontSize: '0.8125rem' } }}
         >
           <Tab value="write" label="Write" />
@@ -566,6 +578,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
       {tabIndex === 'write' ? (
         <Box
+          ref={containerRef}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
           sx={{ p: 1.5, position: 'relative' }}
@@ -648,7 +661,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           )}
         </Box>
       ) : (
-        <Box sx={{ p: 2, minHeight: 120 }}>
+        <Box sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: 'border-box' }}>
           {value ? (
             <MarkdownRenderer content={value} />
           ) : (

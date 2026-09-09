@@ -53,6 +53,7 @@ import { DashboardCodeHostingBanner } from '../common/ConnectedAccountNotice';
 import { showDesktopNotification } from '../../utils/desktopNotification';
 import { apiFetch } from '../../api/client';
 import { NotificationDto, RepositoryDto } from '@reported/contracts';
+import { toast } from '../../contexts/ToastContext';
 
 interface SavedViewItem {
   id: string;
@@ -106,7 +107,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
   const [workspaceMenuAnchor, setWorkspaceMenuAnchor] = useState<null | HTMLElement>(null);
   const [langMenuAnchor, setLangMenuAnchor] = useState<null | HTMLElement>(null);
 
-  const [counts, setCounts] = useState({ issues: 0, reviews: 0, repos: 0 });
+  const [counts, setCounts] = useState({ posts: 0, issues: 0, reviews: 0, repos: 0, members: 0 });
   const [notifications, setNotifications] = useState<NotificationDto[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [savedViewsList, setSavedViewsList] = useState<SavedViewItem[]>([]);
@@ -144,15 +145,21 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const fetchSidebarStats = async () => {
     try {
-      const [issRes, revRes, repoRes] = await Promise.all([
+      const calls: [Promise<{ total: number }>, Promise<{ total: number }>, Promise<RepositoryDto[]>, Promise<any[]> | Promise<never[]>] = [
         apiFetch<{ total: number }>('/issues?limit=1'),
         apiFetch<{ total: number }>('/reviews?limit=1'),
-        apiFetch<RepositoryDto[]>('/github/repositories')
-      ]);
+        apiFetch<RepositoryDto[]>('/github/repositories'),
+        activeWorkspace?.id ? apiFetch<any[]>(`/workspaces/${activeWorkspace.id}/members`) : Promise.resolve([])
+      ];
+      const [issRes, revRes, repoRes, membersRes] = await Promise.all(calls);
+      const issTotal = issRes?.total || 0;
+      const revTotal = revRes?.total || 0;
       setCounts({
-        issues: issRes.total || 0,
-        reviews: revRes.total || 0,
-        repos: repoRes.length || 0
+        posts: issTotal + revTotal,
+        issues: issTotal,
+        reviews: revTotal,
+        repos: repoRes?.length || 0,
+        members: membersRes?.length || 0
       });
     } catch {
     }
@@ -279,13 +286,30 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const navItems = [
     { label: t('inbox'), path: '/', icon: <Inbox size={18} /> },
-    { label: t('posts'), path: '/posts', icon: <MessageSquare size={18} /> },
+    { label: t('posts'), path: '/posts', icon: <MessageSquare size={18} />, count: counts.posts },
     { label: t('issues'), path: '/issues', icon: <Bug size={18} />, count: counts.issues },
     { label: t('reviews'), path: '/reviews', icon: <Eye size={18} />, count: counts.reviews },
     { label: t('repositories'), path: '/repositories', icon: <FolderGit2 size={18} />, count: counts.repos },
-    { label: t('projects'), path: '/projects', icon: <Briefcase size={18} /> },
-    { label: t('members'), path: '/members', icon: <Users size={18} /> }
+    { label: t('projects'), path: '/projects', icon: <Briefcase size={18} />, count: projects.length },
+    { label: t('members'), path: '/members', icon: <Users size={18} />, count: counts.members }
   ];
+
+  useEffect(() => {
+    const handleOnline = () => {
+      toast.success(language === 'vi' ? 'Đã khôi phục kết nối mạng' : 'Internet connection restored');
+      fetchSidebarStats();
+      fetchNotifications();
+    };
+    const handleOffline = () => {
+      toast.warning(language === 'vi' ? 'Bạn đang ở chế độ ngoại tuyến (Offline)' : 'You are currently offline');
+    };
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [language]);
 
   const getBreadcrumbs = () => {
     const parts = location.split('?')[0].split('/').filter(Boolean);
@@ -313,41 +337,43 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     return crumbs;
   };
 
-  const sidebarWidth = sidebarCollapsed ? 68 : 270;
+  const renderSidebarContent = (isDrawer: boolean = false) => {
+    const isCollapsed = isDrawer ? false : sidebarCollapsed;
+    const width = isDrawer ? 280 : (sidebarCollapsed ? 68 : 270);
 
-  const sidebarContent = (
-    <Box
-      sx={{
-        width: sidebarWidth,
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        backgroundColor: tokens.surface,
-        borderRight: `1px solid ${tokens.border}`,
-        transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-    >
+    return (
       <Box
         sx={{
-          height: 60,
+          width,
+          height: '100%',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-          px: sidebarCollapsed ? 1 : 2,
-          borderBottom: `1px solid ${tokens.divider}`,
-          flexShrink: 0
+          flexDirection: 'column',
+          backgroundColor: tokens.surface,
+          borderRight: `1px solid ${tokens.border}`,
+          transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        <Box onClick={() => setLocation('/')} sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
-          <BrandLogo size="medium" showText={!sidebarCollapsed} />
-        </Box>
-      </Box>
-
-      {sidebarCollapsed ? (
-        <Tooltip
-          title={`${activeWorkspace?.name || t('workspace')} (@${activeWorkspace?.slug || 'ws'})`}
-          placement="right"
+        <Box
+          sx={{
+            height: 60,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            px: isCollapsed ? 1 : 2,
+            borderBottom: `1px solid ${tokens.divider}`,
+            flexShrink: 0
+          }}
         >
+          <Box onClick={() => setLocation('/')} sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+            <BrandLogo size="medium" showText={!isCollapsed} />
+          </Box>
+        </Box>
+
+        {isCollapsed ? (
+          <Tooltip
+            title={`${activeWorkspace?.name || t('workspace')} (@${activeWorkspace?.slug || 'ws'})`}
+            placement="right"
+          >
           <Box
             onClick={(e) => setWorkspaceMenuAnchor(e.currentTarget)}
             sx={{
@@ -457,7 +483,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       </Menu>
 
       <Box id="tour-sidebar" sx={{ p: 1.2, flex: 1, overflowY: 'auto' }}>
-        {!sidebarCollapsed && (
+        {!isCollapsed && (
           <Typography variant="caption" sx={{ px: 1.4, pt: 1, pb: 0.8, display: 'block', color: tokens.textSecondary, fontWeight: 700, letterSpacing: '0.05em' }}>
             {t('coreViews')}
           </Typography>
@@ -466,7 +492,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         {navItems.map((item) => {
           const isActive = location === item.path || (item.path !== '/' && location.startsWith(item.path));
           return (
-            <Tooltip key={item.path} title={sidebarCollapsed ? item.label : ''} placement="right">
+            <Tooltip key={item.path} title={isCollapsed ? item.label : ''} placement="right">
               <Box
                 onClick={() => {
                   setLocation(item.path);
@@ -475,7 +501,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: sidebarCollapsed ? 'center' : 'space-between',
+                  justifyContent: isCollapsed ? 'center' : 'space-between',
                   px: 1.4,
                   py: 1.15,
                   my: 0.5,
@@ -496,9 +522,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, color: isActive ? tokens.primary : 'inherit' }}>
                   {item.icon}
-                  {!sidebarCollapsed && <span style={{ color: isActive ? tokens.textPrimary : 'inherit' }}>{item.label}</span>}
+                  {!isCollapsed && <span style={{ color: isActive ? tokens.textPrimary : 'inherit' }}>{item.label}</span>}
                 </Box>
-                {!sidebarCollapsed && item.count !== undefined && item.count > 0 && (
+                {!isCollapsed && item.count !== undefined && item.count > 0 && (
                   <Chip
                     label={item.count}
                     size="small"
@@ -517,7 +543,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           );
         })}
 
-        {!sidebarCollapsed && projects.length > 0 && (
+        {!isCollapsed && projects.length > 0 && (
           <>
             <Divider sx={{ my: 1.8 }} />
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 1.4, pt: 1, pb: 0.8 }}>
@@ -741,7 +767,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             sx={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: sidebarCollapsed ? 'center' : 'space-between',
+              justifyContent: isCollapsed ? 'center' : 'space-between',
               gap: 1,
               cursor: 'pointer',
               p: 0.5,
@@ -751,7 +777,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
           >
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, overflow: 'hidden' }}>
               <UserAvatar user={user} size={28} showTooltip={false} />
-              {!sidebarCollapsed && (
+              {!isCollapsed && (
                 <Box sx={{ overflow: 'hidden' }}>
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }} noWrap>
                     {user.displayName}
@@ -764,7 +790,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 </Box>
               )}
             </Box>
-            {!sidebarCollapsed && <ChevronDown size={15} color={tokens.textSecondary} />}
+            {!isCollapsed && <ChevronDown size={15} color={tokens.textSecondary} />}
           </Box>
 
           <Menu
@@ -795,7 +821,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
         </Box>
       )}
 
-      {!isMobile && (
+      {!isDrawer && !isMobile && (
         <Box
           onClick={toggleSidebar}
           sx={{
@@ -805,8 +831,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             backgroundColor: tokens.surfaceSecondary,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
-            px: sidebarCollapsed ? 0 : 2,
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            px: isCollapsed ? 0 : 2,
             cursor: 'pointer',
             color: tokens.textSecondary,
             fontSize: '0.8125rem',
@@ -819,9 +845,9 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             }
           }}
         >
-          <Tooltip title={sidebarCollapsed ? `${t('expandSidebar')} (Ctrl+B)` : ''} placement="right">
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, width: '100%', justifyContent: sidebarCollapsed ? 'center' : 'flex-start' }}>
-              {sidebarCollapsed ? (
+          <Tooltip title={isCollapsed ? `${t('expandSidebar')} (Ctrl+B)` : ''} placement="right">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, width: '100%', justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
+              {isCollapsed ? (
                 <ChevronRight size={18} />
               ) : (
                 <>
@@ -835,20 +861,28 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
       )}
     </Box>
   );
+};
 
   const breadcrumbs = getBreadcrumbs();
 
   return (
     <Box sx={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden', backgroundColor: tokens.background }}>
-      {!isMobile && sidebarContent}
+      {!isMobile && renderSidebarContent(false)}
 
       {isMobile && (
         <Drawer
           anchor="left"
           open={mobileDrawerOpen}
           onClose={() => setMobileDrawerOpen(false)}
+          PaperProps={{
+            sx: {
+              width: 280,
+              backgroundColor: tokens.surface,
+              borderRight: `1px solid ${tokens.border}`
+            }
+          }}
         >
-          {sidebarContent}
+          {renderSidebarContent(true)}
         </Drawer>
       )}
 
@@ -862,13 +896,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            position: 'relative',
             backgroundColor: tokens.surface,
             backdropFilter: 'blur(16px)',
             flexShrink: 0,
             zIndex: 10
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, maxWidth: { xs: '60%', sm: '38%', md: '28%' } }}>
             {isMobile && (
               <IconButton size="small" onClick={() => setMobileDrawerOpen(true)}>
                 <MenuIcon size={22} />
@@ -878,7 +913,11 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             <Breadcrumbs
               separator={<ChevronRight size={14} color={tokens.textSecondary} />}
               aria-label="breadcrumb"
-              sx={{ display: { xs: 'none', sm: 'flex' } }}
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                overflow: 'hidden',
+                whiteSpace: 'nowrap'
+              }}
             >
               {breadcrumbs.map((crumb, idx) => {
                 const isLast = idx === breadcrumbs.length - 1;
@@ -889,7 +928,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                       fontSize: '0.875rem',
                       fontWeight: 600,
                       color: tokens.textPrimary,
-                      maxWidth: 280,
+                      maxWidth: 160,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap'
@@ -906,7 +945,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                     sx={{
                       fontSize: '0.875rem',
                       color: tokens.textSecondary,
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap'
                     }}
                   >
                     {crumb.label}
@@ -918,51 +958,81 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
           {!isMobile && (
             <Box
-              id="tour-search"
-              onClick={() => setCmdOpen(true)}
               sx={{
-                display: 'flex',
+                display: { xs: 'none', sm: 'flex' },
                 alignItems: 'center',
-                gap: 1.5,
-                px: 2,
-                py: 0.8,
-                height: 40,
-                boxSizing: 'border-box',
-                borderRadius: '8px',
-                backgroundColor: tokens.surfaceSecondary,
-                border: `1px solid ${tokens.border}`,
-                cursor: 'pointer',
-                color: tokens.textSecondary,
-                fontSize: '0.875rem',
-                width: { xs: 160, sm: 260, md: 360, lg: 420 },
-                transition: 'all 0.15s ease',
-                '&:hover': {
-                  borderColor: tokens.primary,
-                  backgroundColor: tokens.hover
-                }
+                justifyContent: 'center',
+                flex: 1,
+                mx: { sm: 2, md: 3 },
+                minWidth: 0
               }}
             >
-              <Search size={16} color={tokens.textSecondary} />
-              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {t('searchPlaceholder')}
-              </span>
+              <Box
+                id="tour-search"
+                onClick={() => setCmdOpen(true)}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  px: 2,
+                  py: 0.8,
+                  height: 38,
+                  boxSizing: 'border-box',
+                  borderRadius: '8px',
+                  backgroundColor: tokens.surfaceSecondary,
+                  border: `1px solid ${tokens.border}`,
+                  cursor: 'pointer',
+                  color: tokens.textSecondary,
+                  fontSize: '0.875rem',
+                  width: '100%',
+                  maxWidth: { sm: 220, md: 280, lg: 360 },
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    borderColor: tokens.primary,
+                    backgroundColor: tokens.hover
+                  }
+                }}
+              >
+                <Search size={16} color={tokens.textSecondary} />
+                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {t('searchPlaceholder')}
+                </span>
+                <Box
+                  component="kbd"
+                  sx={{
+                    display: { xs: 'none', md: 'inline-flex' },
+                    alignItems: 'center',
+                    fontSize: '0.6875rem',
+                    fontWeight: 600,
+                    px: 0.8,
+                    py: 0.2,
+                    borderRadius: '4px',
+                    backgroundColor: tokens.surface,
+                    border: `1px solid ${tokens.border}`,
+                    color: tokens.textSecondary,
+                    lineHeight: 1
+                  }}
+                >
+                  Ctrl+K
+                </Box>
+              </Box>
             </Box>
           )}
 
-          <Box id="tour-theme-lang" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, sm: 1.2 } }}>
+          <Box id="tour-theme-lang" sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.8, sm: 1.2 }, ml: { xs: 'auto', sm: 0 }, flexShrink: 0 }}>
             {isMobile && (
               <IconButton
                 size="small"
                 onClick={() => setCmdOpen(true)}
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '8px',
-                  border: `1px solid ${tokens.border}`,
-                  color: tokens.textSecondary
+                  color: tokens.textSecondary,
+                  '&:hover': {
+                    color: tokens.textPrimary,
+                    backgroundColor: tokens.hover
+                  }
                 }}
               >
-                <Search size={18} />
+                <Search size={20} />
               </IconButton>
             )}
             {canInstall && (
@@ -1079,14 +1149,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 size="small"
                 onClick={() => setMode(resolvedMode === 'dark' ? 'light' : 'dark')}
                 sx={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '8px',
-                  border: `1px solid ${tokens.border}`,
-                  color: tokens.textSecondary
+                  color: tokens.textSecondary,
+                  '&:hover': {
+                    color: tokens.textPrimary,
+                    backgroundColor: tokens.hover
+                  }
                 }}
               >
-                {resolvedMode === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                {resolvedMode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
               </IconButton>
             </Tooltip>
           </Box>

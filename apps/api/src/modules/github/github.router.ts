@@ -756,8 +756,60 @@ githubRouter.post('/pull-requests/:id/sync', requireAuth, async (req: Request, r
         updatedAt: new Date()
       }).where(eq(pullRequests.id, pr.id)).returning();
 
+      const hasChanges = Boolean(
+        pr.state !== state ||
+        pr.isMerged !== isMerged ||
+        pr.checksStatus !== checksStatus ||
+        (pr.rawMetadata as any)?.commitsCount !== prData.commits ||
+        (pr.rawMetadata as any)?.changedFiles !== prData.changed_files ||
+        (pr.rawMetadata as any)?.additions !== prData.additions ||
+        (pr.rawMetadata as any)?.deletions !== prData.deletions
+      );
+
+      if (hasChanges) {
+        const linkedReviews = await db.query.reviewRequests.findMany({
+          where: eq(reviewRequests.pullRequestId, pr.id)
+        });
+        for (const lr of linkedReviews) {
+          await db.update(reviewRequests)
+            .set({ status: 'PENDING', updatedAt: new Date() })
+            .where(eq(reviewRequests.id, lr.id));
+
+          await db.insert(activities).values({
+            targetType: TargetType.REVIEW,
+            targetId: lr.id,
+            actorId: userId,
+            actionType: 'PR_UPDATED',
+            metadata: {
+              prNumber: pr.prNumber,
+              title: updatedPr.title,
+              fromStatus: lr.status,
+              toStatus: 'PENDING'
+            }
+          });
+        }
+
+        const linkedIssues = await db.query.issues.findMany({
+          where: eq(issues.pullRequestId, pr.id)
+        });
+        for (const li of linkedIssues) {
+          await db.insert(activities).values({
+            targetType: TargetType.ISSUE,
+            targetId: li.id,
+            actorId: userId,
+            actionType: 'PR_UPDATED',
+            metadata: {
+              prNumber: pr.prNumber,
+              title: updatedPr.title,
+              commitsCount: prData.commits
+            }
+          });
+        }
+      }
+
       return res.json({
         success: true,
+        hasChanges,
         message: 'Pull Request synced successfully from GitHub',
         pullRequest: formatPullRequestSummary(updatedPr, repo.fullName)
       });

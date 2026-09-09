@@ -1,4 +1,4 @@
-import { db, workspaceMembers, projectMembers, eq, and } from '@reported/database';
+import { db, workspaces, workspaceMembers, projectMembers, eq, and } from '@reported/database';
 import { WorkspaceRole, ProjectRole } from '@reported/contracts';
 import { AppError } from '../middleware/error.js';
 
@@ -105,12 +105,23 @@ export class AuthorizationService {
     permission: Permission,
     context?: { projectId?: string; authorId?: string }
   ): Promise<boolean> {
+    const ws = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, workspaceId)
+    });
+    if (ws && ws.ownerId === userId) {
+      return true;
+    }
+
     const member = await this.getWorkspaceMember(userId, workspaceId);
     if (!member) {
       return false;
     }
 
     const wsRole = member.role as WorkspaceRole;
+    if (wsRole === WorkspaceRole.OWNER) {
+      return true;
+    }
+
     const permissions = WORKSPACE_ROLE_PERMISSIONS[wsRole] || [];
 
     if (permissions.includes(permission)) {

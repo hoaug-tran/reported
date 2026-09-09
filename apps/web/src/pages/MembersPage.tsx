@@ -35,7 +35,8 @@ export const MembersPage: React.FC = () => {
 
   const currentUserMember = members.find(m => m.userId === user?.id);
   const currentUserRole = currentUserMember?.role;
-  const canManageMembers = currentUserRole === WorkspaceRole.OWNER || currentUserRole === WorkspaceRole.ADMIN;
+  const isWorkspaceOwner = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === WorkspaceRole.OWNER || user?.role === 'ADMIN';
+  const canManageMembers = isWorkspaceOwner || currentUserRole === WorkspaceRole.OWNER || currentUserRole === WorkspaceRole.ADMIN;
 
   const fetchMembers = async () => {
     if (!activeWorkspace) return;
@@ -150,15 +151,15 @@ export const MembersPage: React.FC = () => {
           overflow: 'hidden'
         }}
       >
-        <TableContainer>
-          <Table>
+        <TableContainer sx={{ overflowX: 'auto', width: '100%' }}>
+          <Table sx={{ minWidth: 620 }}>
             <TableHead sx={{ backgroundColor: tokens.surfaceSecondary }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary }}>Thành viên</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary }}>Email</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary }}>Vai trò</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary }}>Ngày tham gia</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: tokens.textSecondary }}>Thao tác</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary, whiteSpace: 'nowrap' }}>Thành viên</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary, whiteSpace: 'nowrap' }}>Email</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary, whiteSpace: 'nowrap' }}>Vai trò</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: tokens.textSecondary, whiteSpace: 'nowrap' }}>Ngày tham gia</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, color: tokens.textSecondary, whiteSpace: 'nowrap' }}>Thao tác</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -194,7 +195,7 @@ export const MembersPage: React.FC = () => {
 
                   return (
                     <TableRow key={m.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
-                      <TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                           <UserAvatar
                             user={{
@@ -204,27 +205,30 @@ export const MembersPage: React.FC = () => {
                             }}
                             size={36}
                           />
-                          <Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: tokens.textPrimary }}>
-                              {m.displayName} {isSelf && <Chip label="Bạn" size="small" sx={{ height: 18, fontSize: '0.6875rem' }} />}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: tokens.textPrimary, whiteSpace: 'nowrap' }}>
+                                {m.displayName}
+                              </Typography>
+                              {isSelf && <Chip label="Bạn" size="small" sx={{ height: 18, fontSize: '0.6875rem' }} />}
+                            </Box>
+                            <Typography variant="caption" sx={{ color: tokens.textSecondary, whiteSpace: 'nowrap' }}>
                               @{m.username}
                             </Typography>
                           </Box>
                         </Box>
                       </TableCell>
 
-                      <TableCell sx={{ color: tokens.textSecondary, fontSize: '0.875rem' }}>
+                      <TableCell sx={{ color: tokens.textSecondary, fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                         {m.email}
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         <Select
                           size="small"
                           value={m.role}
-                          onChange={(e) => handleRoleChange(m.id, e.target.value as WorkspaceRole)}
-                          disabled={isOwner && members.filter(item => item.role === WorkspaceRole.OWNER).length <= 1}
+                          onChange={(e) => handleRoleChange(m.userId || m.id, e.target.value as WorkspaceRole)}
+                          disabled={!canManageMembers || (isOwner && members.filter(item => item.role === WorkspaceRole.OWNER).length <= 1)}
                           sx={{
                             backgroundColor: badge.bg,
                             color: badge.text,

@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
   db, workspaces, workspaceMembers, projects, projectMembers, invitations, users, issues, reviewRequests,
-  eq, ne, and, sql, isNull
+  eq, ne, and, or, sql, isNull
 } from '@reported/database';
 import {
   CreateWorkspaceSchema, UpdateWorkspaceSchema, CreateProjectSchema, UpdateProjectSchema,
@@ -311,7 +311,10 @@ workspacesRouter.patch('/:id/members/:userId/role', async (req: Request, res: Re
 
     if (input.role !== WorkspaceRole.OWNER) {
       const target = await db.query.workspaceMembers.findFirst({
-        where: and(eq(workspaceMembers.workspaceId, id), eq(workspaceMembers.userId, userId))
+        where: and(
+          eq(workspaceMembers.workspaceId, id),
+          or(eq(workspaceMembers.userId, userId), eq(workspaceMembers.id, userId))
+        )
       });
       if (target?.role === WorkspaceRole.OWNER) {
         const [ownerCount] = await db
@@ -327,7 +330,10 @@ workspacesRouter.patch('/:id/members/:userId/role', async (req: Request, res: Re
 
     const [updated] = await db.update(workspaceMembers)
       .set({ role: input.role })
-      .where(and(eq(workspaceMembers.workspaceId, id), eq(workspaceMembers.userId, userId)))
+      .where(and(
+        eq(workspaceMembers.workspaceId, id),
+        or(eq(workspaceMembers.userId, userId), eq(workspaceMembers.id, userId))
+      ))
       .returning();
 
     return res.json(updated);
@@ -469,6 +475,7 @@ workspacesRouter.patch('/:id/projects/:projectId', async (req: Request, res: Res
       updatedAt: new Date()
     };
     if (input.name) updates.name = input.name;
+    if (input.slug) updates.slug = input.slug.toLowerCase();
     if (input.key) updates.key = input.key.toUpperCase();
     if (input.description !== undefined) updates.description = input.description;
 

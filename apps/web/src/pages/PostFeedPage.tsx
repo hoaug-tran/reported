@@ -10,19 +10,14 @@ import {
   Tab,
   TextField,
   InputAdornment,
-  Menu,
-  MenuItem as MuiMenuItem,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  Tooltip
 } from '@mui/material';
-import { Search, Plus, MessageSquare, GitPullRequest, Bug, Eye, HelpCircle, Lightbulb, MoreVertical, Trash2, ExternalLink, Edit3 } from 'lucide-react';
+import { Search, Plus, MessageSquare, GitPullRequest, Bug, Eye, HelpCircle, Lightbulb } from 'lucide-react';
 import { useLocation } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
 import { useAuthContext } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
+import { useWorkspace } from '../contexts/WorkspaceContext';
 import { PostFeedSkeleton } from '../components/common/Skeletons';
 import { UserAvatar } from '../components/common/UserAvatar';
 import { NewPostModal } from '../components/common/NewPostModal';
@@ -71,19 +66,15 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
 export const PostFeedPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
+  const { activeWorkspace } = useWorkspace();
   const { language } = useI18n();
   const [, setLocation] = useLocation();
   const isVi = language === 'vi';
-
   const [loading, setLoading] = useState(true);
   const [newPostOpen, setNewPostOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'bugs' | 'reviews' | 'questions' | 'ideas'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<FeedItem[]>([]);
-
-  const [menuAnchor, setMenuAnchor] = useState<{ el: HTMLElement; item: FeedItem } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<FeedItem | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const loadFeed = useCallback(async () => {
     setLoading(true);
@@ -143,23 +134,6 @@ export const PostFeedPage: React.FC = () => {
     loadFeed();
   }, [loadFeed]);
 
-  const handleDeleteItem = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      const endpoint = deleteTarget.kind === 'issue'
-        ? `/issues/${deleteTarget.id}`
-        : `/reviews/${deleteTarget.id}`;
-      await apiFetch(endpoint, { method: 'DELETE' });
-      setDeleteTarget(null);
-      await loadFeed();
-    } catch (err) {
-      console.error('Failed to delete:', err);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
   const filteredItems = items.filter((item) => {
     if (activeTab === 'bugs' && item.type !== IssueType.BUG && item.type !== 'BUG') return false;
     if (activeTab === 'reviews' && item.kind !== 'review') return false;
@@ -179,17 +153,8 @@ export const PostFeedPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', pb: 8 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          gap: 2,
-          mb: 3
-        }}
-      >
-        <Box>
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Typography
             variant="h4"
             sx={{
@@ -210,25 +175,53 @@ export const PostFeedPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<Plus size={16} />}
-          onClick={() => setNewPostOpen(true)}
+        <Box
           sx={{
-            backgroundColor: tokens.primary,
-            borderRadius: '8px',
-            textTransform: 'none',
-            fontWeight: 700,
-            px: 2.5,
-            py: 0.9,
-            boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)',
-            '&:hover': {
-              backgroundColor: tokens.primaryHover
-            }
+            display: 'flex',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: { xs: 'flex-start', sm: 'space-between' },
+            gap: 1.5,
+            flexWrap: 'wrap'
           }}
         >
-          {isVi ? 'Đăng bài mới' : 'New Post'}
-        </Button>
+          <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 500, whiteSpace: 'nowrap' }}>
+            {filteredItems.length} {isVi ? 'bài thảo luận' : 'posts'}
+          </Typography>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.2,
+              flexWrap: 'wrap',
+              width: { xs: '100%', sm: 'auto' },
+              justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+            }}
+          >
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Plus size={16} />}
+              onClick={() => setNewPostOpen(true)}
+              sx={{
+                backgroundColor: tokens.primary,
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 2,
+                py: 0.8,
+                fontSize: '0.8125rem',
+                boxShadow: 'none',
+                whiteSpace: 'nowrap',
+                '&:hover': {
+                  backgroundColor: tokens.primaryHover
+                }
+              }}
+            >
+              {isVi ? 'Đăng bài mới' : 'New Post'}
+            </Button>
+          </Box>
+        </Box>
       </Box>
 
       <Box
@@ -246,17 +239,22 @@ export const PostFeedPage: React.FC = () => {
         <Tabs
           value={activeTab}
           onChange={(_, val) => setActiveTab(val)}
+          variant="scrollable"
+          scrollButtons="auto"
+          allowScrollButtonsMobile
           textColor="primary"
           indicatorColor="primary"
           sx={{
             minHeight: 36,
+            maxWidth: '100%',
             '& .MuiTab-root': {
               minHeight: 36,
               py: 0.5,
               px: 1.8,
               fontSize: '0.84rem',
               fontWeight: 700,
-              textTransform: 'none'
+              textTransform: 'none',
+              whiteSpace: 'nowrap'
             }
           }}
         >
@@ -337,7 +335,7 @@ export const PostFeedPage: React.FC = () => {
             const isIdea = item.type === IssueType.FEATURE || item.type === 'IDEA';
 
             let badgeColor = '#6366f1';
-            let badgeLabel = item.type;
+            let badgeLabel = item.type || 'POST';
             if (isBug) {
               badgeColor = '#ef4444';
               badgeLabel = 'BUG';
@@ -357,9 +355,9 @@ export const PostFeedPage: React.FC = () => {
                 key={`${item.kind}-${item.id}`}
                 onClick={() => setLocation(item.link)}
                 sx={{
-                  minHeight: 68,
-                  py: 1.5,
-                  px: 2.2,
+                  minHeight: 74,
+                  py: { xs: 1.5, sm: 1.8 },
+                  px: { xs: 1.8, sm: 2.5 },
                   borderBottom:
                     idx < filteredItems.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                   display: 'flex',
@@ -373,71 +371,106 @@ export const PostFeedPage: React.FC = () => {
                   }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
                   <Chip
                     label={badgeLabel}
                     size="small"
                     sx={{
-                      height: 22,
-                      fontSize: '0.65rem',
+                      height: 24,
+                      width: 90,
+                      minWidth: 90,
+                      maxWidth: 90,
+                      fontSize: '0.6875rem',
                       fontWeight: 800,
                       backgroundColor: `${badgeColor}18`,
                       color: badgeColor,
                       border: `1px solid ${badgeColor}35`,
                       borderRadius: '6px',
-                      flexShrink: 0
+                      flexShrink: 0,
+                      justifyContent: 'center',
+                      '& .MuiChip-label': {
+                        px: 0,
+                        textAlign: 'center',
+                        width: '100%'
+                      }
                     }}
                   />
 
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 700,
-                          color: tokens.textPrimary,
-                          fontSize: '0.92rem',
-                          lineHeight: 1.3
-                        }}
-                      >
-                        <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
-                          #{item.number}
-                        </span>
-                        {item.title}
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, mb: 0.5 }}>
+                      <Tooltip title={`#${item.number} - ${item.title}`} placement="top-start">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: tokens.textPrimary,
+                            fontSize: '0.92rem',
+                            lineHeight: 1.35,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            minWidth: 0,
+                            flex: 1
+                          }}
+                        >
+                          <span style={{ color: tokens.textSecondary, marginRight: 8, minWidth: 42, display: 'inline-block', fontWeight: 500, fontFamily: 'monospace' }}>
+                            #{item.number}
+                          </span>
+                          {item.title}
+                        </Typography>
+                      </Tooltip>
 
                       {item.prNumber && (
                         <Chip
                           icon={<GitPullRequest size={12} />}
                           label={`PR #${item.prNumber}`}
                           size="small"
-                          sx={{ height: 18, fontSize: '0.65rem', fontWeight: 600 }}
+                          sx={{ height: 20, fontSize: '0.65rem', fontWeight: 600, flexShrink: 0 }}
                         />
                       )}
 
-                      {item.labels?.slice(0, 3).map((l) => (
-                        <Chip
-                          key={l.name}
-                          label={l.name}
-                          size="small"
-                          sx={{
-                            height: 18,
-                            fontSize: '0.6875rem',
-                            fontWeight: 500,
-                            backgroundColor: 'transparent',
-                            border: `1px solid ${tokens.border}`,
-                            color: tokens.textSecondary
-                          }}
-                        />
-                      ))}
+                      {item.labels && item.labels.length > 0 && (
+                        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+                          {item.labels.slice(0, 2).map((l) => (
+                            <Chip
+                              key={l.name}
+                              label={l.name}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.6875rem',
+                                fontWeight: 500,
+                                backgroundColor: 'transparent',
+                                border: `1px solid ${tokens.border}`,
+                                color: tokens.textSecondary,
+                                whiteSpace: 'nowrap'
+                              }}
+                            />
+                          ))}
+                          {item.labels.length > 2 && (
+                            <Chip
+                              label={`+${item.labels.length - 2}`}
+                              sx={{
+                                height: 20,
+                                fontSize: '0.6875rem',
+                                fontWeight: 600,
+                                borderRadius: '5px',
+                                backgroundColor: tokens.surfaceSecondary,
+                                color: tokens.textSecondary,
+                                border: `1px solid ${tokens.border}`
+                              }}
+                            />
+                          )}
+                        </Box>
+                      )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.75rem', color: tokens.textSecondary, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
                         <UserAvatar user={item.author} size={18} showTooltip={false} />
                         <span>@{item.author.username}</span>
                       </Box>
-                      <span>• {formatRelativeTime(item.createdAt, isVi)}</span>
+                      <span style={{ flexShrink: 0 }}>• {formatRelativeTime(item.createdAt, isVi)}</span>
                     </Box>
                   </Box>
                 </Box>
@@ -447,121 +480,12 @@ export const PostFeedPage: React.FC = () => {
                     <MessageSquare size={14} />
                     <span>{item.commentsCount}</span>
                   </Box>
-
-                  {user && item.author.id === user.id && (
-                    <IconButton
-                      size="small"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMenuAnchor({ el: e.currentTarget, item });
-                      }}
-                      sx={{
-                        color: tokens.textSecondary,
-                        p: 0.5,
-                        '&:hover': { color: tokens.textPrimary }
-                      }}
-                    >
-                      <MoreVertical size={16} />
-                    </IconButton>
-                  )}
                 </Box>
               </Box>
             );
           })}
         </Box>
       )}
-
-      <Menu
-        anchorEl={menuAnchor?.el}
-        open={Boolean(menuAnchor)}
-        onClose={() => setMenuAnchor(null)}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        PaperProps={{
-          sx: {
-            borderRadius: '8px',
-            border: `1px solid ${tokens.border}`,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.24)',
-            minWidth: 160
-          }
-        }}
-      >
-        <MuiMenuItem
-          onClick={() => {
-            if (menuAnchor) setLocation(menuAnchor.item.link);
-            setMenuAnchor(null);
-          }}
-          sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}
-        >
-          <ExternalLink size={15} />
-          {isVi ? 'Xem chi tiết' : 'View details'}
-        </MuiMenuItem>
-        <MuiMenuItem
-          onClick={() => {
-            if (menuAnchor) setLocation(menuAnchor.item.link);
-            setMenuAnchor(null);
-          }}
-          sx={{ fontSize: '0.875rem', gap: 1.5, py: 1 }}
-        >
-          <Edit3 size={15} />
-          {isVi ? 'Chỉnh sửa' : 'Edit'}
-        </MuiMenuItem>
-        <MuiMenuItem
-          onClick={() => {
-            if (menuAnchor) {
-              setDeleteTarget(menuAnchor.item);
-              setMenuAnchor(null);
-            }
-          }}
-          sx={{ fontSize: '0.875rem', gap: 1.5, py: 1, color: '#f85149' }}
-        >
-          <Trash2 size={15} />
-          {isVi ? 'Xoá' : 'Delete'}
-        </MuiMenuItem>
-      </Menu>
-
-      <Dialog
-        open={Boolean(deleteTarget)}
-        onClose={() => !deleting && setDeleteTarget(null)}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '8px' } }}
-      >
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '1rem' }}>
-          {isVi ? 'Xác nhận xoá' : 'Confirm Delete'}
-        </DialogTitle>
-        <DialogContent sx={{ pt: '8px !important' }}>
-          <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-            {isVi
-              ? `Bài này sẽ bị xoá mềm. Lịch sử và bình luận vẫn được lưu trữ.`
-              : `This will soft-delete the post. History and comments are preserved.`}
-          </Typography>
-          {deleteTarget && (
-            <Typography variant="body2" sx={{ mt: 1.5, fontWeight: 600, color: tokens.textPrimary }}>
-              #{deleteTarget.number} - {deleteTarget.title}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button
-            onClick={() => setDeleteTarget(null)}
-            disabled={deleting}
-            sx={{ textTransform: 'none', borderRadius: '6px' }}
-          >
-            {isVi ? 'Hủy' : 'Cancel'}
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleDeleteItem}
-            disabled={deleting}
-            startIcon={<Trash2 size={15} />}
-            sx={{ textTransform: 'none', borderRadius: '6px', boxShadow: 'none' }}
-          >
-            {deleting ? (isVi ? 'Đang xoá...' : 'Deleting...') : (isVi ? 'Xoá' : 'Delete')}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <NewPostModal open={newPostOpen} onClose={() => { setNewPostOpen(false); loadFeed(); }} />
     </Box>

@@ -14,7 +14,7 @@ interface WorkspaceContextType {
   refreshWorkspaces: () => Promise<void>;
   createWorkspace: (dto: CreateWorkspaceDto) => Promise<WorkspaceSummaryDto>;
   createProject: (dto: CreateProjectDto) => Promise<ProjectDto>;
-  updateProject: (projectId: string, dto: { name?: string; key?: string; description?: string }) => Promise<ProjectDto>;
+  updateProject: (projectId: string, dto: { name?: string; key?: string; slug?: string; description?: string }) => Promise<ProjectDto>;
   deleteProject: (projectId: string) => Promise<void>;
   refreshProjects: () => Promise<void>;
 }
@@ -103,7 +103,7 @@ export const WorkspaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return created;
   };
 
-  const updateProject = async (projectId: string, dto: { name?: string; key?: string; description?: string }): Promise<ProjectDto> => {
+  const updateProject = async (projectId: string, dto: { name?: string; key?: string; slug?: string; description?: string }): Promise<ProjectDto> => {
     if (!activeWorkspace) throw new Error('No active workspace');
     const updated = await apiFetch<ProjectDto>(`/workspaces/${activeWorkspace.id}/projects/${projectId}`, {
       method: 'PATCH',

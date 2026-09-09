@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, TextField, InputAdornment, Select, MenuItem, FormControl,
   InputLabel, Button, Chip, Pagination, CircularProgress, Dialog, DialogTitle,
-  DialogContent, DialogActions, LinearProgress
+  DialogContent, DialogActions, LinearProgress, Tooltip
 } from '@mui/material';
 import { Search, MessageSquare, X, Plus, Bookmark, Trash2 } from 'lucide-react';
 import { useLocation } from 'wouter';
@@ -164,8 +164,8 @@ export const IssuesPage: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
-        <Box>
+      <Box sx={{ mb: 2.5 }}>
+        <Box sx={{ mb: 1.5 }}>
           <Typography variant="h4" sx={{ fontWeight: 700, letterSpacing: '-0.02em', mb: 0.5, color: tokens.textPrimary }}>
             {t('issues')}
           </Typography>
@@ -174,44 +174,52 @@ export const IssuesPage: React.FC = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 500 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="body2" sx={{ color: tokens.textSecondary, fontWeight: 500, whiteSpace: 'nowrap' }}>
             {totalCount} vấn đề
           </Typography>
-          {isOwnerOrAdmin && (
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, flexWrap: 'wrap' }}>
+            {isOwnerOrAdmin && (
+              <Button
+                variant={showDeleted ? 'contained' : 'outlined'}
+                color={showDeleted ? 'error' : 'inherit'}
+                size="small"
+                startIcon={<Trash2 size={15} />}
+                onClick={() => {
+                  setShowDeleted(!showDeleted);
+                  setPage(1);
+                }}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  fontSize: '0.8125rem',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {showDeleted ? 'Thùng rác (Đang xem)' : 'Thùng rác'}
+              </Button>
+            )}
             <Button
-              variant={showDeleted ? 'contained' : 'outlined'}
-              color={showDeleted ? 'error' : 'inherit'}
+              variant="contained"
               size="small"
-              startIcon={<Trash2 size={15} />}
-              onClick={() => {
-                setShowDeleted(!showDeleted);
-                setPage(1);
-              }}
+              startIcon={<Plus size={16} />}
+              onClick={() => setLocation('/issues/new')}
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
+                backgroundColor: tokens.primary,
+                boxShadow: 'none',
                 borderRadius: '8px',
-                fontSize: '0.8125rem'
+                whiteSpace: 'nowrap',
+                py: 0.8,
+                px: 1.8
               }}
             >
-              {showDeleted ? 'Thùng rác (Đang xem)' : 'Thùng rác'}
+              {t('newIssue')}
             </Button>
-          )}
-          <Button
-            variant="contained"
-            startIcon={<Plus size={16} />}
-            onClick={() => setLocation('/issues/new')}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              backgroundColor: tokens.primary,
-              boxShadow: 'none',
-              borderRadius: '8px'
-            }}
-          >
-            {t('newIssue')}
-          </Button>
+          </Box>
         </Box>
       </Box>
 
@@ -323,7 +331,7 @@ export const IssuesPage: React.FC = () => {
                 setSaveFilterName(search || (priorityFilter !== 'ALL' ? `Lọc ${priorityFilter}` : 'Bộ lọc tùy chỉnh'));
                 setSaveModalOpen(true);
               }}
-              sx={{ fontSize: '0.75rem', textTransform: 'none', borderRadius: '6px' }}
+              sx={{ fontSize: '0.75rem', textTransform: 'none', borderRadius: '6px', whiteSpace: 'nowrap' }}
             >
               {t('saveCurrentFilter')}
             </Button>
@@ -333,7 +341,7 @@ export const IssuesPage: React.FC = () => {
               variant="text"
               startIcon={<X size={15} />}
               onClick={clearFilters}
-              sx={{ fontSize: '0.75rem', color: tokens.textSecondary, textTransform: 'none' }}
+              sx={{ fontSize: '0.75rem', color: tokens.textSecondary, textTransform: 'none', whiteSpace: 'nowrap' }}
             >
               Xóa bộ lọc
             </Button>
@@ -355,7 +363,7 @@ export const IssuesPage: React.FC = () => {
             }}
           />
         )}
-        {smoothLoading && issues.length === 0 ? (
+        {loading && issues.length === 0 ? (
           <ListSkeleton rows={8} />
         ) : issues.length === 0 && !loading ? (
           <Box sx={{ py: 8, textAlign: 'center' }}>
@@ -376,9 +384,9 @@ export const IssuesPage: React.FC = () => {
                 key={issue.id}
                 onClick={() => setLocation(`/issues/${issue.number}`)}
                 sx={{
-                  minHeight: 68,
-                  py: 1.5,
-                  px: 2.2,
+                  minHeight: 74,
+                  py: { xs: 1.5, sm: 1.8 },
+                  px: { xs: 1.8, sm: 2.5 },
                   borderBottom: `1px solid ${tokens.divider}`,
                   display: 'flex',
                   alignItems: 'center',
@@ -392,66 +400,94 @@ export const IssuesPage: React.FC = () => {
                   }
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, flex: 1, minWidth: 0 }}>
-                  <StatusBadge status={issue.status} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                  <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+                    <StatusBadge status={issue.status} width={118} />
+                  </Box>
 
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 700,
-                          color: tokens.textPrimary,
-                          fontSize: '0.92rem',
-                          textDecoration: issue.isDeleted ? 'line-through' : 'none',
-                          lineHeight: 1.3
-                        }}
-                      >
-                        <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
-                          #{issue.number}
-                        </span>
-                        {issue.title}
-                      </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, mb: 0.5 }}>
+                      <Tooltip title={`#${issue.number} - ${issue.title}`} placement="top-start">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: tokens.textPrimary,
+                            fontSize: '0.92rem',
+                            textDecoration: issue.isDeleted ? 'line-through' : 'none',
+                            lineHeight: 1.35,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            minWidth: 0,
+                            flex: 1
+                          }}
+                        >
+                          <span style={{ color: tokens.textSecondary, marginRight: 8, minWidth: 42, display: 'inline-block', fontWeight: 500, fontFamily: 'monospace' }}>
+                            #{issue.number}
+                          </span>
+                          {issue.title}
+                        </Typography>
+                      </Tooltip>
 
                       {issue.isDeleted && (
                         <Chip
                           label="ĐÃ XÓA"
                           size="small"
                           color="error"
-                          sx={{ height: 18, fontSize: '0.625rem', fontWeight: 700 }}
+                          sx={{ height: 18, fontSize: '0.625rem', fontWeight: 700, flexShrink: 0 }}
                         />
                       )}
 
-                      {issue.labels?.map((lbl: IssueLabelDto) => {
-                        const style = getLabelColor(lbl.name, lbl.color);
-                        return (
-                          <Chip
-                            key={lbl.id || lbl.name}
-                            label={lbl.name}
-                            size="small"
-                            sx={{
-                              height: 18,
-                              fontSize: '0.6875rem',
-                              fontWeight: 500,
-                              backgroundColor: style.bg,
-                              color: style.text,
-                              border: `1px solid ${style.border}`
-                            }}
-                          />
-                        );
-                      })}
+                      {issue.labels && issue.labels.length > 0 && (
+                        <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
+                          {issue.labels.slice(0, 2).map((lbl: IssueLabelDto) => {
+                            const style = getLabelColor(lbl.name, lbl.color);
+                            return (
+                              <Chip
+                                key={lbl.id || lbl.name}
+                                label={lbl.name}
+                                size="small"
+                                sx={{
+                                  height: 20,
+                                  fontSize: '0.6875rem',
+                                  fontWeight: 500,
+                                  backgroundColor: style.bg,
+                                  color: style.text,
+                                  border: `1px solid ${style.border}`,
+                                  whiteSpace: 'nowrap'
+                                }}
+                              />
+                            );
+                          })}
+                          {issue.labels.length > 2 && (
+                            <Chip
+                              label={`+${issue.labels.length - 2}`}
+                              sx={{
+                                height: 20,
+                                fontSize: '0.6875rem',
+                                fontWeight: 600,
+                                borderRadius: '5px',
+                                backgroundColor: tokens.surfaceSecondary,
+                                color: tokens.textSecondary,
+                                border: `1px solid ${tokens.border}`
+                              }}
+                            />
+                          )}
+                        </Box>
+                      )}
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: '0.75rem', color: tokens.textSecondary, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
                       {issue.author && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
                           <UserAvatar user={issue.author} size={18} showTooltip={false} />
                           <span>@{issue.author.username}</span>
                         </Box>
                       )}
-                      <span>• {formatRelativeTime(issue.createdAt, isVi)}</span>
+                      <span style={{ flexShrink: 0 }}>• {formatRelativeTime(issue.createdAt, isVi)}</span>
                       {issue.repository && (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           • <strong>{issue.repository.name}</strong>
                         </span>
                       )}
@@ -459,26 +495,37 @@ export const IssuesPage: React.FC = () => {
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                  <SeverityBadge severity={issue.severity} />
-                  <PriorityBadge priority={issue.priority} />
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    flexShrink: 0
+                  }}
+                >
+                  <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.8, flexWrap: 'nowrap' }}>
+                    <SeverityBadge severity={issue.severity} />
+                    <PriorityBadge priority={issue.priority} />
+                  </Box>
 
-                  {issue.assignees && issue.assignees.length > 0 && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
-                      {issue.assignees.map((a: UserSummaryDto) => (
-                        <Box key={a.id} sx={{ ml: -0.5 }}>
-                          <UserAvatar user={a} size={22} />
-                        </Box>
-                      ))}
-                    </Box>
-                  )}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    {issue.assignees && issue.assignees.length > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', ml: 0.5 }}>
+                        {issue.assignees.map((a: UserSummaryDto, i: number) => (
+                          <Box key={a.id} sx={{ ml: i === 0 ? 0 : -0.8, zIndex: issue.assignees.length - i }}>
+                            <UserAvatar user={a} size={24} />
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
 
-                  {issue.commentsCount > 0 && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem', minWidth: 28, justifyContent: 'flex-end' }}>
-                      <MessageSquare size={14} />
-                      <span>{issue.commentsCount}</span>
-                    </Box>
-                  )}
+                    {issue.commentsCount > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem', minWidth: 28, justifyContent: 'flex-end' }}>
+                        <MessageSquare size={14} />
+                        <span>{issue.commentsCount}</span>
+                      </Box>
+                    )}
+                  </Box>
                 </Box>
               </Box>
             ))}

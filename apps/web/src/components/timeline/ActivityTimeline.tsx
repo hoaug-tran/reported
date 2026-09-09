@@ -94,6 +94,17 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({ activities }
             <span>{isVi ? 'đã gộp pull request ' : 'merged linked pull request '}<strong>#{prNumber}</strong></span>
           </>
         );
+      case 'PR_UPDATED':
+        return (
+          <>
+            <RefreshCw size={15} color={tokens.primary} />
+            <span>
+              {isVi ? 'Pull Request ' : 'Pull Request '}<strong>#{prNumber}</strong>
+              {isVi ? ' có thay đổi mới từ mã nguồn' : ' updated with new changes'}
+              {toStatus ? ` (${isVi ? 'trạng thái chuyển sang Chờ review' : 'status changed to Pending'})` : ''}
+            </span>
+          </>
+        );
       case 'REVIEW_SUBMITTED':
         return (
           <>

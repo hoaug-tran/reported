@@ -5,7 +5,6 @@ import {
   Button,
   Card,
   CardContent,
-  CircularProgress,
   Chip,
   IconButton,
   Tooltip,
@@ -47,7 +46,6 @@ import { DashboardSidebarWidgets } from '../components/dashboard/DashboardSideba
 import { CreateIssueModal } from '../components/issues/CreateIssueModal';
 import { NewPostModal } from '../components/common/NewPostModal';
 import { DashboardSkeleton } from '../components/common/Skeletons';
-import { useSmoothLoading } from '../hooks/useSmoothLoading';
 
 interface ConversationItem {
   id: string;
@@ -213,17 +211,8 @@ export const DashboardPage: React.FC = () => {
 
   const totalAttentionItems = pendingReviews.length + mentions.length + urgentIssues.length;
 
-  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
-
   if (loading) {
-    if (smoothLoading) {
-      return <DashboardSkeleton />;
-    }
-    return (
-      <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={32} />
-      </Box>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
@@ -351,19 +340,26 @@ export const DashboardPage: React.FC = () => {
                   />
                 </Box>
 
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 700,
-                    mt: 1.2,
-                    mb: 0.6,
-                    color: tokens.textPrimary,
-                    fontSize: '0.9rem',
-                    lineHeight: 1.35
-                  }}
-                >
-                  #{rev.number} {rev.title}
-                </Typography>
+                <Tooltip title={`#${rev.number} ${rev.title}`} placement="top-start">
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 700,
+                      mt: 1.2,
+                      mb: 0.6,
+                      color: tokens.textPrimary,
+                      fontSize: '0.9rem',
+                      lineHeight: 1.35,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: 'block',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    #{rev.number} {rev.title}
+                  </Typography>
+                </Tooltip>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: tokens.textSecondary, fontSize: '0.75rem' }}>
@@ -525,18 +521,25 @@ export const DashboardPage: React.FC = () => {
                   </Typography>
                 </Box>
 
-                <Typography
-                  variant="subtitle2"
-                  sx={{
-                    fontWeight: 700,
-                    mt: 1,
-                    mb: 0.6,
-                    color: tokens.textPrimary,
-                    fontSize: '0.88rem'
-                  }}
-                >
-                  #{iss.number} {iss.title}
-                </Typography>
+                <Tooltip title={`#${iss.number} ${iss.title}`} placement="top-start">
+                  <Typography
+                    variant="subtitle2"
+                    sx={{
+                      fontWeight: 700,
+                      mt: 1,
+                      mb: 0.6,
+                      color: tokens.textPrimary,
+                      fontSize: '0.88rem',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: 'block',
+                      maxWidth: '100%'
+                    }}
+                  >
+                    #{iss.number} {iss.title}
+                  </Typography>
+                </Tooltip>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -645,7 +648,7 @@ export const DashboardPage: React.FC = () => {
               const isIdea = item.type === IssueType.FEATURE || item.type === 'IDEA';
 
               let badgeColor = '#6366f1';
-              let badgeLabel = item.type;
+              let badgeLabel = item.type || 'POST';
               if (isBug) {
                 badgeColor = '#ef4444';
                 badgeLabel = 'BUG';
@@ -665,9 +668,10 @@ export const DashboardPage: React.FC = () => {
                   key={`${item.kind}-${item.id}`}
                   onClick={() => setLocation(item.link)}
                   sx={{
-                    minHeight: 68,
-                    py: 1.5,
-                    px: 2.2,
+                    minHeight: 74,
+                    boxSizing: 'border-box',
+                    py: { xs: 1.5, sm: 1.8 },
+                    px: { xs: 1.8, sm: 2.5 },
                     borderBottom:
                       idx < filteredConversations.length - 1 ? `1px solid ${tokens.divider}` : 'none',
                     display: 'flex',
@@ -681,46 +685,60 @@ export const DashboardPage: React.FC = () => {
                     }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.6, minWidth: 0, flex: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: 1 }}>
                     <Chip
                       label={badgeLabel}
                       size="small"
                       sx={{
-                        height: 22,
-                        fontSize: '0.65rem',
+                        height: 24,
+                        width: 90,
+                        minWidth: 90,
+                        maxWidth: 90,
+                        fontSize: '0.6875rem',
                         fontWeight: 800,
                         backgroundColor: `${badgeColor}18`,
                         color: badgeColor,
                         border: `1px solid ${badgeColor}35`,
                         borderRadius: '6px',
-                        flexShrink: 0
+                        flexShrink: 0,
+                        justifyContent: 'center',
+                        '& .MuiChip-label': {
+                          px: 0,
+                          textAlign: 'center',
+                          width: '100%'
+                        }
                       }}
                     />
 
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.4 }}>
+                    <Box sx={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, overflow: 'hidden', mb: 0.3 }}>
                         <Typography
                           variant="body2"
                           sx={{
                             fontWeight: 700,
                             color: tokens.textPrimary,
-                            fontSize: '0.92rem',
-                            lineHeight: 1.3
+                            fontSize: '0.9rem',
+                            lineHeight: 1.3,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            maxWidth: '100%',
+                            display: 'block'
                           }}
                         >
-                          <span style={{ color: tokens.textSecondary, marginRight: 6, fontWeight: 500, fontFamily: 'monospace' }}>
+                          <span style={{ color: tokens.textSecondary, marginRight: 8, minWidth: 42, display: 'inline-block', fontWeight: 500, fontFamily: 'monospace' }}>
                             #{item.number}
                           </span>
                           {item.title}
                         </Typography>
                       </Box>
 
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, fontSize: '0.75rem', color: tokens.textSecondary, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, flexShrink: 0 }}>
                           <UserAvatar user={item.author} size={18} showTooltip={false} />
                           <span>@{item.author.username}</span>
                         </Box>
-                        <span>• {formatRelativeTime(item.createdAt, isVi)}</span>
+                        <span style={{ flexShrink: 0 }}>• {formatRelativeTime(item.createdAt, isVi)}</span>
                       </Box>
                     </Box>
                   </Box>

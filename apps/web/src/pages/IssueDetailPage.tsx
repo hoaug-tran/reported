@@ -25,6 +25,7 @@ import { DetailSkeleton } from '../components/common/Skeletons';
 import { useSmoothLoading } from '../hooks/useSmoothLoading';
 import { MediaFilesLinksSidebar } from '../components/common/MediaFilesLinksSidebar';
 import { getLabelColor } from '../utils/labels';
+import { toast } from '../contexts/ToastContext';
 import { apiFetch, ApiError } from '../api/client';
 import {
   TargetType, IssueDto, CommentDto, ActivityTimelineDto, UserSummaryDto,
@@ -102,6 +103,17 @@ export const IssueDetailPage: React.FC = () => {
 
       setComments(commData);
       setActivities(actData);
+
+      if (data.pullRequest?.id) {
+        apiFetch<{ success: boolean; hasChanges?: boolean }>(`/github/pull-requests/${data.pullRequest.id}/sync`, { method: 'POST' })
+          .then((res) => {
+            if (res?.hasChanges) {
+              toast.info(isVi ? 'Pull Request có cập nhật mới từ mã nguồn' : 'Pull Request synced with new changes');
+              fetchIssueData();
+            }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setErrorStatus(err.status);
@@ -290,17 +302,8 @@ export const IssueDetailPage: React.FC = () => {
     }
   };
 
-  const smoothLoading = useSmoothLoading(loading, { delay: 160, minDuration: 280 });
-
   if (loading) {
-    if (smoothLoading) {
-      return <DetailSkeleton />;
-    }
-    return (
-      <Box sx={{ minHeight: '50vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress size={26} />
-      </Box>
-    );
+    return <DetailSkeleton />;
   }
 
   if (!issue) {
@@ -310,7 +313,7 @@ export const IssueDetailPage: React.FC = () => {
     return <NotFoundPage message={isVi ? 'Không tìm thấy vấn đề' : 'Issue not found'} />;
   }
 
-  const isLeader = activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const isLeader = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
   const canEdit = user && (user.id === issue.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === issue.projectId);
 
@@ -541,12 +544,11 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           )}
 
-          <ActivityTimeline activities={activities} />
-
           <CommentThread
             targetType={TargetType.ISSUE}
             targetId={issue.id}
             comments={comments}
+            activities={activities}
             onRefresh={fetchIssueData}
           />
         </Box>
@@ -572,7 +574,7 @@ export const IssueDetailPage: React.FC = () => {
 
           <Box>
             <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              STATUS
+              {isVi ? 'TRẠNG THÁI' : 'STATUS'}
             </Typography>
             <Select
               size="small"
@@ -582,11 +584,11 @@ export const IssueDetailPage: React.FC = () => {
               onChange={(e) => handleStatusChange(e.target.value as IssueStatus)}
               sx={{ fontSize: '0.8125rem' }}
             >
-              <MenuItem value={IssueStatus.OPEN}>Open</MenuItem>
-              <MenuItem value={IssueStatus.IN_PROGRESS}>In Progress</MenuItem>
-              <MenuItem value={IssueStatus.NEEDS_INFO}>Needs Info</MenuItem>
-              <MenuItem value={IssueStatus.RESOLVED}>Resolved</MenuItem>
-              <MenuItem value={IssueStatus.CLOSED}>Closed</MenuItem>
+              <MenuItem value={IssueStatus.OPEN}>{isVi ? 'Đang mở' : 'Open'}</MenuItem>
+              <MenuItem value={IssueStatus.IN_PROGRESS}>{isVi ? 'Đang xử lý' : 'In Progress'}</MenuItem>
+              <MenuItem value={IssueStatus.NEEDS_INFO}>{isVi ? 'Cần thông tin' : 'Needs Info'}</MenuItem>
+              <MenuItem value={IssueStatus.RESOLVED}>{isVi ? 'Đã giải quyết' : 'Resolved'}</MenuItem>
+              <MenuItem value={IssueStatus.CLOSED}>{isVi ? 'Đã đóng' : 'Closed'}</MenuItem>
             </Select>
           </Box>
 
@@ -807,9 +809,9 @@ export const IssueDetailPage: React.FC = () => {
                 onChange={(e) => setEditType(e.target.value as IssueType)}
                 sx={{ borderRadius: '6px' }}
               >
-                <MenuItem value={IssueType.BUG}>Bug Report</MenuItem>
-                <MenuItem value={IssueType.TASK}>Task / Question</MenuItem>
-                <MenuItem value={IssueType.FEATURE}>Feature Proposal</MenuItem>
+                <MenuItem value={IssueType.BUG}>{isVi ? 'Báo cáo lỗi (Bug)' : 'Bug Report'}</MenuItem>
+                <MenuItem value={IssueType.TASK}>{isVi ? 'Công việc / Câu hỏi' : 'Task / Question'}</MenuItem>
+                <MenuItem value={IssueType.FEATURE}>{isVi ? 'Đề xuất tính năng' : 'Feature Proposal'}</MenuItem>
               </Select>
             </Box>
 
@@ -824,10 +826,10 @@ export const IssueDetailPage: React.FC = () => {
                 onChange={(e) => setEditPriority(e.target.value as IssuePriority)}
                 sx={{ borderRadius: '6px' }}
               >
-                <MenuItem value={IssuePriority.P0}>P0 - Blocker</MenuItem>
-                <MenuItem value={IssuePriority.P1}>P1 - High</MenuItem>
-                <MenuItem value={IssuePriority.P2}>P2 - Medium</MenuItem>
-                <MenuItem value={IssuePriority.P3}>P3 - Low</MenuItem>
+                <MenuItem value={IssuePriority.P0}>P0 - {isVi ? 'Khẩn cấp' : 'Blocker'}</MenuItem>
+                <MenuItem value={IssuePriority.P1}>P1 - {isVi ? 'Cao' : 'High'}</MenuItem>
+                <MenuItem value={IssuePriority.P2}>P2 - {isVi ? 'Trung bình' : 'Medium'}</MenuItem>
+                <MenuItem value={IssuePriority.P3}>P3 - {isVi ? 'Thấp' : 'Low'}</MenuItem>
               </Select>
             </Box>
 
@@ -842,11 +844,11 @@ export const IssueDetailPage: React.FC = () => {
                 onChange={(e) => setEditSeverity(e.target.value as IssueSeverity)}
                 sx={{ borderRadius: '6px' }}
               >
-                <MenuItem value={IssueSeverity.BLOCKER}>Blocker</MenuItem>
-                <MenuItem value={IssueSeverity.CRITICAL}>Critical</MenuItem>
-                <MenuItem value={IssueSeverity.MAJOR}>Major</MenuItem>
-                <MenuItem value={IssueSeverity.MINOR}>Minor</MenuItem>
-                <MenuItem value={IssueSeverity.TRIVIAL}>Trivial</MenuItem>
+                <MenuItem value={IssueSeverity.BLOCKER}>{isVi ? 'Nghiêm trọng (Blocker)' : 'Blocker'}</MenuItem>
+                <MenuItem value={IssueSeverity.CRITICAL}>{isVi ? 'Rất cao (Critical)' : 'Critical'}</MenuItem>
+                <MenuItem value={IssueSeverity.MAJOR}>{isVi ? 'Lớn (Major)' : 'Major'}</MenuItem>
+                <MenuItem value={IssueSeverity.MINOR}>{isVi ? 'Nhỏ (Minor)' : 'Minor'}</MenuItem>
+                <MenuItem value={IssueSeverity.TRIVIAL}>{isVi ? 'Không đáng kể (Trivial)' : 'Trivial'}</MenuItem>
               </Select>
             </Box>
           </Box>

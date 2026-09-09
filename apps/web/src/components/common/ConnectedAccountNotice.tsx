@@ -133,6 +133,11 @@ export const ContextualCodeHostingNotice: React.FC<{
   returnPath?: string;
 }> = ({ onPreserveDraft, returnPath = '/' }) => {
   const { tokens } = useThemeContext();
+  const { hasCodeHostingConnected, isLoadingAccounts } = useAuthContext();
+
+  if (hasCodeHostingConnected || isLoadingAccounts) {
+    return null;
+  }
 
   const handleConnect = async (provider: 'github' | 'gitlab') => {
     if (onPreserveDraft) {

@@ -111,7 +111,11 @@ export const CICheckRunsList: React.FC<CICheckRunsListProps> = ({
         sx={{
           borderRadius: '6px',
           border: `1px solid ${tokens.border}`,
-          overflow: 'hidden'
+          overflow: 'hidden',
+          maxHeight: 180,
+          overflowY: 'auto',
+          '&::-webkit-scrollbar': { width: 4 },
+          '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
         }}
       >
         {checkRuns.map((run, idx) => (
