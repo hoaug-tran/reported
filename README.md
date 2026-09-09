@@ -1,151 +1,272 @@
 # Reported
 
-**Reported** is a modern, high-velocity developer platform combining the strengths of **GitHub Issues, GitHub Discussions, Linear, an internal engineering forum, and a team code & architecture review system**.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-3178c6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/) [![React](https://img.shields.io/badge/React-18.3-61dafb?style=flat-square&logo=react&logoColor=black)](https://react.dev/) [![Vite](https://img.shields.io/badge/Vite-6.4-646cff?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev/) [![Express](https://img.shields.io/badge/Express-4.21-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/) [![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-0.38-c5f74f?style=flat-square&logo=drizzle&logoColor=black)](https://orm.drizzle.team/) [![Redis](https://img.shields.io/badge/Redis-7-dc382d?style=flat-square&logo=redis&logoColor=white)](https://redis.io/) [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
-Designed with a **minimal, developer-oriented, high information density** philosophy - without nested card clutter, without garish gradients, and built for real productivity.
+An internal engineering platform designed for software teams. **Reported** brings together structured issue tracking, multi-reviewer code and architecture reviews, engineering discussion feeds, and GitHub/GitLab repository sync into a single, high-density developer workspace.
+
+Built with a fast, zero-fluff developer UI, dark/light mode tokens, keyboard shortcuts, and full offline PWA support.
 
 ---
 
-## 🛠️ Architecture & Monorepo Overview
+## Table of Contents
 
-This project is built as a TypeScript end-to-end modular monolith using a `pnpm` workspace:
+- [Core Highlights](#core-highlights)
+- [Monorepo Structure](#monorepo-structure)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#1-prerequisites)
+  - [Setup & Run Locally](#2-setup--run-locally)
+- [Demo Accounts](#demo-accounts)
+- [Feature Walkthrough](#feature-walkthrough)
+  - [1. Technical Issues & Bug Tracking](#1-technical-issues--bug-tracking)
+  - [2. Code & Architecture Reviews](#2-code--architecture-reviews)
+  - [3. Engineering Post Feed](#3-engineering-post-feed)
+  - [4. Git Host Integration (GitHub & GitLab)](#4-git-host-integration-github--gitlab)
+  - [5. Discussions, Mentions & Reactions](#5-discussions-mentions--reactions)
+  - [6. Transactional Outbox & Email Inspector](#6-transactional-outbox--email-inspector)
+  - [7. Command Palette (`Ctrl+K`) & PWA Support](#7-command-palette-ctrlk--pwa-support)
+- [Useful Scripts](#useful-scripts)
+- [Environment Variables](#environment-variables)
+- [Production Deployment](#production-deployment)
+- [License](#license)
+
+---
+
+## Core Highlights
+
+- **Fast & Responsive**: Built with Vite 6 + React 18 and content-aware skeleton loaders instead of generic blocking spinners.
+- **End-to-End TypeScript**: Shared Zod schemas, TypeScript DTOs, and enums between client and server via `@reported/contracts`.
+- **High-Density UI**: Clean typography, pixel-aligned card tags, unified title baselines, and dark mode tailored for long coding sessions.
+- **Reliable Async Events**: Transactional outbox pattern guarantees domain events and notifications are never lost during database commits.
+- **Installable PWA**: Service Worker caching, web app manifest, and offline support for both desktop and mobile browsers.
+
+---
+
+## Monorepo Structure
+
+Reported uses a lightweight `pnpm` workspace:
 
 ```
 Reported/
-├── packages/
-│   ├── contracts/             # Shared Zod validation schemas, TypeScript DTOs, and system enums
-│   └── database/              # PostgreSQL schema (Drizzle ORM), migrations, and realistic dev seed
 ├── apps/
-│   ├── api/                   # Express + TypeScript Modular Monolith backend
-│   │   ├── src/events/        # Transactional Outbox & Background Worker
-│   │   ├── src/modules/       # auth, issues, reviews, comments, github, notifications, emails, etc.
-│   │   └── src/middleware/    # RBAC permissions, timing-safe webhook HMAC, error handling
-│   └── web/                   # Vite + React + MUI v6 developer interface
-│       ├── src/components/    # CodeBlock (PrismJS), JsonViewer, MarkdownRenderer, PRPreview
-│       └── src/theme/         # Semantic tokens for Light, Dark, and System modes
-├── docker-compose.yml         # PostgreSQL 16 & Redis
-└── README.md
+│   ├── api/                   # Express backend (modular monolith architecture)
+│   │   ├── src/modules/       # auth, issues, reviews, comments, github, notifications, etc.
+│   │   ├── src/events/        # Outbox event publisher & background workers
+│   │   └── src/middleware/    # RBAC, HMAC webhook verification, rate limiter, error handler
+│   │
+│   └── web/                   # Vite + React SPA
+│       ├── public/            # PWA manifest, service worker (sw.js), app icons
+│       └── src/
+│           ├── components/    # CodeBlock (PrismJS), JsonViewer, MarkdownEditor, Skeletons
+│           ├── contexts/      # Auth, Theme, Workspace, I18n, Toast
+│           ├── pages/         # Dashboard, Issues, Reviews, Posts, Projects, Repos, Profile
+│           └── theme/         # Semantic design tokens (light/dark modes)
+│
+├── packages/
+│   ├── contracts/             # Shared DTOs, API payloads, and enums (Zod + TypeScript)
+│   └── database/              # PostgreSQL schema (Drizzle ORM), migrations, seed scripts
+│
+├── infra/                     # Nginx configurations and production Dockerfiles
+├── scripts/                   # Remote deploy and automation scripts
+├── docker-compose.yml         # Local dev infrastructure (PostgreSQL 16, Redis 7)
+└── docker-compose.prod.yml    # Production container orchestration
 ```
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Prerequisites
 
-- **Node.js**: `v20+` or `v22+`
-- **pnpm**: `v9+` or `v11+`
-- **Docker**: For running PostgreSQL (or use an existing PostgreSQL instance)
+- **Node.js**: `v20.x` or `v22.x`
+- **pnpm**: `v9.x` or later (`corepack enable pnpm`)
+- **Docker & Docker Compose**: For local PostgreSQL and Redis
 
-### 2. Start PostgreSQL Infrastructure
+### 2. Setup & Run Locally
+
+**Clone the repository:**
+
+```bash
+git clone https://github.com/hoaug-tran/reported.git
+cd reported
+```
+
+**Start database and cache containers:**
 
 ```bash
 docker compose up -d
 ```
 
-_Note: PostgreSQL is exposed on port `5435` to avoid colliding with any default PostgreSQL installations._
+> PostgreSQL is mapped to port `5435` (to prevent conflicts with any locally running Postgres service), and Redis is mapped to `6380`.
 
-### 3. Install Dependencies
+**Install dependencies:**
 
 ```bash
 pnpm install
 ```
 
-### 4. Run Migrations & Seed Realistic Data
+**Configure environment files:**
+
+```bash
+cp .env.example .env
+```
+
+_(The defaults in `.env.example` connect directly to the Docker containers above)._
+
+**Apply migrations and seed sample data:**
 
 ```bash
 pnpm db:migrate
 pnpm db:seed
 ```
 
-### 5. Start Development Servers
+**Start the development servers:**
 
 ```bash
 pnpm dev
 ```
 
-- **Web Interface**: `http://localhost:5173`
-- **API Server**: `http://localhost:4000`
-- **Health Check**: `http://localhost:4000/health`
+Your applications will be live at:
+
+- **Web App**: [http://localhost:5173](http://localhost:5173)
+- **API Server**: [http://localhost:4000](http://localhost:4000)
+- **Health Check**: [http://localhost:4000/health](http://localhost:4000/health)
 
 ---
 
-## 👥 Seeded Engineering Personas
+## Demo Accounts
 
-All seeded accounts share the password: `Password123!`
-You can also click any persona button on the `/login` page for **1-click instant login**:
+The database seed includes realistic engineering personas with pre-filled issues, pull request reviews, and discussion threads.
 
-| Persona           | Username    | Email                 | Role       | Specialization                      |
-| :---------------- | :---------- | :-------------------- | :--------- | :---------------------------------- |
-| **Hoang Nguyen**  | `hoaug`     | `hoaug@reported.dev`  | Admin      | Core Platform Lead & Backend        |
-| **Alex Chen**     | `alex.chen` | `alex@reported.dev`   | Maintainer | Staff Distributed Systems Architect |
-| **Sarah Kim**     | `sarah.kim` | `sarah@reported.dev`  | Reviewer   | Lead Frontend Engineer              |
-| **Marcus Vance**  | `marcus.v`  | `marcus@reported.dev` | Reviewer   | Application Security Researcher     |
-| **Elena Rostova** | `elena.r`   | `elena@reported.dev`  | User       | Database Reliability Engineer       |
+All seed accounts use the password: **`Password123!`**
 
----
+You can also use the **1-click Quick Login buttons** on the `/login` page:
 
-## ✨ Key Features & Capabilities
-
-### 1. Rich Bug Report Templates & Blank Issues
-
-- Structured Bug reports: **Environment**, **Precondition**, **Steps to Reproduce**, **Actual vs Expected**, **Frequency** (Always / Often / Sometimes / Rare), and **Evidence Logs / JSON**.
-- Severity: `Blocker`, `Critical`, `Major`, `Minor`, `Trivial`.
-- Priority: `P0` (Blocker) to `P4` (None).
-- Sequential numbers (e.g. `#101`, `#102`).
-
-### 2. Review Requests (Code, Architecture, Database, Security, UI, API)
-
-- Dedicated review request domain with deadline tracking.
-- Multi-reviewer assignments with formal decisions: `Approved` (✅), `Changes Requested` (❌), or `Commented` (💬).
-- Decision notes and audit timeline tracking.
-
-### 3. Code Block & Dedicated JSON Viewer
-
-- **CodeBlock**: PrismJS syntax highlighting for TypeScript, JavaScript, JSON, C#, Java, SQL, Bash, YAML, Dockerfile, HTML, CSS, Markdown with line numbers, copy button, and line wrapping.
-- **JsonViewer**: Interactive tree view with collapsible/expandable nodes, prettify, minify, copy, and invalid JSON error boundary.
-
-### 4. Technical Discussions & Mentions
-
-- Technical forum thread on every issue and review request.
-- Autocomplete mentions (`@username`) when typing `@` in editor.
-- Nested replies and quote reply.
-- Lightweight reactions (`👍 Like`, `💡 Useful`, `✅ Agree`, `❌ Disagree`, `👀 Eyes`).
-
-### 5. GitHub Integration & Webhook Receiver
-
-- Pull request link auto-detection: displays PR number, title, branches (`feature -> main`), CI checks status, author, and review status.
-- Webhook receiver at `/api/v1/github/webhook` with constant-time HMAC signature verification (`crypto.timingSafeEqual`).
-
-### 6. Transactional Outbox & Email Notification Engine
-
-- Domain events (`USER_MENTIONED`, `ISSUE_ASSIGNED`, `REVIEW_REQUESTED`, `COMMENT_CREATED`, `ISSUE_STATUS_CHANGED`) are saved to `outbox_events` in the same transaction.
-- Background worker processes events, creates in-app notifications, checks user channel preferences (`IN_APP`, `EMAIL`, `BOTH`, `DISABLED`), and queues email jobs.
-- **In-App Email Inspector**: Click the envelope icon in the notification popover to view and inspect all dispatched emails in rendered HTML!
-
-### 7. Global Command Palette (`Cmd+K` / `Ctrl+K`)
-
-- Jump to issues, reviews, users, or repositories.
-- Quick create issues/reviews and toggle theme.
+| User              | Username    | Email                 | Workspace Role    | Role Focus                         |
+| :---------------- | :---------- | :-------------------- | :---------------- | :--------------------------------- |
+| **Hoang Nguyen**  | `hoaug`     | `hoaug@reported.dev`  | `OWNER` / `ADMIN` | Platform Lead & Backend            |
+| **Alex Chen**     | `alex.chen` | `alex@reported.dev`   | `ADMIN`           | Distributed Systems & Architecture |
+| **Sarah Kim**     | `sarah.kim` | `sarah@reported.dev`  | `MEMBER`          | Lead Frontend Engineer             |
+| **Marcus Vance**  | `marcus.v`  | `marcus@reported.dev` | `MEMBER`          | Application Security Researcher    |
+| **Elena Rostova** | `elena.r`   | `elena@reported.dev`  | `MEMBER`          | Database Reliability Engineer      |
 
 ---
 
-## 🧪 Testing & Verification
+## Feature Walkthrough
 
-Run tests:
+### 1. Technical Issues & Bug Tracking
 
-```bash
-pnpm test
+- **Structured Bug Reports**: Fill out pre-formatted templates with reproduction steps, environment context, frequency (Always / Often / Rare), and actual vs. expected behavior.
+- **Priority & Severity**: Dual prioritization with Severity (`Blocker`, `Critical`, `Major`, `Minor`, `Trivial`) and Priority (`P0` to `P4`).
+- **Saved Views & Filters**: Filter by status, priority, author, or project, and save custom view presets for quick access.
+- **Trash & Soft Delete**: Deleted items can be reviewed and restored from the trash bin.
+
+### 2. Code & Architecture Reviews
+
+- **Multi-Reviewer Workflow**: Assign multiple reviewers with formal decisions: `Approved` (✅), `Changes Requested` (❌), or `Commented` (💬).
+- **Specialized Review Types**: Categorize reviews into `Code`, `Architecture`, `Database Schema`, `Security Audit`, or `API Design`.
+- **Review Deadlines**: Visual indicators for upcoming or overdue reviews.
+
+### 3. Engineering Post Feed
+
+- Unified engineering discussions located at `/posts`.
+- Categorized tabs: **Bugs**, **Review PRs**, **Questions**, and **Ideas**.
+- Standardized badge widths (`90px`) and monospace issue numbers guarantee that titles align vertically in a clean line.
+
+### 4. Git Host Integration (GitHub & GitLab)
+
+- **Repository Linking**: Connect your GitHub and GitLab repositories to track PRs and issues per workspace.
+- **PR Previews & CI Status**: Auto-fetches PR status, source/target branches, author avatars, and CI/CD check runs (Success, Failed, Running) with direct external links.
+- **Secure Webhooks**: Receives incoming webhook events using constant-time HMAC signature verification (`crypto.timingSafeEqual`).
+
+### 5. Discussions, Mentions & Reactions
+
+- Full Markdown editor with syntax-highlighted code blocks (PrismJS) and collapsible JSON tree inspector.
+- User autocomplete with `@username`.
+- Quote reply and lightweight emoji reactions (`👍`, `💡`, `✅`, `❌`, `👀`, ...).
+
+### 6. Transactional Outbox & Email Inspector
+
+- All domain events (`USER_MENTIONED`, `ISSUE_ASSIGNED`, `REVIEW_REQUESTED`, etc.) are written to the `outbox_events` table within the same transaction.
+- Background worker processes the outbox queue, dispatches in-app notifications, and triggers emails via Resend or SMTP.
+- **In-App Email Inspector**: Open the notification dropdown to preview all dispatched HTML emails directly in the browser during development.
+
+### 7. Command Palette (`Ctrl+K`) & PWA Support
+
+- Global `Ctrl+K` (or `Cmd+K`) command bar to quickly search issues, reviews, repositories, and switch pages.
+- Installable as a Progressive Web App (PWA) with offline page caching and desktop notification support.
+
+---
+
+## Useful Scripts
+
+| Command            | Description                                                          |
+| :----------------- | :------------------------------------------------------------------- |
+| `pnpm dev`         | Start both API and Web dev servers concurrently                      |
+| `pnpm dev:api`     | Start only the API backend (`tsx watch`)                             |
+| `pnpm dev:web`     | Start only the Vite frontend                                         |
+| `pnpm build`       | Build all workspace packages (`contracts`, `database`, `api`, `web`) |
+| `pnpm typecheck`   | Run TypeScript checks across the entire monorepo                     |
+| `pnpm test`        | Run backend test suites (Vitest)                                     |
+| `pnpm lint`        | Run code linter across all packages                                  |
+| `pnpm db:migrate`  | Apply pending database migrations                                    |
+| `pnpm db:seed`     | Seed realistic dev accounts, issues, and discussions                 |
+| `pnpm db:clean`    | Wipe and re-create local database tables                             |
+| `pnpm docker:up`   | Spin up local PostgreSQL and Redis containers                        |
+| `pnpm docker:down` | Stop local Docker containers                                         |
+
+---
+
+## Environment Variables
+
+A `.env.example` file is provided at the project root:
+
+```env
+NODE_ENV=development
+PORT=4000
+DATABASE_URL=postgresql://reported_user:reported_password@localhost:5435/reported_db
+REDIS_URL=redis://localhost:6380
+JWT_SECRET=super-secret-reported-jwt-key-minimum-32-chars-long
+SESSION_SECRET=super-secret-reported-session-key-minimum-32-chars-long
+CORS_ORIGIN=http://localhost:5173
+CLIENT_URL=http://localhost:5173
+
+# Email Delivery (Resend or SMTP)
+MAIL_DRIVER=resend
+RESEND_API_KEY=re_your_api_key_here
+MAIL_FROM="Reported <no-reply@yourdomain.com>"
+
+# OAuth Providers (Optional)
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+GITHUB_WEBHOOK_SECRET=your_github_webhook_secret
+
+GITLAB_CLIENT_ID=your_gitlab_client_id
+GITLAB_CLIENT_SECRET=your_gitlab_client_secret
+
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 ```
 
-Typecheck:
+---
 
-```bash
-pnpm typecheck
-```
+## Production Deployment
 
-Build production bundle:
+For deploying to production servers or remote VPS:
 
-```bash
-pnpm build
-```
+1. **Docker Compose Production**: `docker-compose.prod.yml` spins up Nginx reverse proxy, API backend, Web frontend, isolated Postgres, Redis, and Cloudflare Tunnel.
+2. **One-Command Remote Deploy**:
+
+   ```bash
+   # Linux / macOS (Bash)
+   SERVER_HOST=your-server.com SERVER_USER=ubuntu pnpm deploy:prod:bash
+
+   # Windows (PowerShell)
+   pnpm deploy:prod
+   ```
+
+---
+
+## License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
