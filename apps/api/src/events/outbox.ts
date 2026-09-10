@@ -301,6 +301,84 @@ export async function processOutboxEvents() {
             }
             break;
           }
+
+          case 'REVIEW_STATUS_CHANGED': {
+            const { targetUserIds = [], reviewNumber, reviewTitle, fromStatus, toStatus, authorId, actorId, link } = payload;
+            const recipientIds = ((targetUserIds as string[]).length > 0 ? (targetUserIds as string[]) : (authorId ? [authorId as string] : []))
+              .filter((uid: string) => uid !== actorId);
+            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId as string) }) : null;
+
+            for (const userId of recipientIds) {
+              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              if (!targetUser) continue;
+
+              await db.insert(notifications).values({
+                userId,
+                actorId: actorId as string | undefined,
+                type: NotificationType.REVIEW_STATUS_CHANGED,
+                title: `Review #${reviewNumber} status: ${fromStatus} → ${toStatus}`,
+                message: `${actor?.displayName || 'Someone'} changed review status to ${toStatus}`,
+                link: (link as string) || `/reviews/${reviewNumber}`
+              });
+
+              if (await shouldSendEmail(userId, NotificationType.REVIEW_STATUS_CHANGED)) {
+                await dispatchEmailJob({
+                  outboxEventId: evt.id,
+                  recipientEmail: targetUser.email,
+                  recipientName: targetUser.displayName,
+                  subject: `[Reported] Review #${reviewNumber} status changed to ${toStatus}`,
+                  template: 'status-changed',
+                  htmlBody: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
+                      <p><strong>${actor?.displayName || 'Someone'}</strong> updated the status of <strong>#${reviewNumber}: ${reviewTitle || ''}</strong> from <code>${fromStatus}</code> to <code>${toStatus}</code>.</p>
+                      <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Review</a></p>
+                    </div>
+                  `,
+                  textBody: `Review #${reviewNumber} status changed: ${fromStatus} -> ${toStatus}\n\nLink: ${config.clientUrl}${link}`
+                });
+              }
+            }
+            break;
+          }
+
+          case 'PR_UPDATED': {
+            const { targetUserIds = [], actorId, prNumber, reviewNumber, reviewTitle, link } = payload;
+            const recipientIds = (targetUserIds as string[]).filter((uid: string) => uid !== actorId);
+            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId as string) }) : null;
+
+            for (const userId of recipientIds) {
+              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              if (!targetUser) continue;
+
+              await db.insert(notifications).values({
+                userId,
+                actorId: actorId as string | undefined,
+                type: NotificationType.PR_UPDATED,
+                title: `PR #${prNumber} updated on Review #${reviewNumber}`,
+                message: `Pull Request #${prNumber} has new changes. Review status set to Pending Review.`,
+                link: (link as string) || `/reviews/${reviewNumber}`
+              });
+
+              if (await shouldSendEmail(userId, NotificationType.PR_UPDATED)) {
+                await dispatchEmailJob({
+                  outboxEventId: evt.id,
+                  recipientEmail: targetUser.email,
+                  recipientName: targetUser.displayName,
+                  subject: `[Reported] PR #${prNumber} updated for Review #${reviewNumber}`,
+                  template: 'pr-updated',
+                  htmlBody: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
+                      <p>Pull Request <strong>#${prNumber}</strong> linked to review <strong>#${reviewNumber}: ${reviewTitle || ''}</strong> has new commits.</p>
+                      <p>Review status has been updated to <strong>Pending Review</strong>.</p>
+                      <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open Review</a></p>
+                    </div>
+                  `,
+                  textBody: `PR #${prNumber} linked to Review #${reviewNumber} has new changes. Status reset to Pending Review.\n\nLink: ${config.clientUrl}${link}`
+                });
+              }
+            }
+            break;
+          }
         }
 
         await db.update(outboxEvents)

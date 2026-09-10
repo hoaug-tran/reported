@@ -63,6 +63,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'small'
       break;
 
     case ReviewStatus.PENDING_REVIEW:
+    case 'PENDING':
       label = 'Pending Review';
       color = '#d29922';
       bg = 'rgba(210, 153, 34, 0.15)';

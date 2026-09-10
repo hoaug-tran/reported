@@ -419,6 +419,8 @@ export async function migrate() {
       CREATE INDEX IF NOT EXISTS idx_notifications_user_read ON notifications (user_id, is_read);
       CREATE INDEX IF NOT EXISTS idx_outbox_status_created ON outbox_events (status, created_at);
       CREATE INDEX IF NOT EXISTS idx_email_jobs_status ON email_jobs (status, created_at);
+
+      UPDATE review_requests SET status = 'PENDING_REVIEW' WHERE status = 'PENDING';
     `);
   } finally {
     client.release();

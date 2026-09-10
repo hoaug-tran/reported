@@ -88,10 +88,10 @@ export const IssueDetailPage: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchIssueData = async () => {
+  const fetchIssueData = async (skipPrSync = false) => {
     if (!params?.number) return;
     try {
-      const data = await apiFetch<IssueDto>(`/issues/${params.number}`);
+      const data = await apiFetch<IssueDto>(`/issues/${params.number}`, { skipCache: true });
       setIssue(data);
       setIsWatching(!!data.isWatching);
       setErrorStatus(null);
@@ -104,12 +104,12 @@ export const IssueDetailPage: React.FC = () => {
       setComments(commData);
       setActivities(actData);
 
-      if (data.pullRequest?.id) {
+      if (data.pullRequest?.id && !skipPrSync) {
         apiFetch<{ success: boolean; hasChanges?: boolean }>(`/github/pull-requests/${data.pullRequest.id}/sync`, { method: 'POST' })
           .then((res) => {
             if (res?.hasChanges) {
               toast.info(isVi ? 'Pull Request có cập nhật mới từ mã nguồn' : 'Pull Request synced with new changes');
-              fetchIssueData();
+              fetchIssueData(true);
             }
           })
           .catch(() => {});

@@ -10,7 +10,49 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export interface ApiFetchOptions extends RequestInit {
+  skipCache?: boolean;
+}
+
+interface CacheEntry {
+  data: any;
+  expiresAt: number;
+}
+
+// In-flight request deduplication map for GET requests
+const inFlightRequests = new Map<string, Promise<any>>();
+
+// In-memory response cache for GET requests
+const responseCache = new Map<string, CacheEntry>();
+
+export function clearApiCache(pattern?: string) {
+  if (!pattern) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (key.includes(pattern)) {
+      responseCache.delete(key);
+    }
+  }
+}
+
+function getCacheTtl(url: string): number {
+  // Semi-static endpoints can be cached longer (15 seconds)
+  if (
+    url.includes('/github/repositories') ||
+    url.includes('/members') ||
+    url.includes('/projects') ||
+    url.includes('/saved-views')
+  ) {
+    return 15_000;
+  }
+  // Frequent / dynamic GET requests cached briefly (3 seconds) to coalesce concurrent component fetches
+  return 3_000;
+}
+
+export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {}): Promise<T> {
+  const method = (options.method || 'GET').toUpperCase();
   const url = endpoint.startsWith('/api') ? endpoint : `/api/v1${endpoint}`;
 
   const headers = new Headers(options.headers || {});
@@ -23,28 +65,67 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}): 
     headers.set('x-workspace-id', activeWsId);
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include'
-  });
-
-  if (response.status === 204) {
-    return {} as T;
+  // Mutating requests automatically invalidate cache
+  if (method !== 'GET') {
+    clearApiCache();
   }
 
-  const data = await response.json().catch(() => ({}));
+  const cacheKey = `${method}:${activeWsId || 'none'}:${url}`;
 
-  if (!response.ok) {
-    const errObj = data.error || {};
-    throw new ApiError(
-      errObj.code || 'UNKNOWN_ERROR',
-      errObj.message || response.statusText || 'An error occurred',
-      response.status,
-      errObj.details
-    );
+  // Check cache for GET requests
+  if (method === 'GET' && !options.skipCache) {
+    const cached = responseCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.data as T;
+    }
+
+    // Check in-flight promise deduplication
+    const inFlight = inFlightRequests.get(cacheKey);
+    if (inFlight) {
+      return inFlight as Promise<T>;
+    }
   }
 
-  return data as T;
+  const requestPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        credentials: 'include'
+      });
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errObj = data.error || {};
+        throw new ApiError(
+          errObj.code || 'UNKNOWN_ERROR',
+          errObj.message || response.statusText || 'An error occurred',
+          response.status,
+          errObj.details
+        );
+      }
+
+      if (method === 'GET' && !options.skipCache) {
+        responseCache.set(cacheKey, {
+          data,
+          expiresAt: Date.now() + getCacheTtl(url)
+        });
+      }
+
+      return data as T;
+    } finally {
+      inFlightRequests.delete(cacheKey);
+    }
+  })();
+
+  if (method === 'GET' && !options.skipCache) {
+    inFlightRequests.set(cacheKey, requestPromise);
+  }
+
+  return requestPromise;
 }
-

@@ -112,10 +112,10 @@ export const ReviewDetailPage: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchReviewData = async () => {
+  const fetchReviewData = async (skipPrSync = false) => {
     if (!params?.number) return;
     try {
-      const data = await apiFetch<ReviewDetailDto>(`/reviews/${params.number}`);
+      const data = await apiFetch<ReviewDetailDto>(`/reviews/${params.number}`, { skipCache: true });
       setReview(data);
       setErrorStatus(null);
 
@@ -126,12 +126,12 @@ export const ReviewDetailPage: React.FC = () => {
       setComments(commData);
       setActivities(actData || []);
 
-      if (data.pullRequest?.id) {
+      if (data.pullRequest?.id && !skipPrSync) {
         apiFetch<{ success: boolean; hasChanges?: boolean }>(`/github/pull-requests/${data.pullRequest.id}/sync`, { method: 'POST' })
           .then((res) => {
             if (res?.hasChanges) {
               toast.info(isVi ? 'Pull Request có cập nhật mới. Đã chuyển trạng thái sang Chờ review.' : 'Pull Request synced with new changes. Status updated to Pending.');
-              fetchReviewData();
+              fetchReviewData(true);
             }
           })
           .catch(() => {});
@@ -274,21 +274,26 @@ export const ReviewDetailPage: React.FC = () => {
     }
   };
 
+  const isLeader = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const isAuthor = Boolean(user && review?.author?.id && user.id === review.author.id);
+  const isReviewer = Boolean(user && review?.reviewers?.some((r) => r.user.id === user.id));
+  const isMember = Boolean(user && activeWorkspace);
+
+  const canEdit = isAuthor || isLeader || isMember;
+  const canChangeStatus = isAuthor || isLeader || isReviewer || isMember;
+
   const handleStatusChange = async (newStatus: ReviewStatus) => {
-    if (!review || !canEdit) return;
+    if (!review || !canChangeStatus) return;
     try {
       await apiFetch(`/reviews/${review.id}`, {
         method: 'PATCH',
         body: JSON.stringify({ status: newStatus })
       });
-      await fetchReviewData();
+      await fetchReviewData(true);
     } catch (err) {
       console.error('Failed to change status:', err);
     }
   };
-
-  const isLeader = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
-  const canEdit = user && (user.id === review?.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === review.projectId);
 
   return (
@@ -481,8 +486,8 @@ export const ReviewDetailPage: React.FC = () => {
             <Select
               size="small"
               fullWidth
-              value={review.status}
-              disabled={review.isDeleted || !canEdit}
+              value={(review.status as string) === 'PENDING' ? ReviewStatus.PENDING_REVIEW : review.status}
+              disabled={review.isDeleted || !canChangeStatus}
               onChange={(e) => handleStatusChange(e.target.value as ReviewStatus)}
               sx={{ fontSize: '0.8125rem' }}
             >

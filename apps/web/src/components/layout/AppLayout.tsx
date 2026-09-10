@@ -112,11 +112,17 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   const prevNotificationIdsRef = useRef<Set<string>>(new Set());
   const isInitialFetchRef = useRef<boolean>(true);
+  const lastNotificationsFetchRef = useRef<number>(0);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (force = false) => {
     if (!user) return;
+    const now = Date.now();
+    if (!force && now - lastNotificationsFetchRef.current < 4000) {
+      return;
+    }
+    lastNotificationsFetchRef.current = now;
     try {
-      const res = await apiFetch<{ notifications: NotificationDto[]; unreadCount: number }>('/notifications');
+      const res = await apiFetch<{ notifications: NotificationDto[]; unreadCount: number }>('/notifications', { skipCache: force });
       const list = res.notifications || [];
 
       if (!isInitialFetchRef.current) {

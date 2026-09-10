@@ -85,7 +85,7 @@ export const PullRequestPreview: React.FC<PullRequestPreviewProps> = ({
         error?: string;
         code?: string;
         pullRequest?: PullRequestSummaryDto;
-      }>(`/github/pull-requests/${pr.id}/sync`, { method: 'POST' });
+      }>(`/github/pull-requests/${pr.id}/sync?force=true`, { method: 'POST' });
 
       if (res.pullRequest) {
         setPr(res.pullRequest);

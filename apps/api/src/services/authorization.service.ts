@@ -20,6 +20,7 @@ export type Permission =
   | 'issue.close'
   | 'issue.delete'
   | 'review.create'
+  | 'review.update'
   | 'review.assign'
   | 'review.approve'
   | 'repository.link'
@@ -45,6 +46,7 @@ const WORKSPACE_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
     'issue.close',
     'issue.delete',
     'review.create',
+    'review.update',
     'review.assign',
     'review.approve',
     'repository.link',
@@ -66,6 +68,7 @@ const WORKSPACE_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
     'issue.close',
     'issue.delete',
     'review.create',
+    'review.update',
     'review.assign',
     'review.approve',
     'repository.link',
@@ -79,6 +82,7 @@ const WORKSPACE_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
     'issue.assign',
     'issue.close',
     'review.create',
+    'review.update',
     'review.assign',
     'review.approve',
     'repository.link'
@@ -129,7 +133,7 @@ export class AuthorizationService {
     }
 
     if (context?.authorId && context.authorId === userId) {
-      if (permission === 'issue.update' || permission === 'issue.close') {
+      if (permission === 'issue.update' || permission === 'issue.close' || permission === 'review.update') {
         return true;
       }
     }
@@ -150,6 +154,7 @@ export class AuthorizationService {
             permission === 'issue.assign' ||
             permission === 'issue.close' ||
             permission === 'review.create' ||
+            permission === 'review.update' ||
             permission === 'review.assign' ||
             permission === 'review.approve' ||
             permission === 'repository.link'

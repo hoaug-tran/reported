@@ -1,15 +1,16 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
-  db, repositories, pullRequests, issues, reviewRequests, activities, externalAccounts,
+  db, repositories, pullRequests, issues, reviewRequests, reviewReviewers, activities, externalAccounts,
   eq, and, ilike, or, desc
 } from '@reported/database';
-import { PullRequestChecksStatus, PullRequestState, TargetType } from '@reported/contracts';
+import { PullRequestChecksStatus, PullRequestState, TargetType, ReviewStatus, ReviewerDecision } from '@reported/contracts';
 import { requireAuth } from '../../middleware/auth.js';
 import { decryptToken } from '../auth/services/token-cipher.service.js';
 import { AppError } from '../../middleware/error.js';
 import { config } from '../../config/index.js';
 import crypto from 'crypto';
 import { cacheService } from '../../services/cache.service.js';
+import { recordOutboxEvent } from '../../events/outbox.js';
 
 export const githubRouter = Router();
 
@@ -653,6 +654,18 @@ githubRouter.post('/pull-requests/:id/sync', requireAuth, async (req: Request, r
       throw new AppError(404, 'NOT_FOUND', 'Repository not found');
     }
 
+    const forceSync = req.query.force === 'true';
+    const now = Date.now();
+    const lastUpdated = pr.updatedAt ? new Date(pr.updatedAt).getTime() : 0;
+    if (!forceSync && (now - lastUpdated < 30_000)) {
+      return res.json({
+        success: true,
+        hasChanges: false,
+        message: 'Pull Request recently synced',
+        pullRequest: formatPullRequestSummary(pr, repo.fullName)
+      });
+    }
+
     const [account] = await db.select().from(externalAccounts).where(
       and(
         eq(externalAccounts.userId, userId),
@@ -772,8 +785,18 @@ githubRouter.post('/pull-requests/:id/sync', requireAuth, async (req: Request, r
         });
         for (const lr of linkedReviews) {
           await db.update(reviewRequests)
-            .set({ status: 'PENDING', updatedAt: new Date() })
+            .set({ status: ReviewStatus.PENDING_REVIEW, updatedAt: new Date() })
             .where(eq(reviewRequests.id, lr.id));
+
+          await db.update(reviewReviewers)
+            .set({
+              acknowledgementStatus: null,
+              acknowledgedAt: null,
+              status: ReviewerDecision.PENDING,
+              decisionNote: null,
+              reviewedAt: null
+            })
+            .where(eq(reviewReviewers.reviewId, lr.id));
 
           await db.insert(activities).values({
             targetType: TargetType.REVIEW,
@@ -784,9 +807,30 @@ githubRouter.post('/pull-requests/:id/sync', requireAuth, async (req: Request, r
               prNumber: pr.prNumber,
               title: updatedPr.title,
               fromStatus: lr.status,
-              toStatus: 'PENDING'
+              toStatus: ReviewStatus.PENDING_REVIEW
             }
           });
+
+          const allRev = await db.query.reviewReviewers.findMany({
+            where: eq(reviewReviewers.reviewId, lr.id)
+          });
+          const recipientUserIds = [
+            ...allRev.map(r => r.userId),
+            lr.authorId
+          ].filter((uid, idx, arr) => uid && uid !== userId && arr.indexOf(uid) === idx);
+
+          if (recipientUserIds.length > 0) {
+            await recordOutboxEvent('PR_UPDATED', {
+              targetUserIds: recipientUserIds,
+              actorId: userId,
+              prNumber: pr.prNumber,
+              reviewNumber: lr.number,
+              reviewTitle: lr.title,
+              fromStatus: lr.status,
+              toStatus: ReviewStatus.PENDING_REVIEW,
+              link: `/reviews/${lr.number}`
+            });
+          }
         }
 
         const linkedIssues = await db.query.issues.findMany({

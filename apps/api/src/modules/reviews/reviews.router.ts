@@ -1,12 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
   db, reviewRequests, reviewReviewers, reviewLabels, labels, users,
-  repositories, pullRequests, comments, watchers, activities, workspaceMembers,
+  repositories, pullRequests, comments, watchers, activities, workspaceMembers, workspaces,
   eq, and, or, ilike, inArray, desc, asc, sql
 } from '@reported/database';
 import {
   CreateReviewSchema, UpdateReviewSchema, UpdateReviewDecisionSchema, UpdateAcknowledgementSchema, ReviewFilterSchema,
-  TargetType, ReviewStatus, ReviewerDecision
+  TargetType, ReviewStatus, ReviewerDecision, WorkspaceRole
 } from '@reported/contracts';
 import { requireAuth } from '../../middleware/auth.js';
 import { AppError } from '../../middleware/error.js';
@@ -486,6 +486,67 @@ reviewsRouter.post('/', requireAuth, async (req: Request, res: Response, next: N
   }
 });
 
+async function checkReviewPermissions(userId: string, userGlobalRole: string, review: typeof reviewRequests.$inferSelect) {
+  const isAuthor = review.authorId === userId;
+  const isSystemAdmin = userGlobalRole === 'ADMIN';
+
+  let isWsOwner = false;
+  let isWsAdmin = false;
+  let isWsMember = false;
+
+  if (review.workspaceId) {
+    const ws = await db.query.workspaces.findFirst({
+      where: eq(workspaces.id, review.workspaceId)
+    });
+    if (ws && ws.ownerId === userId) {
+      isWsOwner = true;
+      isWsAdmin = true;
+      isWsMember = true;
+    } else {
+      const membership = await db.query.workspaceMembers.findFirst({
+        where: and(
+          eq(workspaceMembers.workspaceId, review.workspaceId),
+          eq(workspaceMembers.userId, userId)
+        )
+      });
+      if (membership) {
+        isWsMember = true;
+        if (membership.role === WorkspaceRole.OWNER) {
+          isWsOwner = true;
+          isWsAdmin = true;
+        } else if (membership.role === WorkspaceRole.ADMIN) {
+          isWsAdmin = true;
+        }
+      }
+    }
+  }
+
+  const isAssignedReviewer = Boolean(
+    await db.query.reviewReviewers.findFirst({
+      where: and(
+        eq(reviewReviewers.reviewId, review.id),
+        eq(reviewReviewers.userId, userId)
+      )
+    })
+  );
+
+  const canDelete = isAuthor || isSystemAdmin || isWsOwner || isWsAdmin;
+  const canEditAll = isAuthor || isSystemAdmin || isWsOwner || isWsAdmin || isWsMember;
+  const canChangeStatus = canEditAll || isAssignedReviewer;
+
+  return {
+    isAuthor,
+    isSystemAdmin,
+    isWsOwner,
+    isWsAdmin,
+    isWsMember,
+    isAssignedReviewer,
+    canDelete,
+    canEditAll,
+    canChangeStatus
+  };
+}
+
 reviewsRouter.patch('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const user = req.user!;
@@ -497,23 +558,41 @@ reviewsRouter.patch('/:id', requireAuth, async (req: Request, res: Response, nex
       throw new AppError(404, 'REVIEW_NOT_FOUND', 'Review request not found');
     }
 
-    if (review.authorId !== user.id && user.role !== 'ADMIN') {
-      throw new AppError(403, 'FORBIDDEN', 'Only author or admin can edit this review');
-    }
+    const perms = await checkReviewPermissions(user.id, user.role, review);
 
     const input = UpdateReviewSchema.parse(req.body);
+
+    const bodyKeys = Object.keys(req.body);
+    const isOnlyStatusChange = bodyKeys.length === 1 && input.status !== undefined;
+
+    if (isOnlyStatusChange) {
+      if (!perms.canChangeStatus) {
+        throw new AppError(403, 'FORBIDDEN', 'You do not have permission to change the status of this review');
+      }
+    } else {
+      if (!perms.canEditAll) {
+        throw new AppError(403, 'FORBIDDEN', 'Only workspace members, author, or admin can edit this review');
+      }
+    }
+
     const updates: Partial<typeof reviewRequests.$inferInsert> = {
       updatedAt: new Date()
     };
     if (input.title) updates.title = input.title.trim();
-    if (input.description) updates.description = input.description.trim();
+    if (input.description !== undefined) updates.description = input.description ? input.description.trim() : '';
     if (input.reviewType) updates.reviewType = input.reviewType;
-    if (input.status) updates.status = input.status;
     if (input.deadline !== undefined) updates.deadline = input.deadline ? new Date(input.deadline) : null;
     if (input.projectId !== undefined) updates.projectId = input.projectId;
     if (input.repositoryId !== undefined) updates.repositoryId = input.repositoryId;
     if (input.branch !== undefined) updates.branch = input.branch;
     if (input.commitHash !== undefined) updates.commitHash = input.commitHash;
+
+    const oldStatus = review.status;
+    let statusChanged = false;
+    if (input.status && input.status !== review.status) {
+      updates.status = input.status;
+      statusChanged = true;
+    }
 
     if (input.prUrl !== undefined) {
       if (!input.prUrl) {
@@ -533,6 +612,48 @@ reviewsRouter.patch('/:id', requireAuth, async (req: Request, res: Response, nex
     }
 
     await db.update(reviewRequests).set(updates).where(eq(reviewRequests.id, review.id));
+
+    if (statusChanged && input.status) {
+      await db.insert(activities).values({
+        targetType: TargetType.REVIEW,
+        targetId: review.id,
+        actorId: user.id,
+        actionType: 'STATUS_CHANGED',
+        metadata: { from: oldStatus, to: input.status }
+      });
+
+      const allRev = await db.query.reviewReviewers.findMany({
+        where: eq(reviewReviewers.reviewId, review.id)
+      });
+      const recipientUserIds = [
+        ...allRev.map(r => r.userId),
+        review.authorId
+      ].filter((uid, idx, arr) => uid && uid !== user.id && arr.indexOf(uid) === idx);
+
+      if (recipientUserIds.length > 0) {
+        await recordOutboxEvent('REVIEW_STATUS_CHANGED', {
+          targetUserIds: recipientUserIds,
+          actorId: user.id,
+          reviewNumber: review.number,
+          reviewTitle: updates.title || review.title,
+          fromStatus: oldStatus,
+          toStatus: input.status,
+          authorId: review.authorId,
+          link: `/reviews/${review.number}`
+        });
+      }
+    }
+
+    const modifiedFields = Object.keys(updates).filter(k => k !== 'updatedAt' && k !== 'status');
+    if (modifiedFields.length > 0) {
+      await db.insert(activities).values({
+        targetType: TargetType.REVIEW,
+        targetId: review.id,
+        actorId: user.id,
+        actionType: 'EDITED',
+        metadata: { fields: modifiedFields }
+      });
+    }
 
     if (input.reviewerIds !== undefined) {
       await db.delete(reviewReviewers).where(eq(reviewReviewers.reviewId, review.id));
@@ -582,8 +703,9 @@ reviewsRouter.delete('/:id', requireAuth, async (req: Request, res: Response, ne
       throw new AppError(404, 'NOT_FOUND', 'Review request not found');
     }
 
-    if (review.authorId !== user.id && user.role !== 'ADMIN') {
-      throw new AppError(403, 'FORBIDDEN', 'Only author or admin can delete this review');
+    const perms = await checkReviewPermissions(user.id, user.role, review);
+    if (!perms.canDelete) {
+      throw new AppError(403, 'FORBIDDEN', 'Only author, workspace owner, or admin can delete this review');
     }
 
     await db.update(reviewRequests)
@@ -714,38 +836,3 @@ reviewsRouter.patch('/:id/acknowledgement', requireAuth, async (req: Request, re
     next(error);
   }
 });
-
-reviewsRouter.delete('/:id', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = req.user!;
-    const reviewId = req.params.id;
-
-    const review = await db.query.reviewRequests.findFirst({
-      where: eq(reviewRequests.id, reviewId)
-    });
-    if (!review) {
-      throw new AppError(404, 'NOT_FOUND', 'Review not found');
-    }
-
-    if (review.authorId !== user.id && user.role !== 'ADMIN') {
-      throw new AppError(403, 'FORBIDDEN', 'Only author or admin can delete this review');
-    }
-
-    await db.update(reviewRequests)
-      .set({ isDeleted: true, updatedAt: new Date() })
-      .where(eq(reviewRequests.id, reviewId));
-
-    await db.insert(activities).values({
-      targetType: TargetType.REVIEW,
-      targetId: reviewId,
-      actorId: user.id,
-      actionType: 'DELETED',
-      metadata: { title: review.title }
-    });
-
-    return res.json({ message: 'Review deleted successfully' });
-  } catch (error) {
-    next(error);
-  }
-});
-
