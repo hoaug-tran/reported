@@ -1,33 +1,41 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Alert, Box, Button, TextField, Typography, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions
-} from '@mui/material';
-import { Save, Trash2, AlertTriangle } from 'lucide-react';
-import { Page, PageHeader, SectionCard } from '../components/common/Page';
-import { useThemeContext } from '../contexts/ThemeContext';
-import { useI18n } from '../contexts/I18nContext';
-import { useWorkspace } from '../contexts/WorkspaceContext';
-import { useAuthContext } from '../contexts/AuthContext';
-import { apiFetch } from '../api/client';
-import { useLocation } from 'wouter';
-import { buttonSx, inputSx } from '../theme/ui';
-import { toast } from '../contexts/ToastContext';
+  Alert,
+  Box,
+  Button,
+  TextField,
+  Typography,
+  Divider,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+} from "@mui/material";
+import { Save, Trash2, AlertTriangle } from "lucide-react";
+import { Page, PageHeader, SectionCard } from "../components/common/Page";
+import { useThemeContext } from "../contexts/ThemeContext";
+import { useI18n } from "../contexts/I18nContext";
+import { useWorkspace } from "../contexts/WorkspaceContext";
+import { useAuthContext } from "../contexts/AuthContext";
+import { apiFetch } from "../api/client";
+import { useLocation } from "wouter";
+import { buttonSx, inputSx } from "../theme/ui";
+import { toast } from "../contexts/ToastContext";
 
 export const WorkspaceSettingsPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { language } = useI18n();
   const { activeWorkspace, refreshWorkspaces } = useWorkspace();
   const { user } = useAuthContext();
-  const isVi = language === 'vi';
+  const isVi = language === "vi";
   const [, setLocation] = useLocation();
 
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
+  const [name, setName] = useState("");
+  const [slug, setSlug] = useState("");
   const [saving, setSaving] = useState(false);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -37,7 +45,8 @@ export const WorkspaceSettingsPage: React.FC = () => {
     }
   }, [activeWorkspace]);
 
-  const isOwner = activeWorkspace && user && (activeWorkspace as any).ownerId === user.id;
+  const isOwner =
+    activeWorkspace && user && (activeWorkspace as any).ownerId === user.id;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,13 +54,20 @@ export const WorkspaceSettingsPage: React.FC = () => {
     setSaving(true);
     try {
       await apiFetch(`/workspaces/${activeWorkspace.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ name, slug })
+        method: "PATCH",
+        body: JSON.stringify({ name, slug }),
       });
       await refreshWorkspaces();
-      toast.success(isVi ? 'Đã lưu cài đặt workspace.' : 'Workspace settings saved.');
+      toast.success(
+        isVi ? "Đã lưu cài đặt workspace." : "Workspace settings saved.",
+      );
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : (isVi ? 'Không thể lưu workspace.' : 'Failed to save workspace.');
+      const text =
+        err instanceof Error
+          ? err.message
+          : isVi
+            ? "Không thể lưu workspace."
+            : "Failed to save workspace.";
       toast.error(text);
     } finally {
       setSaving(false);
@@ -62,12 +78,21 @@ export const WorkspaceSettingsPage: React.FC = () => {
     if (!activeWorkspace) return;
     setDeleting(true);
     try {
-      await apiFetch(`/workspaces/${activeWorkspace.id}`, { method: 'DELETE' });
+      await apiFetch(`/workspaces/${activeWorkspace.id}`, { method: "DELETE" });
       await refreshWorkspaces();
-      toast.success(isVi ? 'Đã xoá workspace thành công.' : 'Workspace deleted successfully.');
-      setLocation('/');
+      toast.success(
+        isVi
+          ? "Đã xoá workspace thành công."
+          : "Workspace deleted successfully.",
+      );
+      setLocation("/");
     } catch (err: unknown) {
-      const text = err instanceof Error ? err.message : (isVi ? 'Không thể xoá workspace.' : 'Failed to delete workspace.');
+      const text =
+        err instanceof Error
+          ? err.message
+          : isVi
+            ? "Không thể xoá workspace."
+            : "Failed to delete workspace.";
       toast.error(text);
       setDeleteDialogOpen(false);
     } finally {
@@ -75,24 +100,31 @@ export const WorkspaceSettingsPage: React.FC = () => {
     }
   };
 
-  const canDelete = activeWorkspace && deleteConfirmText === activeWorkspace.name;
+  const canDelete =
+    activeWorkspace && deleteConfirmText === activeWorkspace.name;
 
   return (
     <Page variant="form">
       <PageHeader
-        title={isVi ? 'Cài đặt workspace' : 'Workspace Settings'}
-        subtitle={isVi
-          ? 'Quản lý tên, slug và các tuỳ chọn của workspace.'
-          : 'Manage workspace name, slug, and other options.'}
+        title={isVi ? "Cài đặt workspace" : "Workspace Settings"}
+        subtitle={
+          isVi
+            ? "Quản lý tên, slug và các tuỳ chọn của workspace."
+            : "Manage workspace name, slug, and other options."
+        }
       />
 
       <SectionCard sx={{ p: 3, mb: 3 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
-          {isVi ? 'Thông tin chung' : 'General Information'}
+          {isVi ? "Thông tin chung" : "General Information"}
         </Typography>
-        <Box component="form" onSubmit={save} sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+        <Box
+          component="form"
+          onSubmit={save}
+          sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}
+        >
           <TextField
-            label={isVi ? 'Tên workspace' : 'Workspace name'}
+            label={isVi ? "Tên workspace" : "Workspace name"}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -104,12 +136,28 @@ export const WorkspaceSettingsPage: React.FC = () => {
             onChange={(e) => setSlug(e.target.value)}
             required
             fullWidth
-            helperText={isVi ? 'Dùng trong URL và định danh workspace.' : 'Used in URLs and workspace identity.'}
+            helperText={
+              isVi
+                ? "Dùng trong URL và định danh workspace."
+                : "Used in URLs and workspace identity."
+            }
           />
 
           <Box>
-            <Button type="submit" variant="contained" disabled={saving} startIcon={<Save size={16} />} sx={buttonSx(tokens)}>
-              {saving ? (isVi ? 'Đang lưu...' : 'Saving...') : (isVi ? 'Lưu thay đổi' : 'Save changes')}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={saving}
+              startIcon={<Save size={16} />}
+              sx={buttonSx(tokens)}
+            >
+              {saving
+                ? isVi
+                  ? "Đang lưu..."
+                  : "Saving..."
+                : isVi
+                  ? "Lưu thay đổi"
+                  : "Save changes"}
             </Button>
           </Box>
         </Box>
@@ -120,27 +168,41 @@ export const WorkspaceSettingsPage: React.FC = () => {
           sx={{
             p: 3,
             border: `1px solid rgba(248, 81, 73, 0.4) !important`,
-            backgroundColor: 'rgba(248, 81, 73, 0.04)'
+            backgroundColor: "rgba(248, 81, 73, 0.04)",
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
             <AlertTriangle size={18} color={tokens.error} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: tokens.error }}>
-              {isVi ? 'Vùng nguy hiểm' : 'Danger Zone'}
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, color: tokens.error }}
+            >
+              {isVi ? "Vùng nguy hiểm" : "Danger Zone"}
             </Typography>
           </Box>
 
-          <Divider sx={{ mb: 2, borderColor: 'rgba(248, 81, 73, 0.2)' }} />
+          <Divider sx={{ mb: 2, borderColor: "rgba(248, 81, 73, 0.2)" }} />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 2,
+              flexWrap: "wrap",
+            }}
+          >
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {isVi ? 'Xoá workspace này' : 'Delete this workspace'}
+                {isVi ? "Xoá workspace này" : "Delete this workspace"}
               </Typography>
-              <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
+              <Typography
+                variant="caption"
+                sx={{ color: tokens.textSecondary }}
+              >
                 {isVi
-                  ? 'Hành động này không thể hoàn tác. Tất cả dữ liệu, thành viên và lịch sử sẽ bị xoá.'
-                  : 'This action is irreversible. All data, members, and history will be permanently deleted.'}
+                  ? "Hành động này không thể hoàn tác. Tất cả dữ liệu, thành viên và lịch sử sẽ bị xoá."
+                  : "This action is irreversible. All data, members, and history will be permanently deleted."}
               </Typography>
             </Box>
             <Button
@@ -148,12 +210,16 @@ export const WorkspaceSettingsPage: React.FC = () => {
               color="error"
               startIcon={<Trash2 size={15} />}
               onClick={() => {
-                setDeleteConfirmText('');
+                setDeleteConfirmText("");
                 setDeleteDialogOpen(true);
               }}
-              sx={{ textTransform: 'none', borderRadius: '6px', whiteSpace: 'nowrap' }}
+              sx={{
+                textTransform: "none",
+                borderRadius: "6px",
+                whiteSpace: "nowrap",
+              }}
             >
-              {isVi ? 'Xoá workspace' : 'Delete workspace'}
+              {isVi ? "Xoá workspace" : "Delete workspace"}
             </Button>
           </Box>
         </SectionCard>
@@ -164,14 +230,24 @@ export const WorkspaceSettingsPage: React.FC = () => {
         onClose={() => !deleting && setDeleteDialogOpen(false)}
         maxWidth="sm"
         fullWidth
-        PaperProps={{ sx: { borderRadius: '8px' } }}
+        PaperProps={{ sx: { borderRadius: "8px" } }}
       >
-        <DialogTitle sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <AlertTriangle size={20} color={tokens.error} />
-          {isVi ? 'Xác nhận xoá workspace' : 'Confirm workspace deletion'}
+          {isVi ? "Xác nhận xoá workspace" : "Confirm workspace deletion"}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: tokens.textSecondary, mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: tokens.textSecondary, mb: 2 }}
+          >
             {isVi
               ? `Nhập tên workspace "${activeWorkspace?.name}" để xác nhận xoá. Hành động này không thể hoàn tác.`
               : `Type the workspace name "${activeWorkspace?.name}" to confirm deletion. This action cannot be undone.`}
@@ -179,10 +255,10 @@ export const WorkspaceSettingsPage: React.FC = () => {
           <TextField
             fullWidth
             size="small"
-            label={isVi ? 'Tên workspace' : 'Workspace name'}
+            label={isVi ? "Tên workspace" : "Workspace name"}
             value={deleteConfirmText}
             onChange={(e) => setDeleteConfirmText(e.target.value)}
-            placeholder={activeWorkspace?.name || ''}
+            placeholder={activeWorkspace?.name || ""}
             sx={inputSx(tokens)}
           />
         </DialogContent>
@@ -190,9 +266,9 @@ export const WorkspaceSettingsPage: React.FC = () => {
           <Button
             onClick={() => setDeleteDialogOpen(false)}
             disabled={deleting}
-            sx={{ textTransform: 'none', borderRadius: '6px' }}
+            sx={{ textTransform: "none", borderRadius: "6px" }}
           >
-            {isVi ? 'Hủy' : 'Cancel'}
+            {isVi ? "Hủy" : "Cancel"}
           </Button>
           <Button
             variant="contained"
@@ -200,11 +276,19 @@ export const WorkspaceSettingsPage: React.FC = () => {
             onClick={handleDeleteWorkspace}
             disabled={!canDelete || deleting}
             startIcon={<Trash2 size={15} />}
-            sx={{ textTransform: 'none', borderRadius: '6px', boxShadow: 'none' }}
+            sx={{
+              textTransform: "none",
+              borderRadius: "6px",
+              boxShadow: "none",
+            }}
           >
             {deleting
-              ? (isVi ? 'Đang xoá...' : 'Deleting...')
-              : (isVi ? 'Xác nhận xoá' : 'Confirm delete')}
+              ? isVi
+                ? "Đang xoá..."
+                : "Deleting..."
+              : isVi
+                ? "Xác nhận xoá"
+                : "Confirm delete"}
           </Button>
         </DialogActions>
       </Dialog>

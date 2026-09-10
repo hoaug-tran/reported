@@ -1,4 +1,8 @@
-import { ICodeHostProvider, RepositoryItem, PullRequestItem } from './code-host-provider.interface.js';
+import {
+  ICodeHostProvider,
+  RepositoryItem,
+  PullRequestItem,
+} from "./code-host-provider.interface.js";
 
 interface GitHubRepoResponse {
   name: string;
@@ -27,29 +31,38 @@ interface GitHubBranchResponse {
   name: string;
 }
 
-function mapGitHubState(state: string, mergedAt: string | null): 'OPEN' | 'CLOSED' | 'MERGED' {
-  if (mergedAt) return 'MERGED';
-  if (state.toLowerCase() === 'closed') return 'CLOSED';
-  return 'OPEN';
+function mapGitHubState(
+  state: string,
+  mergedAt: string | null,
+): "OPEN" | "CLOSED" | "MERGED" {
+  if (mergedAt) return "MERGED";
+  if (state.toLowerCase() === "closed") return "CLOSED";
+  return "OPEN";
 }
 
 export class GitHubCodeHostProvider implements ICodeHostProvider {
-  readonly providerId = 'github';
-  readonly name = 'GitHub';
+  readonly providerId = "github";
+  readonly name = "GitHub";
 
-  async listRepositories(accessToken?: string, query?: string): Promise<RepositoryItem[]> {
+  async listRepositories(
+    accessToken?: string,
+    query?: string,
+  ): Promise<RepositoryItem[]> {
     if (!accessToken) {
       return [];
     }
 
     try {
-      const res = await fetch('https://api.github.com/user/repos?per_page=50&sort=updated', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'Reported-App'
-        }
-      });
+      const res = await fetch(
+        "https://api.github.com/user/repos?per_page=50&sort=updated",
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "Reported-App",
+          },
+        },
+      );
 
       if (!res.ok) {
         return [];
@@ -66,28 +79,34 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
         owner: r.owner.login,
         name: r.name,
         fullName: r.full_name,
-        provider: 'github',
+        provider: "github",
         webUrl: r.html_url,
-        defaultBranch: r.default_branch || 'main',
+        defaultBranch: r.default_branch || "main",
         isPrivate: Boolean(r.private),
-        description: r.description || undefined
+        description: r.description || undefined,
       }));
     } catch {
       return [];
     }
   }
 
-  async getRepository(owner: string, repo: string, accessToken?: string): Promise<RepositoryItem | null> {
+  async getRepository(
+    owner: string,
+    repo: string,
+    accessToken?: string,
+  ): Promise<RepositoryItem | null> {
     try {
       const headers: Record<string, string> = {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'Reported-App'
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Reported-App",
       };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
+      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+        headers,
+      });
       if (!res.ok) {
         return null;
       }
@@ -97,28 +116,35 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
         owner: r.owner.login,
         name: r.name,
         fullName: r.full_name,
-        provider: 'github',
+        provider: "github",
         webUrl: r.html_url,
-        defaultBranch: r.default_branch || 'main',
+        defaultBranch: r.default_branch || "main",
         isPrivate: Boolean(r.private),
-        description: r.description || undefined
+        description: r.description || undefined,
       };
     } catch {
       return null;
     }
   }
 
-  async listPullRequests(owner: string, repo: string, accessToken?: string): Promise<PullRequestItem[]> {
+  async listPullRequests(
+    owner: string,
+    repo: string,
+    accessToken?: string,
+  ): Promise<PullRequestItem[]> {
     try {
       const headers: Record<string, string> = {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'Reported-App'
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Reported-App",
       };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`, { headers });
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`,
+        { headers },
+      );
       if (!res.ok) {
         return [];
       }
@@ -133,26 +159,34 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
         baseBranch: p.base.ref,
         author: p.user.login,
         url: p.html_url,
-        resourceType: 'PR',
+        resourceType: "PR",
         createdAt: p.created_at,
-        updatedAt: p.updated_at
+        updatedAt: p.updated_at,
       }));
     } catch {
       return [];
     }
   }
 
-  async getPullRequest(owner: string, repo: string, number: number, accessToken?: string): Promise<PullRequestItem | null> {
+  async getPullRequest(
+    owner: string,
+    repo: string,
+    number: number,
+    accessToken?: string,
+  ): Promise<PullRequestItem | null> {
     try {
       const headers: Record<string, string> = {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'Reported-App'
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Reported-App",
       };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${number}`, { headers });
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/pulls/${number}`,
+        { headers },
+      );
       if (!res.ok) {
         return null;
       }
@@ -167,34 +201,41 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
         baseBranch: p.base.ref,
         author: p.user.login,
         url: p.html_url,
-        resourceType: 'PR',
+        resourceType: "PR",
         createdAt: p.created_at,
-        updatedAt: p.updated_at
+        updatedAt: p.updated_at,
       };
     } catch {
       return null;
     }
   }
 
-  async listBranches(owner: string, repo: string, accessToken?: string): Promise<string[]> {
+  async listBranches(
+    owner: string,
+    repo: string,
+    accessToken?: string,
+  ): Promise<string[]> {
     try {
       const headers: Record<string, string> = {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'Reported-App'
+        Accept: "application/vnd.github+json",
+        "User-Agent": "Reported-App",
       };
       if (accessToken) {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=50`, { headers });
+      const res = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/branches?per_page=50`,
+        { headers },
+      );
       if (!res.ok) {
-        return ['main'];
+        return ["main"];
       }
 
       const branches = (await res.json()) as GitHubBranchResponse[];
       return branches.map((b) => b.name);
     } catch {
-      return ['main'];
+      return ["main"];
     }
   }
 }

@@ -1,10 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Box, Typography, Button, Skeleton, Chip, Link as MuiLink,
-  Card, CardContent, Divider, IconButton, Tooltip, Dialog, DialogTitle,
-  DialogContent, DialogActions, TextField, FormControlLabel, Switch, Alert,
-  Accordion, AccordionSummary, AccordionDetails, Paper
-} from '@mui/material';
+  Box,
+  Typography,
+  Button,
+  Skeleton,
+  Chip,
+  Link as MuiLink,
+  Card,
+  CardContent,
+  Divider,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControlLabel,
+  Switch,
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Paper,
+} from "@mui/material";
 import {
   FolderGit2,
   Lock,
@@ -15,23 +34,23 @@ import {
   RefreshCw,
   GitBranch,
   ChevronDown,
-  Plus
-} from 'lucide-react';
-import { useLocation } from 'wouter';
-import { useThemeContext } from '../contexts/ThemeContext';
-import { apiFetch } from '../api/client';
-import { LinkRepoModal } from '../components/github/LinkRepoModal';
-import { RepositoryDto } from '@reported/contracts';
-import { useI18n } from '../contexts/I18nContext';
-import { RepositoryCardSkeleton } from '../components/common/Skeletons';
-import { Page, PageHeader, EmptyState } from '../components/common/Page';
-import { buttonSx } from '../theme/ui';
-import { toast } from '../contexts/ToastContext';
+  Plus,
+} from "lucide-react";
+import { useLocation } from "wouter";
+import { useThemeContext } from "../contexts/ThemeContext";
+import { apiFetch } from "../api/client";
+import { LinkRepoModal } from "../components/github/LinkRepoModal";
+import { RepositoryDto } from "@reported/contracts";
+import { useI18n } from "../contexts/I18nContext";
+import { RepositoryCardSkeleton } from "../components/common/Skeletons";
+import { Page, PageHeader, EmptyState } from "../components/common/Page";
+import { buttonSx } from "../theme/ui";
+import { toast } from "../contexts/ToastContext";
 
 export const RepositoriesPage: React.FC = () => {
   const { tokens } = useThemeContext();
   const { language } = useI18n();
-  const isVi = language === 'vi';
+  const isVi = language === "vi";
   const [, setLocation] = useLocation();
   const [loading, setLoading] = useState(true);
   const [repos, setRepos] = useState<RepositoryDto[]>([]);
@@ -39,7 +58,7 @@ export const RepositoriesPage: React.FC = () => {
 
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedRepo, setSelectedRepo] = useState<RepositoryDto | null>(null);
-  const [editBranch, setEditBranch] = useState('main');
+  const [editBranch, setEditBranch] = useState("main");
   const [editPrivate, setEditPrivate] = useState(false);
 
   const [repoPrs, setRepoPrs] = useState<Record<string, any[]>>({});
@@ -48,10 +67,14 @@ export const RepositoriesPage: React.FC = () => {
   const loadRepos = async () => {
     try {
       setLoading(true);
-      const data = await apiFetch<RepositoryDto[]>('/github/repositories');
+      const data = await apiFetch<RepositoryDto[]>("/github/repositories");
       setRepos(data || []);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to load repositories';
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Failed to load repositories";
       toast.error(errMsg);
     } finally {
       setLoading(false);
@@ -65,48 +88,73 @@ export const RepositoriesPage: React.FC = () => {
   const loadPrsForRepo = async (repoId: string) => {
     if (repoPrs[repoId]) return;
     try {
-      setLoadingPrs(prev => ({ ...prev, [repoId]: true }));
-      const data = await apiFetch<{ pulls: any[]; error?: string }>(`/github/repositories/${repoId}/github-pulls`);
-      setRepoPrs(prev => ({ ...prev, [repoId]: data.pulls || [] }));
+      setLoadingPrs((prev) => ({ ...prev, [repoId]: true }));
+      const data = await apiFetch<{ pulls: any[]; error?: string }>(
+        `/github/repositories/${repoId}/github-pulls`,
+      );
+      setRepoPrs((prev) => ({ ...prev, [repoId]: data.pulls || [] }));
       if (data.error) {
-        const dbPrs = await apiFetch<any[]>(`/github/repositories/${repoId}/pull-requests`);
-        setRepoPrs(prev => ({ ...prev, [repoId]: dbPrs || [] }));
+        const dbPrs = await apiFetch<any[]>(
+          `/github/repositories/${repoId}/pull-requests`,
+        );
+        setRepoPrs((prev) => ({ ...prev, [repoId]: dbPrs || [] }));
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to fetch PRs';
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message || "Failed to fetch PRs";
       toast.error(errMsg);
     } finally {
-      setLoadingPrs(prev => ({ ...prev, [repoId]: false }));
+      setLoadingPrs((prev) => ({ ...prev, [repoId]: false }));
     }
   };
 
   const handleSync = async (repoId: string) => {
     try {
-      await apiFetch(`/github/repositories/${repoId}/sync`, { method: 'POST' });
-      toast.success(isVi ? 'Đã đồng bộ kho lưu trữ với GitHub.' : 'Repository metadata synced with remote provider.');
-      window.dispatchEvent(new Event('reported:repo-changed'));
+      await apiFetch(`/github/repositories/${repoId}/sync`, { method: "POST" });
+      toast.success(
+        isVi
+          ? "Đã đồng bộ kho lưu trữ với GitHub."
+          : "Repository metadata synced with remote provider.",
+      );
+      window.dispatchEvent(new Event("reported:repo-changed"));
       loadRepos();
-      setRepoPrs(prev => {
+      setRepoPrs((prev) => {
         const next = { ...prev };
         delete next[repoId];
         return next;
       });
       loadPrsForRepo(repoId);
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Sync failed';
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message || "Sync failed";
       toast.error(errMsg);
     }
   };
 
   const handleDelete = async (repo: RepositoryDto) => {
-    if (!confirm(`Are you sure you want to unlink repository ${repo.fullName}?`)) return;
+    if (
+      !confirm(`Are you sure you want to unlink repository ${repo.fullName}?`)
+    )
+      return;
     try {
-      await apiFetch(`/github/repositories/${repo.id}`, { method: 'DELETE' });
-      toast.success(isVi ? `Đã hủy liên kết kho lưu trữ ${repo.fullName}` : `Unlinked repository ${repo.fullName}`);
-      setRepos(prev => prev.filter(item => item.id !== repo.id));
-      window.dispatchEvent(new Event('reported:repo-changed'));
+      await apiFetch(`/github/repositories/${repo.id}`, { method: "DELETE" });
+      toast.success(
+        isVi
+          ? `Đã hủy liên kết kho lưu trữ ${repo.fullName}`
+          : `Unlinked repository ${repo.fullName}`,
+      );
+      setRepos((prev) => prev.filter((item) => item.id !== repo.id));
+      window.dispatchEvent(new Event("reported:repo-changed"));
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to unlink repository';
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Failed to unlink repository";
       toast.error(errMsg);
     }
   };
@@ -123,31 +171,40 @@ export const RepositoriesPage: React.FC = () => {
     if (!selectedRepo) return;
     try {
       await apiFetch(`/github/repositories/${selectedRepo.id}`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify({
           defaultBranch: editBranch,
-          isPrivate: editPrivate
-        })
+          isPrivate: editPrivate,
+        }),
       });
-      toast.success(isVi ? `Đã cập nhật ${selectedRepo.fullName}` : `Updated ${selectedRepo.fullName}`);
+      toast.success(
+        isVi
+          ? `Đã cập nhật ${selectedRepo.fullName}`
+          : `Updated ${selectedRepo.fullName}`,
+      );
       setEditModalOpen(false);
-      window.dispatchEvent(new Event('reported:repo-changed'));
+      window.dispatchEvent(new Event("reported:repo-changed"));
       loadRepos();
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : (err as { message?: string })?.message || 'Failed to update repository';
+      const errMsg =
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ||
+            "Failed to update repository";
       toast.error(errMsg);
     }
   };
 
-
   return (
     <Page>
       <PageHeader
-        title={isVi ? 'Kho lưu trữ' : 'Repositories'}
-        subtitle={isVi
-          ? 'Quản lý các kho mã nguồn đã kết nối từ GitHub.'
-          : 'Manage source code repositories connected from GitHub.'}
-        action={(
+        title={isVi ? "Kho lưu trữ" : "Repositories"}
+        subtitle={
+          isVi
+            ? "Quản lý các kho mã nguồn đã kết nối từ GitHub."
+            : "Manage source code repositories connected from GitHub."
+        }
+        action={
           <Button
             variant="contained"
             size="small"
@@ -155,9 +212,9 @@ export const RepositoriesPage: React.FC = () => {
             onClick={() => setLinkModalOpen(true)}
             sx={buttonSx(tokens)}
           >
-            {isVi ? 'Liên kết repo' : 'Link repository'}
+            {isVi ? "Liên kết repo" : "Link repository"}
           </Button>
-        )}
+        }
       />
 
       {loading ? (
@@ -165,36 +222,56 @@ export const RepositoriesPage: React.FC = () => {
       ) : repos.length === 0 ? (
         <EmptyState
           icon={<FolderGit2 size={44} color={tokens.textSecondary} />}
-          title={isVi ? 'Chưa liên kết repo nào' : 'No repositories linked'}
-          description={isVi ? 'Liên kết repo thật để lấy PR, branch và issue theo đúng workspace.' : 'Link real repositories to load PRs, branches, and issues for this workspace.'}
-          action={(
-            <Button variant="contained" startIcon={<Plus size={16} />} onClick={() => setLinkModalOpen(true)} sx={buttonSx(tokens)}>
-              {isVi ? 'Liên kết repo' : 'Link repository'}
+          title={isVi ? "Chưa liên kết repo nào" : "No repositories linked"}
+          description={
+            isVi
+              ? "Liên kết repo thật để lấy PR, branch và issue theo đúng workspace."
+              : "Link real repositories to load PRs, branches, and issues for this workspace."
+          }
+          action={
+            <Button
+              variant="contained"
+              startIcon={<Plus size={16} />}
+              onClick={() => setLinkModalOpen(true)}
+              sx={buttonSx(tokens)}
+            >
+              {isVi ? "Liên kết repo" : "Link repository"}
             </Button>
-          )}
+          }
         />
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {repos.map((repo) => (
             <Card
               key={repo.id}
               elevation={0}
               sx={{
                 border: `1px solid ${tokens.border}`,
-                borderRadius: '8px',
+                borderRadius: "8px",
                 backgroundColor: tokens.surface,
-                transition: 'border-color 0.15s ease',
-                '&:hover': {
-                  borderColor: tokens.primary
-                }
+                transition: "border-color 0.15s ease",
+                "&:hover": {
+                  borderColor: tokens.primary,
+                },
               }}
             >
               <CardContent sx={{ p: 2.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2, mb: 1.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: 2,
+                    mb: 1.5,
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <FolderGit2 size={24} color={tokens.primary} />
                     <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 1 }}
+                      >
                         <Typography variant="h4" sx={{ fontWeight: 600 }}>
                           {repo.fullName}
                         </Typography>
@@ -203,67 +280,93 @@ export const RepositoriesPage: React.FC = () => {
                           size="small"
                           sx={{
                             height: 20,
-                            fontSize: '0.6875rem',
+                            fontSize: "0.6875rem",
                             fontWeight: 700,
-                            backgroundColor: repo.provider === 'gitlab' ? '#fc6d26' : '#24292f',
-                            color: '#fff'
+                            backgroundColor:
+                              repo.provider === "gitlab"
+                                ? "#fc6d26"
+                                : "#24292f",
+                            color: "#fff",
                           }}
                         />
                         {repo.isPrivate ? (
-                          <Tooltip title={isVi ? 'Repo private' : 'Private repository'}>
+                          <Tooltip
+                            title={isVi ? "Repo private" : "Private repository"}
+                          >
                             <Lock size={16} color={tokens.textSecondary} />
                           </Tooltip>
                         ) : (
-                          <Tooltip title={isVi ? 'Repo public' : 'Public repository'}>
+                          <Tooltip
+                            title={isVi ? "Repo public" : "Public repository"}
+                          >
                             <Globe size={16} color={tokens.textSecondary} />
                           </Tooltip>
                         )}
                       </Box>
-                      <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
-                        {isVi ? 'Branch mặc định' : 'Default branch'}: <code>{repo.defaultBranch}</code>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: tokens.textSecondary }}
+                      >
+                        {isVi ? "Branch mặc định" : "Default branch"}:{" "}
+                        <code>{repo.defaultBranch}</code>
                       </Typography>
                     </Box>
                   </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <MuiLink
-                      href={repo.webUrl || (repo.provider === 'gitlab' ? `https://gitlab.com/${repo.fullName}` : `https://github.com/${repo.fullName}`)}
+                      href={
+                        repo.webUrl ||
+                        (repo.provider === "gitlab"
+                          ? `https://gitlab.com/${repo.fullName}`
+                          : `https://github.com/${repo.fullName}`)
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       sx={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
+                        display: "inline-flex",
+                        alignItems: "center",
                         gap: 0.5,
-                        fontSize: '0.75rem',
+                        fontSize: "0.75rem",
                         px: 1.2,
                         py: 0.5,
-                        borderRadius: '6px',
+                        borderRadius: "6px",
                         border: `1px solid ${tokens.border}`,
                         color: tokens.textPrimary,
-                        textDecoration: 'none',
-                        '&:hover': {
-                          backgroundColor: tokens.hover
-                        }
+                        textDecoration: "none",
+                        "&:hover": {
+                          backgroundColor: tokens.hover,
+                        },
                       }}
                     >
-                      <span>{isVi ? 'Mở repo' : 'View remote'}</span>
+                      <span>{isVi ? "Mở repo" : "View remote"}</span>
                       <ExternalLink size={14} />
                     </MuiLink>
 
                     <Tooltip title="Sync Metadata">
-                      <IconButton size="small" onClick={() => handleSync(repo.id)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleSync(repo.id)}
+                      >
                         <RefreshCw size={18} />
                       </IconButton>
                     </Tooltip>
 
                     <Tooltip title="Edit Settings">
-                      <IconButton size="small" onClick={() => handleOpenEdit(repo)}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenEdit(repo)}
+                      >
                         <Edit2 size={18} />
                       </IconButton>
                     </Tooltip>
 
                     <Tooltip title="Unlink Repository">
-                      <IconButton size="small" color="error" onClick={() => handleDelete(repo)}>
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => handleDelete(repo)}
+                      >
                         <Trash2 size={18} />
                       </IconButton>
                     </Tooltip>
@@ -271,8 +374,23 @@ export const RepositoriesPage: React.FC = () => {
                 </Box>
 
                 {(repo.openIssuesCount || 0) > 0 && (
-                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2, pt: 1.5, borderTop: `1px solid ${tokens.border}`, color: tokens.textSecondary, fontSize: '0.8125rem' }}>
-                    <Chip size="small" label={`${repo.openIssuesCount || 0} ${isVi ? 'vấn đề đang mở' : 'open linked issues'}`} sx={{ borderRadius: '6px', color: tokens.textSecondary }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: 2,
+                      flexWrap: "wrap",
+                      mt: 2,
+                      pt: 1.5,
+                      borderTop: `1px solid ${tokens.border}`,
+                      color: tokens.textSecondary,
+                      fontSize: "0.8125rem",
+                    }}
+                  >
+                    <Chip
+                      size="small"
+                      label={`${repo.openIssuesCount || 0} ${isVi ? "vấn đề đang mở" : "open linked issues"}`}
+                      sx={{ borderRadius: "6px", color: tokens.textSecondary }}
+                    />
                   </Box>
                 )}
 
@@ -284,87 +402,160 @@ export const RepositoriesPage: React.FC = () => {
                   sx={{
                     mt: 2,
                     border: `1px solid ${tokens.border}`,
-                    borderRadius: '6px !important',
-                    '&:before': { display: 'none' },
-                    backgroundColor: tokens.background
+                    borderRadius: "6px !important",
+                    "&:before": { display: "none" },
+                    backgroundColor: tokens.background,
                   }}
                 >
                   <AccordionSummary expandIcon={<ChevronDown size={18} />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <GitBranch size={18} color={tokens.primary} />
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                        {isVi ? 'Pull Request đang mở' : 'Open pull requests'}
+                        {isVi ? "Pull Request đang mở" : "Open pull requests"}
                       </Typography>
                     </Box>
                   </AccordionSummary>
                   <AccordionDetails sx={{ pt: 0 }}>
                     {loadingPrs[repo.id] ? (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, py: 1 }}>
-                        <Skeleton variant="rectangular" width="100%" height={48} sx={{ borderRadius: '6px' }} />
-                        <Skeleton variant="rectangular" width="100%" height={48} sx={{ borderRadius: '6px' }} />
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                          py: 1,
+                        }}
+                      >
+                        <Skeleton
+                          variant="rectangular"
+                          width="100%"
+                          height={48}
+                          sx={{ borderRadius: "6px" }}
+                        />
+                        <Skeleton
+                          variant="rectangular"
+                          width="100%"
+                          height={48}
+                          sx={{ borderRadius: "6px" }}
+                        />
                       </Box>
                     ) : !repoPrs[repo.id] || repoPrs[repo.id].length === 0 ? (
                       <Box sx={{ py: 1.5, color: tokens.textSecondary }}>
                         <Typography variant="body2">
-                          {isVi ? 'Không có Pull Request đang mở.' : 'No open pull requests.'}
+                          {isVi
+                            ? "Không có Pull Request đang mở."
+                            : "No open pull requests."}
                         </Typography>
                       </Box>
                     ) : (
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                          mt: 1,
+                        }}
+                      >
                         {repoPrs[repo.id].slice(0, 20).map((pr) => (
                           <Box
                             key={pr.number || pr.id}
                             sx={{
                               p: 1.5,
-                              borderRadius: '6px',
+                              borderRadius: "6px",
                               border: `1px solid ${tokens.border}`,
                               backgroundColor: tokens.surface,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              flexWrap: 'wrap',
-                              gap: 1
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              flexWrap: "wrap",
+                              gap: 1,
                             }}
                           >
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                flex: 1,
+                                minWidth: 0,
+                              }}
+                            >
                               <Chip
                                 label="OPEN"
                                 size="small"
-                                sx={{ height: 20, fontSize: '0.6875rem', fontWeight: 700, backgroundColor: '#238636', color: '#fff', flexShrink: 0 }}
+                                sx={{
+                                  height: 20,
+                                  fontSize: "0.6875rem",
+                                  fontWeight: 700,
+                                  backgroundColor: "#238636",
+                                  color: "#fff",
+                                  flexShrink: 0,
+                                }}
                               />
                               <Box sx={{ minWidth: 0 }}>
-                                <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                                <Typography
+                                  variant="body2"
+                                  sx={{ fontWeight: 600 }}
+                                  noWrap
+                                >
                                   #{pr.number || pr.prNumber} {pr.title}
                                 </Typography>
-                                <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
-                                  {pr.headBranch} → {pr.baseBranch}{pr.authorLogin ? ` · @${pr.authorLogin}` : (pr.authorGithub ? ` · @${pr.authorGithub}` : '')}
+                                <Typography
+                                  variant="caption"
+                                  sx={{ color: tokens.textSecondary }}
+                                >
+                                  {pr.headBranch} → {pr.baseBranch}
+                                  {pr.authorLogin
+                                    ? ` · @${pr.authorLogin}`
+                                    : pr.authorGithub
+                                      ? ` · @${pr.authorGithub}`
+                                      : ""}
                                 </Typography>
                               </Box>
                             </Box>
 
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1,
+                                flexShrink: 0,
+                              }}
+                            >
                               <Button
                                 size="small"
                                 variant="contained"
-                                onClick={() => setLocation(`/reviews/new?repoId=${repo.id}&prNumber=${pr.number || pr.prNumber}`)}
+                                onClick={() =>
+                                  setLocation(
+                                    `/reviews/new?repoId=${repo.id}&prNumber=${pr.number || pr.prNumber}`,
+                                  )
+                                }
                                 sx={{
-                                  fontSize: '0.75rem',
+                                  fontSize: "0.75rem",
                                   py: 0.3,
                                   px: 1.2,
-                                  borderRadius: '6px',
+                                  borderRadius: "6px",
                                   fontWeight: 600,
-                                  textTransform: 'none',
-                                  '&:hover': { backgroundColor: tokens.primaryHover }
+                                  textTransform: "none",
+                                  "&:hover": {
+                                    backgroundColor: tokens.primaryHover,
+                                  },
                                 }}
                               >
-                                {isVi ? 'Tạo review' : 'Create review'}
+                                {isVi ? "Tạo review" : "Create review"}
                               </Button>
                               {(pr.htmlUrl || pr.url) && (
                                 <MuiLink
                                   href={pr.htmlUrl || pr.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, fontSize: '0.75rem', color: tokens.primary, textDecoration: 'none' }}
+                                  sx={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                    fontSize: "0.75rem",
+                                    color: tokens.primary,
+                                    textDecoration: "none",
+                                  }}
                                 >
                                   <ExternalLink size={13} />
                                 </MuiLink>
@@ -373,8 +564,17 @@ export const RepositoriesPage: React.FC = () => {
                           </Box>
                         ))}
                         {repoPrs[repo.id].length > 20 && (
-                          <Typography variant="caption" sx={{ color: tokens.textSecondary, mt: 1, display: 'block' }}>
-                            {isVi ? `Đang hiển thị 20/${repoPrs[repo.id].length} PR. Mở repo để lọc sâu hơn.` : `Showing 20/${repoPrs[repo.id].length} PRs. Open repository for deeper filtering.`}
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: tokens.textSecondary,
+                              mt: 1,
+                              display: "block",
+                            }}
+                          >
+                            {isVi
+                              ? `Đang hiển thị 20/${repoPrs[repo.id].length} PR. Mở repo để lọc sâu hơn.`
+                              : `Showing 20/${repoPrs[repo.id].length} PRs. Open repository for deeper filtering.`}
                           </Typography>
                         )}
                       </Box>
@@ -392,20 +592,36 @@ export const RepositoriesPage: React.FC = () => {
         onClose={() => setLinkModalOpen(false)}
         onSuccess={() => {
           loadRepos();
-          window.dispatchEvent(new Event('reported:repo-changed'));
-          toast.success(isVi ? 'Đã liên kết repo thành công!' : 'Repository linked successfully!');
+          window.dispatchEvent(new Event("reported:repo-changed"));
+          toast.success(
+            isVi
+              ? "Đã liên kết repo thành công!"
+              : "Repository linked successfully!",
+          );
         }}
       />
 
-      <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="xs" fullWidth>
+      <Dialog
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+      >
         <Box component="form" onSubmit={handleSaveEdit}>
-          <DialogTitle>{isVi ? 'Cài đặt repo' : 'Repository settings'}</DialogTitle>
-          <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <DialogTitle>
+            {isVi ? "Cài đặt repo" : "Repository settings"}
+          </DialogTitle>
+          <DialogContent
+            sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 2 }}
+          >
             <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-              {isVi ? 'Cấu hình mặc định cho' : 'Configure default settings for'} <strong>{selectedRepo?.fullName}</strong>.
+              {isVi
+                ? "Cấu hình mặc định cho"
+                : "Configure default settings for"}{" "}
+              <strong>{selectedRepo?.fullName}</strong>.
             </Typography>
             <TextField
-              label={isVi ? 'Branch mặc định' : 'Default branch'}
+              label={isVi ? "Branch mặc định" : "Default branch"}
               size="small"
               value={editBranch}
               onChange={(e) => setEditBranch(e.target.value)}
@@ -413,17 +629,28 @@ export const RepositoriesPage: React.FC = () => {
               required
             />
             <FormControlLabel
-              control={<Switch checked={editPrivate} onChange={(e) => setEditPrivate(e.target.checked)} />}
-              label={isVi ? 'Repo private' : 'Private repository'}
+              control={
+                <Switch
+                  checked={editPrivate}
+                  onChange={(e) => setEditPrivate(e.target.checked)}
+                />
+              }
+              label={isVi ? "Repo private" : "Private repository"}
             />
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
-            <Button onClick={() => setEditModalOpen(false)} sx={buttonSx(tokens)}>{isVi ? 'Hủy' : 'Cancel'}</Button>
-            <Button type="submit" variant="contained" sx={buttonSx(tokens)}>{isVi ? 'Lưu' : 'Save changes'}</Button>
+            <Button
+              onClick={() => setEditModalOpen(false)}
+              sx={buttonSx(tokens)}
+            >
+              {isVi ? "Hủy" : "Cancel"}
+            </Button>
+            <Button type="submit" variant="contained" sx={buttonSx(tokens)}>
+              {isVi ? "Lưu" : "Save changes"}
+            </Button>
           </DialogActions>
         </Box>
       </Dialog>
-
     </Page>
   );
 };

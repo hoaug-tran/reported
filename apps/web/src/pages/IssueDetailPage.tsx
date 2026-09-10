@@ -1,44 +1,91 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Box, Typography, Button, Chip, Divider, Select, MenuItem, FormControl,
-  InputLabel, CircularProgress, Alert, Tooltip, Breadcrumbs, Link as MuiLink,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, OutlinedInput,
-  IconButton
-} from '@mui/material';
+  Box,
+  Typography,
+  Button,
+  Chip,
+  Divider,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  CircularProgress,
+  Alert,
+  Tooltip,
+  Breadcrumbs,
+  Link as MuiLink,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  OutlinedInput,
+  IconButton,
+} from "@mui/material";
 import {
-  Eye, EyeOff, Edit3, Trash2, AlertTriangle, GitPullRequest, GitBranch,
-  FolderGit2, Tag, Check, Plus, X
-} from 'lucide-react';
-import { useRoute, useLocation, Link } from 'wouter';
-import { useThemeContext } from '../contexts/ThemeContext';
-import { useAuthContext } from '../contexts/AuthContext';
-import { useWorkspace } from '../contexts/WorkspaceContext';
-import { useI18n } from '../contexts/I18nContext';
-import { StatusBadge } from '../components/issues/StatusBadge';
-import { PriorityBadge, SeverityBadge } from '../components/issues/PriorityBadge';
-import { UserAvatar } from '../components/common/UserAvatar';
-import { MarkdownRenderer } from '../components/markdown/MarkdownRenderer';
-import { MarkdownEditor } from '../components/editor/MarkdownEditor';
-import { PullRequestPreview } from '../components/github/PullRequestPreview';
-import { ActivityTimeline } from '../components/timeline/ActivityTimeline';
-import { CommentThread } from '../components/discussion/CommentThread';
-import { DetailSkeleton } from '../components/common/Skeletons';
-import { useSmoothLoading } from '../hooks/useSmoothLoading';
-import { MediaFilesLinksSidebar } from '../components/common/MediaFilesLinksSidebar';
-import { getLabelColor } from '../utils/labels';
-import { toast } from '../contexts/ToastContext';
-import { apiFetch, ApiError } from '../api/client';
+  Eye,
+  EyeOff,
+  Edit3,
+  Trash2,
+  AlertTriangle,
+  GitPullRequest,
+  GitBranch,
+  FolderGit2,
+  Tag,
+  Check,
+  Plus,
+  X,
+} from "lucide-react";
+import { useRoute, useLocation, Link } from "wouter";
+import { useThemeContext } from "../contexts/ThemeContext";
+import { useAuthContext } from "../contexts/AuthContext";
+import { useWorkspace } from "../contexts/WorkspaceContext";
+import { useI18n } from "../contexts/I18nContext";
+import { StatusBadge } from "../components/issues/StatusBadge";
 import {
-  TargetType, IssueDto, CommentDto, ActivityTimelineDto, UserSummaryDto,
-  IssueLabelDto, IssueStatus, IssuePriority, IssueSeverity, BugFrequency,
-  IssueType, RepositoryDto
-} from '@reported/contracts';
-import { NotFoundPage } from './NotFoundPage';
-import { AccessDeniedPage } from './AccessDeniedPage';
+  PriorityBadge,
+  SeverityBadge,
+} from "../components/issues/PriorityBadge";
+import { UserAvatar } from "../components/common/UserAvatar";
+import { MarkdownRenderer } from "../components/markdown/MarkdownRenderer";
+import { MarkdownEditor } from "../components/editor/MarkdownEditor";
+import { PullRequestPreview } from "../components/github/PullRequestPreview";
+import { ActivityTimeline } from "../components/timeline/ActivityTimeline";
+import { CommentThread } from "../components/discussion/CommentThread";
+import { DetailSkeleton } from "../components/common/Skeletons";
+import { useSmoothLoading } from "../hooks/useSmoothLoading";
+import { MediaFilesLinksSidebar } from "../components/common/MediaFilesLinksSidebar";
+import { getLabelColor } from "../utils/labels";
+import { toast } from "../contexts/ToastContext";
+import { apiFetch, ApiError } from "../api/client";
+import {
+  TargetType,
+  IssueDto,
+  CommentDto,
+  ActivityTimelineDto,
+  UserSummaryDto,
+  IssueLabelDto,
+  IssueStatus,
+  IssuePriority,
+  IssueSeverity,
+  BugFrequency,
+  IssueType,
+  RepositoryDto,
+} from "@reported/contracts";
+import { NotFoundPage } from "./NotFoundPage";
+import { AccessDeniedPage } from "./AccessDeniedPage";
 
 const PRESET_LABELS = [
-  'bug', 'frontend', 'backend', 'enhancement', 'documentation',
-  'urgent', 'blocker', 'question', 'discussion', 'proposal'
+  "bug",
+  "frontend",
+  "backend",
+  "enhancement",
+  "documentation",
+  "urgent",
+  "blocker",
+  "question",
+  "discussion",
+  "proposal",
 ];
 
 export const IssueDetailPage: React.FC = () => {
@@ -46,9 +93,9 @@ export const IssueDetailPage: React.FC = () => {
   const { user } = useAuthContext();
   const { activeWorkspace, projects } = useWorkspace();
   const { language } = useI18n();
-  const isVi = language === 'vi';
+  const isVi = language === "vi";
   const [, setLocation] = useLocation();
-  const [, params] = useRoute('/issues/:number');
+  const [, params] = useRoute("/issues/:number");
 
   const [loading, setLoading] = useState(true);
   const [issue, setIssue] = useState<IssueDto | null>(null);
@@ -61,27 +108,33 @@ export const IssueDetailPage: React.FC = () => {
   const [repositoriesList, setRepositoriesList] = useState<RepositoryDto[]>([]);
 
   const [editOpen, setEditOpen] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editDescription, setEditDescription] = useState('');
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const [editType, setEditType] = useState<IssueType>(IssueType.BUG);
-  const [editPriority, setEditPriority] = useState<IssuePriority>(IssuePriority.P2);
-  const [editSeverity, setEditSeverity] = useState<IssueSeverity>(IssueSeverity.MAJOR);
-  const [editProjectId, setEditProjectId] = useState<string>('');
-  const [editRepositoryId, setEditRepositoryId] = useState<string>('');
-  const [editBranch, setEditBranch] = useState('');
-  const [editCommitHash, setEditCommitHash] = useState('');
-  const [editPrUrl, setEditPrUrl] = useState('');
+  const [editPriority, setEditPriority] = useState<IssuePriority>(
+    IssuePriority.P2,
+  );
+  const [editSeverity, setEditSeverity] = useState<IssueSeverity>(
+    IssueSeverity.MAJOR,
+  );
+  const [editProjectId, setEditProjectId] = useState<string>("");
+  const [editRepositoryId, setEditRepositoryId] = useState<string>("");
+  const [editBranch, setEditBranch] = useState("");
+  const [editCommitHash, setEditCommitHash] = useState("");
+  const [editPrUrl, setEditPrUrl] = useState("");
   const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
   const [editLabels, setEditLabels] = useState<string[]>([]);
-  const [newLabelInput, setNewLabelInput] = useState('');
+  const [newLabelInput, setNewLabelInput] = useState("");
 
-  const [editEnvironment, setEditEnvironment] = useState('');
-  const [editPrecondition, setEditPrecondition] = useState('');
-  const [editSteps, setEditSteps] = useState('');
-  const [editActual, setEditActual] = useState('');
-  const [editExpected, setEditExpected] = useState('');
-  const [editFrequency, setEditFrequency] = useState<BugFrequency>(BugFrequency.ALWAYS);
-  const [editEvidence, setEditEvidence] = useState('');
+  const [editEnvironment, setEditEnvironment] = useState("");
+  const [editPrecondition, setEditPrecondition] = useState("");
+  const [editSteps, setEditSteps] = useState("");
+  const [editActual, setEditActual] = useState("");
+  const [editExpected, setEditExpected] = useState("");
+  const [editFrequency, setEditFrequency] = useState<BugFrequency>(
+    BugFrequency.ALWAYS,
+  );
+  const [editEvidence, setEditEvidence] = useState("");
 
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -92,24 +145,37 @@ export const IssueDetailPage: React.FC = () => {
   const fetchIssueData = async (skipPrSync = false) => {
     if (!params?.number) return;
     try {
-      const data = await apiFetch<IssueDto>(`/issues/${params.number}`, { skipCache: true });
+      const data = await apiFetch<IssueDto>(`/issues/${params.number}`, {
+        skipCache: true,
+      });
       setIssue(data);
       setIsWatching(!!data.isWatching);
       setErrorStatus(null);
 
       const [commData, actData] = await Promise.all([
-        apiFetch<CommentDto[]>(`/comments?targetType=ISSUE&targetId=${data.id}`),
-        apiFetch<ActivityTimelineDto[]>(`/activity?targetType=ISSUE&targetId=${data.id}`)
+        apiFetch<CommentDto[]>(
+          `/comments?targetType=ISSUE&targetId=${data.id}`,
+        ),
+        apiFetch<ActivityTimelineDto[]>(
+          `/activity?targetType=ISSUE&targetId=${data.id}`,
+        ),
       ]);
 
       setComments(commData);
       setActivities(actData);
 
       if (data.pullRequest?.id && !skipPrSync) {
-        apiFetch<{ success: boolean; hasChanges?: boolean }>(`/github/pull-requests/${data.pullRequest.id}/sync`, { method: 'POST' })
+        apiFetch<{ success: boolean; hasChanges?: boolean }>(
+          `/github/pull-requests/${data.pullRequest.id}/sync`,
+          { method: "POST" },
+        )
           .then((res) => {
             if (res?.hasChanges) {
-              toast.info(isVi ? 'Pull Request có cập nhật mới từ mã nguồn' : 'Pull Request synced with new changes');
+              toast.info(
+                isVi
+                  ? "Pull Request có cập nhật mới từ mã nguồn"
+                  : "Pull Request synced with new changes",
+              );
               fetchIssueData(true);
             }
           })
@@ -136,23 +202,28 @@ export const IssueDetailPage: React.FC = () => {
       if (!activeWorkspace) return;
       try {
         const [membersRes, reposRes] = await Promise.all([
-          apiFetch<Array<{ userId: string; username: string; displayName: string; avatarUrl?: string | null; role: string }>>(
-            `/workspaces/${activeWorkspace.id}/members`
-          ),
-          apiFetch<RepositoryDto[]>('/github/repositories')
+          apiFetch<
+            Array<{
+              userId: string;
+              username: string;
+              displayName: string;
+              avatarUrl?: string | null;
+              role: string;
+            }>
+          >(`/workspaces/${activeWorkspace.id}/members`),
+          apiFetch<RepositoryDto[]>("/github/repositories"),
         ]);
         const mappedUsers: UserSummaryDto[] = (membersRes || []).map((m) => ({
           id: m.userId,
           username: m.username,
           displayName: m.displayName,
           avatarUrl: m.avatarUrl,
-          email: '',
-          role: m.role as any
+          email: "",
+          role: m.role as any,
         }));
         setUsersList(mappedUsers);
         setRepositoriesList(reposRes || []);
-      } catch {
-      }
+      } catch {}
     };
     loadResources();
   }, [activeWorkspace?.id]);
@@ -160,35 +231,35 @@ export const IssueDetailPage: React.FC = () => {
   const handleOpenEdit = () => {
     if (!issue) return;
     setEditTitle(issue.title);
-    setEditDescription(issue.description || '');
+    setEditDescription(issue.description || "");
     setEditType(issue.type || IssueType.BUG);
     setEditPriority(issue.priority || IssuePriority.P2);
     setEditSeverity(issue.severity || IssueSeverity.MAJOR);
-    setEditProjectId(issue.projectId || '');
-    setEditRepositoryId(issue.repository?.id || '');
-    setEditBranch(issue.branch || '');
-    setEditCommitHash(issue.commitHash || '');
-    setEditPrUrl(issue.pullRequest?.url || '');
+    setEditProjectId(issue.projectId || "");
+    setEditRepositoryId(issue.repository?.id || "");
+    setEditBranch(issue.branch || "");
+    setEditCommitHash(issue.commitHash || "");
+    setEditPrUrl(issue.pullRequest?.url || "");
     setEditAssigneeIds(issue.assignees ? issue.assignees.map((a) => a.id) : []);
     setEditLabels(issue.labels ? issue.labels.map((l) => l.name) : []);
-    setNewLabelInput('');
+    setNewLabelInput("");
 
     if (issue.bugDetails) {
-      setEditEnvironment(issue.bugDetails.environment || '');
-      setEditPrecondition(issue.bugDetails.precondition || '');
-      setEditSteps(issue.bugDetails.stepsToReproduce || '');
-      setEditActual(issue.bugDetails.actualResult || '');
-      setEditExpected(issue.bugDetails.expectedResult || '');
+      setEditEnvironment(issue.bugDetails.environment || "");
+      setEditPrecondition(issue.bugDetails.precondition || "");
+      setEditSteps(issue.bugDetails.stepsToReproduce || "");
+      setEditActual(issue.bugDetails.actualResult || "");
+      setEditExpected(issue.bugDetails.expectedResult || "");
       setEditFrequency(issue.bugDetails.frequency || BugFrequency.ALWAYS);
-      setEditEvidence(issue.bugDetails.evidenceJsonOrLogs || '');
+      setEditEvidence(issue.bugDetails.evidenceJsonOrLogs || "");
     } else {
-      setEditEnvironment('');
-      setEditPrecondition('');
-      setEditSteps('');
-      setEditActual('');
-      setEditExpected('');
+      setEditEnvironment("");
+      setEditPrecondition("");
+      setEditSteps("");
+      setEditActual("");
+      setEditExpected("");
       setEditFrequency(BugFrequency.ALWAYS);
-      setEditEvidence('');
+      setEditEvidence("");
     }
 
     setEditError(null);
@@ -197,7 +268,9 @@ export const IssueDetailPage: React.FC = () => {
 
   const handleToggleLabel = (labelName: string) => {
     setEditLabels((prev) =>
-      prev.includes(labelName) ? prev.filter((l) => l !== labelName) : [...prev, labelName]
+      prev.includes(labelName)
+        ? prev.filter((l) => l !== labelName)
+        : [...prev, labelName],
     );
   };
 
@@ -205,14 +278,16 @@ export const IssueDetailPage: React.FC = () => {
     const trimmed = newLabelInput.trim().toLowerCase();
     if (trimmed && !editLabels.includes(trimmed)) {
       setEditLabels((prev) => [...prev, trimmed]);
-      setNewLabelInput('');
+      setNewLabelInput("");
     }
   };
 
   const handleSaveEdit = async () => {
     if (!issue) return;
     if (!editTitle.trim()) {
-      setEditError(isVi ? 'Tiêu đề không được để trống' : 'Title cannot be empty');
+      setEditError(
+        isVi ? "Tiêu đề không được để trống" : "Title cannot be empty",
+      );
       return;
     }
     setEditSaving(true);
@@ -230,7 +305,7 @@ export const IssueDetailPage: React.FC = () => {
         commitHash: editCommitHash.trim() ? editCommitHash.trim() : null,
         prUrl: editPrUrl.trim() ? editPrUrl.trim() : null,
         assigneeIds: editAssigneeIds,
-        labels: editLabels
+        labels: editLabels,
       };
 
       if (
@@ -242,25 +317,27 @@ export const IssueDetailPage: React.FC = () => {
         editEvidence.trim()
       ) {
         payload.bugDetails = {
-          environment: editEnvironment.trim() || 'Chrome 128, macOS',
+          environment: editEnvironment.trim() || "Chrome 128, macOS",
           precondition: editPrecondition.trim() || undefined,
-          stepsToReproduce: editSteps.trim() || 'Xem mô tả chi tiết',
-          actualResult: editActual.trim() || 'Xem mô tả chi tiết',
-          expectedResult: editExpected.trim() || 'Xem mô tả chi tiết',
+          stepsToReproduce: editSteps.trim() || "Xem mô tả chi tiết",
+          actualResult: editActual.trim() || "Xem mô tả chi tiết",
+          expectedResult: editExpected.trim() || "Xem mô tả chi tiết",
           frequency: editFrequency,
-          evidenceJsonOrLogs: editEvidence.trim() || undefined
+          evidenceJsonOrLogs: editEvidence.trim() || undefined,
         };
       }
 
       await apiFetch(`/issues/${issue.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(payload)
+        method: "PATCH",
+        body: JSON.stringify(payload),
       });
 
       setEditOpen(false);
       await fetchIssueData();
     } catch (err) {
-      setEditError(err instanceof Error ? err.message : 'Failed to update issue');
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update issue",
+      );
     } finally {
       setEditSaving(false);
     }
@@ -270,11 +347,11 @@ export const IssueDetailPage: React.FC = () => {
     if (!issue) return;
     setDeleting(true);
     try {
-      await apiFetch(`/issues/${issue.id}`, { method: 'DELETE' });
+      await apiFetch(`/issues/${issue.id}`, { method: "DELETE" });
       setDeleteDialogOpen(false);
       await fetchIssueData();
     } catch (err) {
-      console.error('Failed to delete issue:', err);
+      console.error("Failed to delete issue:", err);
     } finally {
       setDeleting(false);
     }
@@ -284,8 +361,8 @@ export const IssueDetailPage: React.FC = () => {
     if (!issue) return;
     try {
       await apiFetch(`/issues/${issue.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: newStatus })
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus }),
       });
       fetchIssueData();
     } catch (err) {
@@ -296,7 +373,10 @@ export const IssueDetailPage: React.FC = () => {
   const handleToggleWatch = async () => {
     if (!issue || !user) return;
     try {
-      const res = await apiFetch<{ watching: boolean }>(`/issues/${issue.id}/watch`, { method: 'POST' });
+      const res = await apiFetch<{ watching: boolean }>(
+        `/issues/${issue.id}/watch`,
+        { method: "POST" },
+      );
       setIsWatching(res.watching);
     } catch (err) {
       console.error(err);
@@ -311,38 +391,59 @@ export const IssueDetailPage: React.FC = () => {
     if (errorStatus === 403) {
       return <AccessDeniedPage isDeleted={true} />;
     }
-    return <NotFoundPage message={isVi ? 'Không tìm thấy vấn đề' : 'Issue not found'} />;
+    return (
+      <NotFoundPage
+        message={isVi ? "Không tìm thấy vấn đề" : "Issue not found"}
+      />
+    );
   }
 
-  const isLeader = activeWorkspace?.ownerId === user?.id || activeWorkspace?.role === 'OWNER' || activeWorkspace?.role === 'ADMIN' || user?.role === 'ADMIN';
+  const isLeader =
+    activeWorkspace?.ownerId === user?.id ||
+    activeWorkspace?.role === "OWNER" ||
+    activeWorkspace?.role === "ADMIN" ||
+    user?.role === "ADMIN";
   const canEdit = user && (user.id === issue.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === issue.projectId);
 
   const handleRemoveAssignee = async (assigneeUserId: string) => {
     if (!issue || !canEdit) return;
-    const nextIds = (issue.assignees || []).filter((a) => a.id !== assigneeUserId).map((a) => a.id);
+    const nextIds = (issue.assignees || [])
+      .filter((a) => a.id !== assigneeUserId)
+      .map((a) => a.id);
     try {
       await apiFetch(`/issues/${issue.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ assigneeIds: nextIds })
+        method: "PATCH",
+        body: JSON.stringify({ assigneeIds: nextIds }),
       });
-      toast.success(isVi ? 'Đã xoá người phân công' : 'Assignee removed');
+      toast.success(isVi ? "Đã xoá người phân công" : "Assignee removed");
       fetchIssueData(true);
     } catch (err) {
-      toast.error(isVi ? 'Không thể xoá người phân công' : 'Failed to remove assignee');
+      toast.error(
+        isVi ? "Không thể xoá người phân công" : "Failed to remove assignee",
+      );
     }
   };
 
   return (
-    <Box sx={{ width: '100%' }}>
-
-      <Breadcrumbs sx={{ mb: 1.5, fontSize: '0.8125rem' }}>
+    <Box sx={{ width: "100%" }}>
+      <Breadcrumbs sx={{ mb: 1.5, fontSize: "0.8125rem" }}>
         <Link href="/issues">
-          <Typography variant="caption" sx={{ color: tokens.textSecondary, cursor: 'pointer', '&:hover': { color: tokens.primary } }}>
+          <Typography
+            variant="caption"
+            sx={{
+              color: tokens.textSecondary,
+              cursor: "pointer",
+              "&:hover": { color: tokens.primary },
+            }}
+          >
             Issues
           </Typography>
         </Link>
-        <Typography variant="caption" sx={{ color: tokens.textPrimary, fontWeight: 600 }}>
+        <Typography
+          variant="caption"
+          sx={{ color: tokens.textPrimary, fontWeight: 600 }}
+        >
           #{issue.number}
         </Typography>
       </Breadcrumbs>
@@ -353,60 +454,98 @@ export const IssueDetailPage: React.FC = () => {
           icon={<AlertTriangle size={18} />}
           sx={{
             mb: 2.5,
-            borderRadius: '6px',
-            backgroundColor: 'rgba(210, 153, 34, 0.10)',
-            border: '1px solid rgba(210, 153, 34, 0.30)',
-            '& .MuiAlert-message': { width: '100%' }
+            borderRadius: "6px",
+            backgroundColor: "rgba(210, 153, 34, 0.10)",
+            border: "1px solid rgba(210, 153, 34, 0.30)",
+            "& .MuiAlert-message": { width: "100%" },
           }}
         >
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: '#d2991e' }}>
-              {isVi ? 'Vấn đề này đã bị xoá' : 'This issue has been deleted'}
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, color: "#d2991e" }}
+            >
+              {isVi ? "Vấn đề này đã bị xoá" : "This issue has been deleted"}
             </Typography>
             {(issue as any).deletedBy && (
-              <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
-                {isVi ? 'Người xoá' : 'Deleted by'}{': '}
+              <Typography
+                variant="caption"
+                sx={{ color: tokens.textSecondary }}
+              >
+                {isVi ? "Người xoá" : "Deleted by"}
+                {": "}
                 <strong>@{(issue as any).deletedBy.username}</strong>
                 {(issue as any).deletedAt && (
-                  <> {isVi ? 'lúc' : 'at'} {new Date((issue as any).deletedAt).toLocaleString()}</>
+                  <>
+                    {" "}
+                    {isVi ? "lúc" : "at"}{" "}
+                    {new Date((issue as any).deletedAt).toLocaleString()}
+                  </>
                 )}
               </Typography>
             )}
             <Typography variant="caption" sx={{ color: tokens.textSecondary }}>
               {isVi
-                ? 'Nội dung, phân công và lịch sử vẫn được lưu trữ. Chỉ tác giả hoặc quản trị viên mới thấy được bài này.'
-                : 'Content, assignments, and history are preserved. Only the author or admins can view this.'}
+                ? "Nội dung, phân công và lịch sử vẫn được lưu trữ. Chỉ tác giả hoặc quản trị viên mới thấy được bài này."
+                : "Content, assignments, and history are preserved. Only the author or admins can view this."}
             </Typography>
           </Box>
         </Alert>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 340px' }, gap: 3.5, alignItems: 'start' }}>
-
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 340px" },
+          gap: 3.5,
+          alignItems: "start",
+        }}
+      >
         <Box sx={{ minWidth: 0 }}>
-
           <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-              <Typography variant="h1" sx={{ fontWeight: 700, mb: 1, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 2,
+              }}
+            >
+              <Typography
+                variant="h1"
+                sx={{
+                  fontWeight: 700,
+                  mb: 1,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.3,
+                }}
+              >
                 {issue.title}
               </Typography>
               {canEdit && !issue.isDeleted && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    flexShrink: 0,
+                  }}
+                >
                   <Button
                     size="small"
                     variant="outlined"
                     startIcon={<Edit3 size={15} />}
                     onClick={handleOpenEdit}
                     sx={{
-                      borderRadius: '6px',
+                      borderRadius: "6px",
                       borderColor: tokens.border,
                       color: tokens.textPrimary,
-                      textTransform: 'none',
-                      fontSize: '0.8125rem',
-                      fontWeight: 600
+                      textTransform: "none",
+                      fontSize: "0.8125rem",
+                      fontWeight: 600,
                     }}
                   >
-                    {isVi ? 'Sửa bài viết' : 'Edit'}
+                    {isVi ? "Sửa bài viết" : "Edit"}
                   </Button>
                   <Button
                     size="small"
@@ -415,43 +554,60 @@ export const IssueDetailPage: React.FC = () => {
                     startIcon={<Trash2 size={15} />}
                     onClick={() => setDeleteDialogOpen(true)}
                     sx={{
-                      borderRadius: '6px',
-                      borderColor: 'rgba(248, 81, 73, 0.4)',
+                      borderRadius: "6px",
+                      borderColor: "rgba(248, 81, 73, 0.4)",
                       color: tokens.error,
-                      textTransform: 'none',
-                      fontSize: '0.8125rem',
+                      textTransform: "none",
+                      fontSize: "0.8125rem",
                       fontWeight: 600,
-                      '&:hover': {
+                      "&:hover": {
                         borderColor: tokens.error,
-                        backgroundColor: 'rgba(248, 81, 73, 0.1)'
-                      }
+                        backgroundColor: "rgba(248, 81, 73, 0.1)",
+                      },
                     }}
                   >
-                    {isVi ? 'Xóa bài viết' : 'Delete'}
+                    {isVi ? "Xóa bài viết" : "Delete"}
                   </Button>
                 </Box>
               )}
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', color: tokens.textSecondary, fontSize: '0.8125rem' }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                flexWrap: "wrap",
+                color: tokens.textSecondary,
+                fontSize: "0.8125rem",
+              }}
+            >
               <StatusBadge status={issue.status} size="medium" />
               <Chip
                 label={issue.type}
                 size="small"
                 sx={{
                   height: 22,
-                  fontSize: '0.6875rem',
+                  fontSize: "0.6875rem",
                   fontWeight: 600,
-                  backgroundColor: 'rgba(110, 118, 129, 0.14)',
-                  color: tokens.textPrimary
+                  backgroundColor: "rgba(110, 118, 129, 0.14)",
+                  color: tokens.textPrimary,
                 }}
               />
               <PriorityBadge priority={issue.priority} />
               <SeverityBadge severity={issue.severity} />
               <span>
-                {isVi ? 'Tạo bởi' : 'Opened by'} <strong>@{issue.author.username}</strong> • {new Date(issue.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                {isVi ? "Tạo bởi" : "Opened by"}{" "}
+                <strong>@{issue.author.username}</strong> •{" "}
+                {new Date(issue.createdAt).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
               </span>
-              <span>• {comments.length} {isVi ? 'bình luận' : 'comments'}</span>
+              <span>
+                • {comments.length} {isVi ? "bình luận" : "comments"}
+              </span>
             </Box>
           </Box>
 
@@ -461,96 +617,187 @@ export const IssueDetailPage: React.FC = () => {
             sx={{
               mb: 3,
               p: 2.5,
-              borderRadius: '8px',
+              borderRadius: "8px",
               border: `1px solid ${tokens.border}`,
-              backgroundColor: tokens.surface
+              backgroundColor: tokens.surface,
             }}
           >
-            <Typography variant="h4" sx={{ fontSize: '0.9rem', fontWeight: 600, mb: 2 }}>
-              {isVi ? 'Chi tiết tái hiện lỗi' : 'Bug Reproduction & Testing Details'}
+            <Typography
+              variant="h4"
+              sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}
+            >
+              {isVi
+                ? "Chi tiết tái hiện lỗi"
+                : "Bug Reproduction & Testing Details"}
             </Typography>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2,
+                mb: 2,
+              }}
+            >
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary }}>
-                  {isVi ? 'MÔI TRƯỜNG' : 'ENVIRONMENT'}
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                >
+                  {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: '0.8125rem', mt: 0.3 }}>
-                  {issue.bugDetails?.environment || (isVi ? '(Không có thông tin môi trường)' : '(None)')}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontFamily: '"JetBrains Mono", monospace',
+                    fontSize: "0.8125rem",
+                    mt: 0.3,
+                  }}
+                >
+                  {issue.bugDetails?.environment ||
+                    (isVi ? "(Không có thông tin môi trường)" : "(None)")}
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary }}>
-                  {isVi ? 'TẦN SUẤT' : 'FREQUENCY'}
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                >
+                  {isVi ? "TẦN SUẤT" : "FREQUENCY"}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.frequency || 'ALWAYS'}
+                  {issue.bugDetails?.frequency || "ALWAYS"}
                 </Typography>
               </Box>
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary }}>
-                {isVi ? 'TIỀN ĐIỀU KIỆN' : 'PRECONDITION'}
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, color: tokens.textSecondary }}
+              >
+                {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.3 }}>
-                {issue.bugDetails?.precondition || (isVi ? '(Không có)' : '(None)')}
+                {issue.bugDetails?.precondition ||
+                  (isVi ? "(Không có)" : "(None)")}
               </Typography>
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary }}>
-                {isVi ? 'CÁC BƯỚC TÁI HIỆN' : 'STEPS TO REPRODUCE'}
+              <Typography
+                variant="caption"
+                sx={{ fontWeight: 600, color: tokens.textSecondary }}
+              >
+                {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
               </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.3 }}>
-                {issue.bugDetails?.stepsToReproduce || (isVi ? '(Không có mô tả chi tiết các bước)' : '(No steps specified)')}
+              <Typography
+                variant="body2"
+                sx={{ whiteSpace: "pre-wrap", mt: 0.3 }}
+              >
+                {issue.bugDetails?.stepsToReproduce ||
+                  (isVi
+                    ? "(Không có mô tả chi tiết các bước)"
+                    : "(No steps specified)")}
               </Typography>
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2,
+                mb: 2,
+              }}
+            >
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.error }}>
-                  {isVi ? 'KẾT QUẢ THỰC TẾ' : 'ACTUAL RESULT'}
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: tokens.error }}
+                >
+                  {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.actualResult || (isVi ? '(Không có)' : '(None)')}
+                  {issue.bugDetails?.actualResult ||
+                    (isVi ? "(Không có)" : "(None)")}
                 </Typography>
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.success }}>
-                  {isVi ? 'KẾT QUẢ MONG ĐỢI' : 'EXPECTED RESULT'}
+                <Typography
+                  variant="caption"
+                  sx={{ fontWeight: 600, color: tokens.success }}
+                >
+                  {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.expectedResult || (isVi ? '(Không có)' : '(None)')}
+                  {issue.bugDetails?.expectedResult ||
+                    (isVi ? "(Không có)" : "(None)")}
                 </Typography>
               </Box>
             </Box>
 
             <Box sx={{ pt: 1.5, borderTop: `1px dashed ${tokens.border}` }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'BẰNG CHỨNG / LOG' : 'EVIDENCE / TEST LOGS'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
               </Typography>
               {issue.bugDetails?.evidenceJsonOrLogs ? (
-                <MarkdownRenderer content={issue.bugDetails.evidenceJsonOrLogs} />
+                <MarkdownRenderer
+                  content={issue.bugDetails.evidenceJsonOrLogs}
+                />
               ) : (
-                <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: 'italic' }}>
-                  {isVi ? 'Không có log hoặc bằng chứng đính kèm' : 'No logs or evidence attached'}
+                <Typography
+                  variant="body2"
+                  sx={{ color: tokens.textSecondary, fontStyle: "italic" }}
+                >
+                  {isVi
+                    ? "Không có log hoặc bằng chứng đính kèm"
+                    : "No logs or evidence attached"}
                 </Typography>
               )}
             </Box>
           </Box>
 
           <Box sx={{ mb: 3 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 1 }}>
-              {isVi ? 'MÔ TẢ CHI TIẾT' : 'DESCRIPTION'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 1,
+              }}
+            >
+              {isVi ? "MÔ TẢ CHI TIẾT" : "DESCRIPTION"}
             </Typography>
-            <MarkdownRenderer content={issue.description || (isVi ? '(Không có mô tả bổ sung)' : '(No description provided)')} />
+            <MarkdownRenderer
+              content={
+                issue.description ||
+                (isVi
+                  ? "(Không có mô tả bổ sung)"
+                  : "(No description provided)")
+              }
+            />
           </Box>
 
           {issue.pullRequest && (
             <Box sx={{ my: 2 }}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, textTransform: 'uppercase' }}>
-                {isVi ? 'PULL REQUEST LIÊN KẾT' : 'LINKED PULL REQUEST'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  textTransform: "uppercase",
+                }}
+              >
+                {isVi ? "PULL REQUEST LIÊN KẾT" : "LINKED PULL REQUEST"}
               </Typography>
               <PullRequestPreview
                 pr={issue.pullRequest}
@@ -571,44 +818,54 @@ export const IssueDetailPage: React.FC = () => {
 
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: 'column',
+            display: "flex",
+            flexDirection: "column",
             gap: 2.5,
             p: { xs: 2, sm: 2.5 },
-            borderRadius: '8px',
+            borderRadius: "8px",
             border: `1px solid ${tokens.border}`,
             backgroundColor: tokens.surface,
-            position: { xs: 'static', lg: 'sticky' },
+            position: { xs: "static", lg: "sticky" },
             top: 16,
-            maxHeight: { lg: 'calc(100vh - 100px)' },
-            overflowY: { lg: 'auto' },
-            overscrollBehavior: 'auto',
-            '&::-webkit-scrollbar': { width: 6 },
-            '&::-webkit-scrollbar-thumb': {
-              backgroundColor: tokens.border,
-              borderRadius: 3,
-              '&:hover': { backgroundColor: tokens.textSecondary }
-            }
           }}
         >
-
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'TRẠNG THÁI' : 'STATUS'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "TRẠNG THÁI" : "STATUS"}
             </Typography>
             <Select
               size="small"
               fullWidth
               value={issue.status}
               disabled={issue.isDeleted}
-              onChange={(e) => handleStatusChange(e.target.value as IssueStatus)}
-              sx={{ fontSize: '0.8125rem' }}
+              onChange={(e) =>
+                handleStatusChange(e.target.value as IssueStatus)
+              }
+              sx={{ fontSize: "0.8125rem" }}
             >
-              <MenuItem value={IssueStatus.OPEN}>{isVi ? 'Đang mở' : 'Open'}</MenuItem>
-              <MenuItem value={IssueStatus.IN_PROGRESS}>{isVi ? 'Đang xử lý' : 'In Progress'}</MenuItem>
-              <MenuItem value={IssueStatus.NEEDS_INFO}>{isVi ? 'Cần thông tin' : 'Needs Info'}</MenuItem>
-              <MenuItem value={IssueStatus.RESOLVED}>{isVi ? 'Đã giải quyết' : 'Resolved'}</MenuItem>
-              <MenuItem value={IssueStatus.CLOSED}>{isVi ? 'Đã đóng' : 'Closed'}</MenuItem>
+              <MenuItem value={IssueStatus.OPEN}>
+                {isVi ? "Đang mở" : "Open"}
+              </MenuItem>
+              <MenuItem value={IssueStatus.IN_PROGRESS}>
+                {isVi ? "Đang xử lý" : "In Progress"}
+              </MenuItem>
+              <MenuItem value={IssueStatus.NEEDS_INFO}>
+                {isVi ? "Cần thông tin" : "Needs Info"}
+              </MenuItem>
+              <MenuItem value={IssueStatus.RESOLVED}>
+                {isVi ? "Đã giải quyết" : "Resolved"}
+              </MenuItem>
+              <MenuItem value={IssueStatus.CLOSED}>
+                {isVi ? "Đã đóng" : "Closed"}
+              </MenuItem>
             </Select>
           </Box>
 
@@ -619,50 +876,110 @@ export const IssueDetailPage: React.FC = () => {
               variant="outlined"
               startIcon={isWatching ? <EyeOff size={16} /> : <Eye size={16} />}
               onClick={handleToggleWatch}
-              sx={{ borderRadius: '6px', textTransform: 'none' }}
+              sx={{ borderRadius: "6px", textTransform: "none" }}
             >
-              {isWatching ? 'Unwatch' : 'Watch Issue'}
+              {isWatching ? "Unwatch" : "Watch Issue"}
             </Button>
           </Box>
 
           <Divider />
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'DỰ ÁN' : 'PROJECT'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "DỰ ÁN" : "PROJECT"}
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem', color: currentProject ? tokens.textPrimary : tokens.textSecondary }}>
-              {currentProject ? currentProject.name : (isVi ? '(Chưa phân loại dự án)' : '(No project assigned)')}
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                fontSize: "0.8125rem",
+                color: currentProject
+                  ? tokens.textPrimary
+                  : tokens.textSecondary,
+              }}
+            >
+              {currentProject
+                ? currentProject.name
+                : isVi
+                  ? "(Chưa phân loại dự án)"
+                  : "(No project assigned)"}
             </Typography>
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
-              {isVi ? 'NGƯỜI ĐƯỢC PHÂN CÔNG' : 'ASSIGNEES'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.8,
+              }}
+            >
+              {isVi ? "NGƯỜI ĐƯỢC PHÂN CÔNG" : "ASSIGNEES"}
             </Typography>
             {!issue.assignees || issue.assignees.length === 0 ? (
-              <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.8125rem', fontStyle: 'italic' }}>
-                {isVi ? '(Chưa phân công)' : '(No assignees)'}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: tokens.textSecondary,
+                  fontSize: "0.8125rem",
+                  fontStyle: "italic",
+                }}
+              >
+                {isVi ? "(Chưa phân công)" : "(No assignees)"}
               </Typography>
             ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.8 }}>
                 {issue.assignees.map((a: UserSummaryDto) => (
-                  <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                  <Box
+                    key={a.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 1,
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        minWidth: 0,
+                      }}
+                    >
                       <UserAvatar user={a} size={20} />
-                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }} noWrap>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontWeight: 500, fontSize: "0.8125rem" }}
+                        noWrap
+                      >
                         {a.displayName}
                       </Typography>
                     </Box>
                     {canEdit && (
-                      <Tooltip title={isVi ? 'Xoá người phân công' : 'Remove assignee'}>
+                      <Tooltip
+                        title={isVi ? "Xoá người phân công" : "Remove assignee"}
+                      >
                         <IconButton
                           size="small"
                           onClick={() => handleRemoveAssignee(a.id)}
                           sx={{
                             p: 0.3,
                             color: tokens.textSecondary,
-                            '&:hover': { color: tokens.error, backgroundColor: 'rgba(248, 81, 73, 0.1)' }
+                            "&:hover": {
+                              color: tokens.error,
+                              backgroundColor: "rgba(248, 81, 73, 0.1)",
+                            },
                           }}
                         >
                           <X size={14} />
@@ -676,13 +993,28 @@ export const IssueDetailPage: React.FC = () => {
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.8 }}>
-              {isVi ? 'NHÃN' : 'LABELS'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.8,
+              }}
+            >
+              {isVi ? "NHÃN" : "LABELS"}
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.6 }}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.6 }}>
               {!issue.labels || issue.labels.length === 0 ? (
-                <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.8125rem', fontStyle: 'italic' }}>
-                  {isVi ? '(Không có nhãn)' : '(No labels)'}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: tokens.textSecondary,
+                    fontSize: "0.8125rem",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {isVi ? "(Không có nhãn)" : "(No labels)"}
                 </Typography>
               ) : (
                 issue.labels.map((lbl: IssueLabelDto) => {
@@ -694,11 +1026,11 @@ export const IssueDetailPage: React.FC = () => {
                       size="small"
                       sx={{
                         height: 20,
-                        fontSize: '0.6875rem',
+                        fontSize: "0.6875rem",
                         fontWeight: 600,
                         backgroundColor: style.bg,
                         color: style.text,
-                        border: `1px solid ${style.border}`
+                        border: `1px solid ${style.border}`,
                       }}
                     />
                   );
@@ -708,23 +1040,51 @@ export const IssueDetailPage: React.FC = () => {
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'KHO LƯU TRỮ' : 'REPOSITORY'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "KHO LƯU TRỮ" : "REPOSITORY"}
             </Typography>
             {issue.repository ? (
               <>
-                <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                <Typography
+                  variant="body2"
+                  sx={{ fontWeight: 600, fontSize: "0.8125rem" }}
+                >
                   {issue.repository.fullName}
                 </Typography>
                 {issue.branch && (
-                  <Box component="code" sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: tokens.textSecondary }}>
+                  <Box
+                    component="code"
+                    sx={{
+                      display: "block",
+                      mt: 0.5,
+                      fontSize: "0.75rem",
+                      color: tokens.textSecondary,
+                    }}
+                  >
                     {issue.branch}
                   </Box>
                 )}
               </>
             ) : (
-              <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: '0.8125rem', fontStyle: 'italic' }}>
-                {isVi ? '(Chưa liên kết kho lưu trữ)' : '(No repository linked)'}
+              <Typography
+                variant="body2"
+                sx={{
+                  color: tokens.textSecondary,
+                  fontSize: "0.8125rem",
+                  fontStyle: "italic",
+                }}
+              >
+                {isVi
+                  ? "(Chưa liên kết kho lưu trữ)"
+                  : "(No repository linked)"}
               </Typography>
             )}
           </Box>
@@ -745,42 +1105,67 @@ export const IssueDetailPage: React.FC = () => {
         onClose={() => !deleting && setDeleteDialogOpen(false)}
         PaperProps={{
           sx: {
-            borderRadius: '8px',
+            borderRadius: "8px",
             backgroundColor: tokens.surface,
             border: `1px solid ${tokens.border}`,
-            backgroundImage: 'none',
-            maxWidth: 440
-          }
+            backgroundImage: "none",
+            maxWidth: 440,
+          },
         }}
       >
-        <DialogTitle sx={{ fontWeight: 700, pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle
+          sx={{
+            fontWeight: 700,
+            pb: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <AlertTriangle size={20} color={tokens.error} />
-          {isVi ? `Xóa bài viết #${issue.number}?` : `Delete issue #${issue.number}?`}
+          {isVi
+            ? `Xóa bài viết #${issue.number}?`
+            : `Delete issue #${issue.number}?`}
         </DialogTitle>
         <DialogContent sx={{ py: 1.5 }}>
-          <Typography variant="body2" sx={{ color: tokens.textSecondary, lineHeight: 1.6 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: tokens.textSecondary, lineHeight: 1.6 }}
+          >
             {isVi
-              ? 'Bài viết này sẽ được chuyển sang trạng thái đã xóa và ghi nhận trong nhật ký đối soát (audit trail). Thao tác này không làm mất dữ liệu vĩnh viễn.'
-              : 'This issue will be marked as deleted and recorded in the audit trail. Data is preserved for tracking and compliance.'}
+              ? "Bài viết này sẽ được chuyển sang trạng thái đã xóa và ghi nhận trong nhật ký đối soát (audit trail). Thao tác này không làm mất dữ liệu vĩnh viễn."
+              : "This issue will be marked as deleted and recorded in the audit trail. Data is preserved for tracking and compliance."}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2, borderColor: tokens.border }}>
           <Button
             onClick={() => setDeleteDialogOpen(false)}
             disabled={deleting}
-            sx={{ borderRadius: '6px', color: tokens.textSecondary, textTransform: 'none' }}
+            sx={{
+              borderRadius: "6px",
+              color: tokens.textSecondary,
+              textTransform: "none",
+            }}
           >
-            {isVi ? 'Hủy' : 'Cancel'}
+            {isVi ? "Hủy" : "Cancel"}
           </Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleDeleteIssue}
             disabled={deleting}
-            startIcon={deleting ? <CircularProgress size={16} /> : <Trash2 size={16} />}
-            sx={{ borderRadius: '6px', textTransform: 'none' }}
+            startIcon={
+              deleting ? <CircularProgress size={16} /> : <Trash2 size={16} />
+            }
+            sx={{ borderRadius: "6px", textTransform: "none" }}
           >
-            {deleting ? (isVi ? 'Đang xóa...' : 'Deleting...') : (isVi ? 'Xác nhận xóa' : 'Confirm Delete')}
+            {deleting
+              ? isVi
+                ? "Đang xóa..."
+                : "Deleting..."
+              : isVi
+                ? "Xác nhận xóa"
+                : "Confirm Delete"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -792,146 +1177,271 @@ export const IssueDetailPage: React.FC = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '8px',
+            borderRadius: "8px",
             backgroundColor: tokens.surface,
             border: `1px solid ${tokens.border}`,
-            backgroundImage: 'none'
-          }
+            backgroundImage: "none",
+          },
         }}
       >
         <DialogTitle sx={{ fontWeight: 700, pb: 1 }}>
-          {isVi ? 'Chỉnh sửa bài viết' : 'Edit Issue'}
+          {isVi ? "Chỉnh sửa bài viết" : "Edit Issue"}
         </DialogTitle>
 
-        <DialogContent dividers sx={{ borderColor: tokens.border, display: 'flex', flexDirection: 'column', gap: 2.5, pt: 2 }}>
+        <DialogContent
+          dividers
+          sx={{
+            borderColor: tokens.border,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2.5,
+            pt: 2,
+          }}
+        >
           {editError && (
-            <Alert severity="error" sx={{ borderRadius: '6px' }}>{editError}</Alert>
+            <Alert severity="error" sx={{ borderRadius: "6px" }}>
+              {editError}
+            </Alert>
           )}
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'TIÊU ĐỀ *' : 'TITLE *'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "TIÊU ĐỀ *" : "TITLE *"}
             </Typography>
             <TextField
               fullWidth
               size="small"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
-              placeholder={isVi ? 'Tóm tắt ngắn gọn lỗi hoặc tác vụ...' : 'Concise summary of the bug or task...'}
+              placeholder={
+                isVi
+                  ? "Tóm tắt ngắn gọn lỗi hoặc tác vụ..."
+                  : "Concise summary of the bug or task..."
+              }
               sx={{
-                '& .MuiOutlinedInput-root': {
-                  fontSize: '0.95rem',
+                "& .MuiOutlinedInput-root": {
+                  fontSize: "0.95rem",
                   fontWeight: 600,
-                  borderRadius: '6px'
+                  borderRadius: "6px",
                 },
-                '& input::placeholder': {
-                  fontSize: '0.875rem !important',
-                  fontWeight: '400 !important',
+                "& input::placeholder": {
+                  fontSize: "0.875rem !important",
+                  fontWeight: "400 !important",
                   color: `${tokens.textSecondary} !important`,
-                  opacity: '0.7 !important'
-                }
+                  opacity: "0.7 !important",
+                },
               }}
             />
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
+              gap: 2,
+            }}
+          >
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'LOẠI BÀI VIẾT' : 'TYPE'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "LOẠI BÀI VIẾT" : "TYPE"}
               </Typography>
               <Select
                 fullWidth
                 size="small"
                 value={editType}
                 onChange={(e) => setEditType(e.target.value as IssueType)}
-                sx={{ borderRadius: '6px' }}
+                sx={{ borderRadius: "6px" }}
               >
-                <MenuItem value={IssueType.BUG}>{isVi ? 'Báo cáo lỗi (Bug)' : 'Bug Report'}</MenuItem>
-                <MenuItem value={IssueType.TASK}>{isVi ? 'Công việc / Câu hỏi' : 'Task / Question'}</MenuItem>
-                <MenuItem value={IssueType.FEATURE}>{isVi ? 'Đề xuất tính năng' : 'Feature Proposal'}</MenuItem>
+                <MenuItem value={IssueType.BUG}>
+                  {isVi ? "Báo cáo lỗi (Bug)" : "Bug Report"}
+                </MenuItem>
+                <MenuItem value={IssueType.TASK}>
+                  {isVi ? "Công việc / Câu hỏi" : "Task / Question"}
+                </MenuItem>
+                <MenuItem value={IssueType.FEATURE}>
+                  {isVi ? "Đề xuất tính năng" : "Feature Proposal"}
+                </MenuItem>
               </Select>
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'ĐỘ ƯU TIÊN' : 'PRIORITY'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "ĐỘ ƯU TIÊN" : "PRIORITY"}
               </Typography>
               <Select
                 fullWidth
                 size="small"
                 value={editPriority}
-                onChange={(e) => setEditPriority(e.target.value as IssuePriority)}
-                sx={{ borderRadius: '6px' }}
+                onChange={(e) =>
+                  setEditPriority(e.target.value as IssuePriority)
+                }
+                sx={{ borderRadius: "6px" }}
               >
-                <MenuItem value={IssuePriority.P0}>P0 - {isVi ? 'Khẩn cấp' : 'Blocker'}</MenuItem>
-                <MenuItem value={IssuePriority.P1}>P1 - {isVi ? 'Cao' : 'High'}</MenuItem>
-                <MenuItem value={IssuePriority.P2}>P2 - {isVi ? 'Trung bình' : 'Medium'}</MenuItem>
-                <MenuItem value={IssuePriority.P3}>P3 - {isVi ? 'Thấp' : 'Low'}</MenuItem>
+                <MenuItem value={IssuePriority.P0}>
+                  P0 - {isVi ? "Khẩn cấp" : "Blocker"}
+                </MenuItem>
+                <MenuItem value={IssuePriority.P1}>
+                  P1 - {isVi ? "Cao" : "High"}
+                </MenuItem>
+                <MenuItem value={IssuePriority.P2}>
+                  P2 - {isVi ? "Trung bình" : "Medium"}
+                </MenuItem>
+                <MenuItem value={IssuePriority.P3}>
+                  P3 - {isVi ? "Thấp" : "Low"}
+                </MenuItem>
               </Select>
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'MỨC ĐỘ NGHIÊM TRỌNG' : 'SEVERITY'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "MỨC ĐỘ NGHIÊM TRỌNG" : "SEVERITY"}
               </Typography>
               <Select
                 fullWidth
                 size="small"
                 value={editSeverity}
-                onChange={(e) => setEditSeverity(e.target.value as IssueSeverity)}
-                sx={{ borderRadius: '6px' }}
+                onChange={(e) =>
+                  setEditSeverity(e.target.value as IssueSeverity)
+                }
+                sx={{ borderRadius: "6px" }}
               >
-                <MenuItem value={IssueSeverity.BLOCKER}>{isVi ? 'Nghiêm trọng (Blocker)' : 'Blocker'}</MenuItem>
-                <MenuItem value={IssueSeverity.CRITICAL}>{isVi ? 'Rất cao (Critical)' : 'Critical'}</MenuItem>
-                <MenuItem value={IssueSeverity.MAJOR}>{isVi ? 'Lớn (Major)' : 'Major'}</MenuItem>
-                <MenuItem value={IssueSeverity.MINOR}>{isVi ? 'Nhỏ (Minor)' : 'Minor'}</MenuItem>
-                <MenuItem value={IssueSeverity.TRIVIAL}>{isVi ? 'Không đáng kể (Trivial)' : 'Trivial'}</MenuItem>
+                <MenuItem value={IssueSeverity.BLOCKER}>
+                  {isVi ? "Nghiêm trọng (Blocker)" : "Blocker"}
+                </MenuItem>
+                <MenuItem value={IssueSeverity.CRITICAL}>
+                  {isVi ? "Rất cao (Critical)" : "Critical"}
+                </MenuItem>
+                <MenuItem value={IssueSeverity.MAJOR}>
+                  {isVi ? "Lớn (Major)" : "Major"}
+                </MenuItem>
+                <MenuItem value={IssueSeverity.MINOR}>
+                  {isVi ? "Nhỏ (Minor)" : "Minor"}
+                </MenuItem>
+                <MenuItem value={IssueSeverity.TRIVIAL}>
+                  {isVi ? "Không đáng kể (Trivial)" : "Trivial"}
+                </MenuItem>
               </Select>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+              gap: 2,
+            }}
+          >
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'DỰ ÁN' : 'PROJECT'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "DỰ ÁN" : "PROJECT"}
               </Typography>
               <Select
                 fullWidth
                 size="small"
                 value={editProjectId}
                 onChange={(e) => setEditProjectId(e.target.value)}
-                sx={{ borderRadius: '6px' }}
+                sx={{ borderRadius: "6px" }}
               >
-                <MenuItem value="">{isVi ? '(Không gán dự án)' : '(None)'}</MenuItem>
+                <MenuItem value="">
+                  {isVi ? "(Không gán dự án)" : "(None)"}
+                </MenuItem>
                 {projects.map((p) => (
-                  <MenuItem key={p.id} value={p.id}>{p.name} ({p.key})</MenuItem>
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.name} ({p.key})
+                  </MenuItem>
                 ))}
               </Select>
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'KHO MÃ NGUỒN' : 'REPOSITORY'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "KHO MÃ NGUỒN" : "REPOSITORY"}
               </Typography>
               <Select
                 fullWidth
                 size="small"
                 value={editRepositoryId}
                 onChange={(e) => setEditRepositoryId(e.target.value)}
-                sx={{ borderRadius: '6px' }}
+                sx={{ borderRadius: "6px" }}
               >
-                <MenuItem value="">{isVi ? '(Không liên kết kho)' : '(None)'}</MenuItem>
+                <MenuItem value="">
+                  {isVi ? "(Không liên kết kho)" : "(None)"}
+                </MenuItem>
                 {repositoriesList.map((r) => (
-                  <MenuItem key={r.id} value={r.id}>{r.fullName}</MenuItem>
+                  <MenuItem key={r.id} value={r.id}>
+                    {r.fullName}
+                  </MenuItem>
                 ))}
               </Select>
             </Box>
           </Box>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2 }}>
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" },
+              gap: 2,
+            }}
+          >
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'NHÁNH (BRANCH)' : 'BRANCH'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "NHÁNH (BRANCH)" : "BRANCH"}
               </Typography>
               <TextField
                 fullWidth
@@ -939,13 +1449,21 @@ export const IssueDetailPage: React.FC = () => {
                 value={editBranch}
                 onChange={(e) => setEditBranch(e.target.value)}
                 placeholder="main, fix/auth..."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'COMMIT HASH' : 'COMMIT HASH'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "COMMIT HASH" : "COMMIT HASH"}
               </Typography>
               <TextField
                 fullWidth
@@ -953,13 +1471,21 @@ export const IssueDetailPage: React.FC = () => {
                 value={editCommitHash}
                 onChange={(e) => setEditCommitHash(e.target.value)}
                 placeholder="a1b2c3d..."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'LINK PULL REQUEST' : 'PR URL'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "LINK PULL REQUEST" : "PR URL"}
               </Typography>
               <TextField
                 fullWidth
@@ -967,26 +1493,41 @@ export const IssueDetailPage: React.FC = () => {
                 value={editPrUrl}
                 onChange={(e) => setEditPrUrl(e.target.value)}
                 placeholder="https://github.com/..."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'NGƯỜI PHÂN CÔNG' : 'ASSIGNEES'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "NGƯỜI PHÂN CÔNG" : "ASSIGNEES"}
             </Typography>
             <Select
               multiple
               fullWidth
               size="small"
               value={editAssigneeIds}
-              onChange={(e) => setEditAssigneeIds(typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value)}
+              onChange={(e) =>
+                setEditAssigneeIds(
+                  typeof e.target.value === "string"
+                    ? e.target.value.split(",")
+                    : e.target.value,
+                )
+              }
               renderValue={(selected) => (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                   {selected.map((val) => {
-                    const u = usersList.find((usr) => usr.id === val)
-                      || issue?.assignees?.find((a) => a.id === val);
+                    const u =
+                      usersList.find((usr) => usr.id === val) ||
+                      issue?.assignees?.find((a) => a.id === val);
                     const isFormer = !usersList.some((usr) => usr.id === val);
                     return (
                       <Chip
@@ -994,27 +1535,31 @@ export const IssueDetailPage: React.FC = () => {
                         size="small"
                         label={
                           isFormer
-                            ? `${u?.displayName || val} (${isVi ? 'Đã rời WS' : 'Former'})`
-                            : (u?.displayName || val)
+                            ? `${u?.displayName || val} (${isVi ? "Đã rời WS" : "Former"})`
+                            : u?.displayName || val
                         }
-                        color={isFormer ? 'warning' : 'default'}
+                        color={isFormer ? "warning" : "default"}
                         onDelete={(e) => {
                           e.stopPropagation();
-                          setEditAssigneeIds((prev) => prev.filter((id) => id !== val));
+                          setEditAssigneeIds((prev) =>
+                            prev.filter((id) => id !== val),
+                          );
                         }}
-                        sx={{ height: 24, fontSize: '0.75rem' }}
+                        sx={{ height: 24, fontSize: "0.75rem" }}
                       />
                     );
                   })}
                 </Box>
               )}
-              sx={{ borderRadius: '6px' }}
+              sx={{ borderRadius: "6px" }}
             >
               {usersList.map((usr) => (
                 <MenuItem key={usr.id} value={usr.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <UserAvatar user={usr} size={20} />
-                    <Typography variant="body2">{usr.displayName} (@{usr.username})</Typography>
+                    <Typography variant="body2">
+                      {usr.displayName} (@{usr.username})
+                    </Typography>
                   </Box>
                 </MenuItem>
               ))}
@@ -1022,10 +1567,18 @@ export const IssueDetailPage: React.FC = () => {
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'NHÃN (LABELS)' : 'LABELS'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "NHÃN (LABELS)" : "LABELS"}
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.8, mb: 1.2 }}>
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8, mb: 1.2 }}>
               {PRESET_LABELS.map((lbl) => {
                 const active = editLabels.includes(lbl);
                 return (
@@ -1037,51 +1590,84 @@ export const IssueDetailPage: React.FC = () => {
                     icon={active ? <Check size={12} /> : undefined}
                     sx={{
                       height: 24,
-                      cursor: 'pointer',
-                      borderRadius: '6px',
-                      backgroundColor: active ? 'rgba(56, 139, 253, 0.2)' : 'rgba(110, 118, 129, 0.1)',
+                      cursor: "pointer",
+                      borderRadius: "6px",
+                      backgroundColor: active
+                        ? "rgba(56, 139, 253, 0.2)"
+                        : "rgba(110, 118, 129, 0.1)",
                       color: active ? tokens.primary : tokens.textSecondary,
-                      border: `1px solid ${active ? tokens.primary : tokens.border}`
+                      border: `1px solid ${active ? tokens.primary : tokens.border}`,
                     }}
                   />
                 );
               })}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1 }}>
+            <Box sx={{ display: "flex", gap: 1 }}>
               <TextField
                 size="small"
-                placeholder={isVi ? 'Thêm nhãn tùy chỉnh...' : 'Add custom label...'}
+                placeholder={
+                  isVi ? "Thêm nhãn tùy chỉnh..." : "Add custom label..."
+                }
                 value={newLabelInput}
                 onChange={(e) => setNewLabelInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
+                  if (e.key === "Enter") {
                     e.preventDefault();
                     handleAddCustomLabel();
                   }
                 }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' }, maxWidth: 260 }}
+                sx={{
+                  "& .MuiOutlinedInput-root": { borderRadius: "6px" },
+                  maxWidth: 260,
+                }}
               />
               <Button
                 variant="outlined"
                 size="small"
                 startIcon={<Plus size={14} />}
                 onClick={handleAddCustomLabel}
-                sx={{ borderRadius: '6px', textTransform: 'none' }}
+                sx={{ borderRadius: "6px", textTransform: "none" }}
               >
-                {isVi ? 'Thêm' : 'Add'}
+                {isVi ? "Thêm" : "Add"}
               </Button>
             </Box>
           </Box>
 
-          <Box sx={{ p: 2, borderRadius: '8px', border: `1px solid ${tokens.border}`, backgroundColor: tokens.background, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box
+            sx={{
+              p: 2,
+              borderRadius: "8px",
+              border: `1px solid ${tokens.border}`,
+              backgroundColor: tokens.background,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {isVi ? 'Chi tiết tái hiện lỗi' : 'Bug Reproduction & Testing Details'}
+              {isVi
+                ? "Chi tiết tái hiện lỗi"
+                : "Bug Reproduction & Testing Details"}
             </Typography>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2,
+              }}
+            >
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                  {isVi ? 'MÔI TRƯỜNG' : 'ENVIRONMENT'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: tokens.textSecondary,
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
                 </Typography>
                 <TextField
                   fullWidth
@@ -1089,45 +1675,83 @@ export const IssueDetailPage: React.FC = () => {
                   value={editEnvironment}
                   onChange={(e) => setEditEnvironment(e.target.value)}
                   placeholder="Chrome 122, macOS 14..."
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                  {isVi ? 'TẦN SUẤT' : 'FREQUENCY'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: tokens.textSecondary,
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  {isVi ? "TẦN SUẤT" : "FREQUENCY"}
                 </Typography>
                 <Select
                   fullWidth
                   size="small"
                   value={editFrequency}
-                  onChange={(e) => setEditFrequency(e.target.value as BugFrequency)}
-                  sx={{ borderRadius: '6px' }}
+                  onChange={(e) =>
+                    setEditFrequency(e.target.value as BugFrequency)
+                  }
+                  sx={{ borderRadius: "6px" }}
                 >
-                  <MenuItem value={BugFrequency.ALWAYS}>{isVi ? 'Luôn luôn (100%)' : 'Always (100%)'}</MenuItem>
-                  <MenuItem value={BugFrequency.OFTEN}>{isVi ? 'Thường xuyên (~70%)' : 'Often (~70%)'}</MenuItem>
-                  <MenuItem value={BugFrequency.SOMETIMES}>{isVi ? 'Thỉnh thoảng (~30%)' : 'Sometimes (~30%)'}</MenuItem>
-                  <MenuItem value={BugFrequency.RARE}>{isVi ? 'Hiếm khi (<10%)' : 'Rare (<10%)'}</MenuItem>
+                  <MenuItem value={BugFrequency.ALWAYS}>
+                    {isVi ? "Luôn luôn (100%)" : "Always (100%)"}
+                  </MenuItem>
+                  <MenuItem value={BugFrequency.OFTEN}>
+                    {isVi ? "Thường xuyên (~70%)" : "Often (~70%)"}
+                  </MenuItem>
+                  <MenuItem value={BugFrequency.SOMETIMES}>
+                    {isVi ? "Thỉnh thoảng (~30%)" : "Sometimes (~30%)"}
+                  </MenuItem>
+                  <MenuItem value={BugFrequency.RARE}>
+                    {isVi ? "Hiếm khi (<10%)" : "Rare (<10%)"}
+                  </MenuItem>
                 </Select>
               </Box>
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'TIỀN ĐIỀU KIỆN' : 'PRECONDITION'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
               </Typography>
               <TextField
                 fullWidth
                 size="small"
                 value={editPrecondition}
                 onChange={(e) => setEditPrecondition(e.target.value)}
-                placeholder={isVi ? 'Ví dụ: Đã đăng nhập với tài khoản viewer...' : 'e.g. Logged in as viewer...'}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                placeholder={
+                  isVi
+                    ? "Ví dụ: Đã đăng nhập với tài khoản viewer..."
+                    : "e.g. Logged in as viewer..."
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'CÁC BƯỚC TÁI HIỆN' : 'STEPS TO REPRODUCE'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
               </Typography>
               <TextField
                 fullWidth
@@ -1136,14 +1760,28 @@ export const IssueDetailPage: React.FC = () => {
                 value={editSteps}
                 onChange={(e) => setEditSteps(e.target.value)}
                 placeholder="1. Go to...\n2. Click..."
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 2,
+              }}
+            >
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.error, display: 'block', mb: 0.5 }}>
-                  {isVi ? 'KẾT QUẢ THỰC TẾ' : 'ACTUAL RESULT'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: tokens.error,
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
                 </Typography>
                 <TextField
                   fullWidth
@@ -1151,12 +1789,20 @@ export const IssueDetailPage: React.FC = () => {
                   rows={2}
                   value={editActual}
                   onChange={(e) => setEditActual(e.target.value)}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
               <Box>
-                <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.success, display: 'block', mb: 0.5 }}>
-                  {isVi ? 'KẾT QUẢ MONG ĐỢI' : 'EXPECTED RESULT'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    fontWeight: 600,
+                    color: tokens.success,
+                    display: "block",
+                    mb: 0.5,
+                  }}
+                >
+                  {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
                 </Typography>
                 <TextField
                   fullWidth
@@ -1164,14 +1810,22 @@ export const IssueDetailPage: React.FC = () => {
                   rows={2}
                   value={editExpected}
                   onChange={(e) => setEditExpected(e.target.value)}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-                {isVi ? 'BẰNG CHỨNG / LOG' : 'EVIDENCE / TEST LOGS'}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 0.5,
+                }}
+              >
+                {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
               </Typography>
               <TextField
                 fullWidth
@@ -1179,22 +1833,38 @@ export const IssueDetailPage: React.FC = () => {
                 rows={2}
                 value={editEvidence}
                 onChange={(e) => setEditEvidence(e.target.value)}
-                placeholder={isVi ? 'Dán log lỗi, stacktrace hoặc link ảnh bằng chứng...' : 'Paste logs, error stacktraces or image links...'}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px' } }}
+                placeholder={
+                  isVi
+                    ? "Dán log lỗi, stacktrace hoặc link ảnh bằng chứng..."
+                    : "Paste logs, error stacktraces or image links..."
+                }
+                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
               />
             </Box>
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textSecondary, display: 'block', mb: 0.5 }}>
-              {isVi ? 'MÔ TẢ CHI TIẾT' : 'DESCRIPTION'}
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: tokens.textSecondary,
+                display: "block",
+                mb: 0.5,
+              }}
+            >
+              {isVi ? "MÔ TẢ CHI TIẾT" : "DESCRIPTION"}
             </Typography>
             <MarkdownEditor
               value={editDescription}
               onChange={setEditDescription}
               targetType="ISSUE"
               targetId={issue.id}
-              placeholder={isVi ? 'Mô tả chi tiết bài viết...' : 'Detailed issue description...'}
+              placeholder={
+                isVi
+                  ? "Mô tả chi tiết bài viết..."
+                  : "Detailed issue description..."
+              }
               minRows={5}
             />
           </Box>
@@ -1204,21 +1874,30 @@ export const IssueDetailPage: React.FC = () => {
           <Button
             onClick={() => setEditOpen(false)}
             disabled={editSaving}
-            sx={{ borderRadius: '6px', color: tokens.textSecondary, textTransform: 'none' }}
+            sx={{
+              borderRadius: "6px",
+              color: tokens.textSecondary,
+              textTransform: "none",
+            }}
           >
-            {isVi ? 'Hủy' : 'Cancel'}
+            {isVi ? "Hủy" : "Cancel"}
           </Button>
           <Button
             variant="contained"
             onClick={handleSaveEdit}
             disabled={editSaving}
-            sx={{ borderRadius: '6px', minWidth: 100, textTransform: 'none' }}
+            sx={{ borderRadius: "6px", minWidth: 100, textTransform: "none" }}
           >
-            {editSaving ? (isVi ? 'Đang lưu...' : 'Saving...') : (isVi ? 'Lưu thay đổi' : 'Save Changes')}
+            {editSaving
+              ? isVi
+                ? "Đang lưu..."
+                : "Saving..."
+              : isVi
+                ? "Lưu thay đổi"
+                : "Save Changes"}
           </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
 };
-

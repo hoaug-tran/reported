@@ -1,20 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
-  Popover, Box, Typography, Button, IconButton, Tabs, Tab, List, ListItemButton,
-  ListItemAvatar, ListItemText, Tooltip, Divider, Badge
-} from '@mui/material';
-import { Bell, CheckCheck, Settings, MailCheck, Bug, Eye, AtSign, Monitor } from 'lucide-react';
-import { useLocation } from 'wouter';
-import { useThemeContext } from '../../contexts/ThemeContext';
-import { UserAvatar } from '../common/UserAvatar';
-import { NotificationDto, NotificationType } from '@reported/contracts';
-import { apiFetch } from '../../api/client';
+  Popover,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Tabs,
+  Tab,
+  List,
+  ListItemButton,
+  ListItemAvatar,
+  ListItemText,
+  Tooltip,
+  Divider,
+  Badge,
+} from "@mui/material";
+import {
+  Bell,
+  CheckCheck,
+  Settings,
+  MailCheck,
+  Bug,
+  Eye,
+  AtSign,
+  Monitor,
+} from "lucide-react";
+import { useLocation } from "wouter";
+import { useThemeContext } from "../../contexts/ThemeContext";
+import { UserAvatar } from "../common/UserAvatar";
+import { NotificationDto, NotificationType } from "@reported/contracts";
+import { apiFetch } from "../../api/client";
 import {
   isDesktopNotificationSupported,
   getDesktopNotificationPermission,
   requestDesktopNotificationPermission,
-  showDesktopNotification
-} from '../../utils/desktopNotification';
+  showDesktopNotification,
+} from "../../utils/desktopNotification";
 
 interface NotificationCenterProps {
   notifications: NotificationDto[];
@@ -29,15 +50,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   unreadCount,
   onRefresh,
   onOpenPreferences,
-  onOpenEmailInspector
+  onOpenEmailInspector,
 }) => {
   const { tokens } = useThemeContext();
   const [, setLocation] = useLocation();
 
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const open = Boolean(anchorEl);
-  const [filterTab, setFilterTab] = useState<'all' | 'unread'>('unread');
-  const [desktopPerm, setDesktopPerm] = useState<NotificationPermission | 'unsupported'>('default');
+  const [filterTab, setFilterTab] = useState<"all" | "unread">("unread");
+  const [desktopPerm, setDesktopPerm] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
 
   useEffect(() => {
     setDesktopPerm(getDesktopNotificationPermission());
@@ -46,17 +69,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const handleEnableDesktop = async () => {
     const res = await requestDesktopNotificationPermission();
     setDesktopPerm(res);
-    if (res === 'granted') {
-      showDesktopNotification('Reported Notification', {
-        body: 'Thông báo Desktop đã được kết nối trực tiếp với Windows!',
-        onClick: () => window.focus()
+    if (res === "granted") {
+      showDesktopNotification("Reported Notification", {
+        body: "Thông báo Desktop đã được kết nối trực tiếp với Windows!",
+        onClick: () => window.focus(),
       });
     }
   };
 
   const handleMarkAllRead = async () => {
     try {
-      await apiFetch('/notifications/read-all', { method: 'POST' });
+      await apiFetch("/notifications/read-all", { method: "POST" });
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -66,7 +89,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const handleClickNotification = async (n: NotificationDto) => {
     if (!n.isRead) {
       try {
-        await apiFetch(`/notifications/${n.id}/read`, { method: 'PATCH' });
+        await apiFetch(`/notifications/${n.id}/read`, { method: "PATCH" });
       } catch (err) {
         console.error(err);
       }
@@ -76,7 +99,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     setLocation(n.link);
   };
 
-  const filtered = notifications.filter(n => (filterTab === 'unread' ? !n.isRead : true));
+  const filtered = notifications.filter((n) =>
+    filterTab === "unread" ? !n.isRead : true,
+  );
 
   const renderIcon = (type: NotificationType) => {
     switch (type) {
@@ -110,55 +135,101 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         open={open}
         anchorEl={anchorEl}
         onClose={() => setAnchorEl(null)}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
         PaperProps={{
           sx: {
             width: 380,
             maxHeight: 500,
             backgroundColor: tokens.surface,
             border: `1px solid ${tokens.border}`,
-            borderRadius: '8px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.2)'
-          }
+            borderRadius: "8px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+          },
         }}
       >
-
-        <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${tokens.border}` }}>
-          <Typography variant="h4" sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+        <Box
+          sx={{
+            p: 1.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            borderBottom: `1px solid ${tokens.border}`,
+          }}
+        >
+          <Typography
+            variant="h4"
+            sx={{ fontSize: "0.9375rem", fontWeight: 600 }}
+          >
             Notifications {unreadCount > 0 && `(${unreadCount})`}
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             {isDesktopNotificationSupported() && (
-              <Tooltip title={desktopPerm === 'granted' ? 'Thông báo Windows đang bật (Bấm để thử)' : 'Bật thông báo đẩy về Windows'}>
+              <Tooltip
+                title={
+                  desktopPerm === "granted"
+                    ? "Thông báo Windows đang bật (Bấm để thử)"
+                    : "Bật thông báo đẩy về Windows"
+                }
+              >
                 <IconButton
                   size="small"
-                  onClick={desktopPerm === 'granted' ? () => {
-                    showDesktopNotification('Reported Windows Notification', {
-                      body: 'Hệ thống thông báo đẩy trực tiếp về Windows đang hoạt động tốt!',
-                      onClick: () => window.focus()
-                    });
-                  } : handleEnableDesktop}
-                  sx={{ color: desktopPerm === 'granted' ? tokens.primary : tokens.textSecondary }}
+                  onClick={
+                    desktopPerm === "granted"
+                      ? () => {
+                          showDesktopNotification(
+                            "Reported Windows Notification",
+                            {
+                              body: "Hệ thống thông báo đẩy trực tiếp về Windows đang hoạt động tốt!",
+                              onClick: () => window.focus(),
+                            },
+                          );
+                        }
+                      : handleEnableDesktop
+                  }
+                  sx={{
+                    color:
+                      desktopPerm === "granted"
+                        ? tokens.primary
+                        : tokens.textSecondary,
+                  }}
                 >
                   <Monitor size={18} />
                 </IconButton>
               </Tooltip>
             )}
             <Tooltip title="Email Outbox Inspector">
-              <IconButton size="small" onClick={() => { setAnchorEl(null); onOpenEmailInspector(); }} sx={{ color: tokens.textSecondary }}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setAnchorEl(null);
+                  onOpenEmailInspector();
+                }}
+                sx={{ color: tokens.textSecondary }}
+              >
                 <MailCheck size={18} />
               </IconButton>
             </Tooltip>
             <Tooltip title="Preferences">
-              <IconButton size="small" onClick={() => { setAnchorEl(null); onOpenPreferences(); }} sx={{ color: tokens.textSecondary }}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  setAnchorEl(null);
+                  onOpenPreferences();
+                }}
+                sx={{ color: tokens.textSecondary }}
+              >
                 <Settings size={18} />
               </IconButton>
             </Tooltip>
             {unreadCount > 0 && (
               <Tooltip title="Mark all as read">
-                <IconButton size="small" onClick={handleMarkAllRead} sx={{ color: tokens.textSecondary }}>
+                <IconButton
+                  size="small"
+                  onClick={handleMarkAllRead}
+                  sx={{ color: tokens.textSecondary }}
+                >
                   <CheckCheck size={18} />
                 </IconButton>
               </Tooltip>
@@ -169,26 +240,46 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         <Tabs
           value={filterTab}
           onChange={(_, v) => setFilterTab(v)}
-          sx={{ minHeight: 36, borderBottom: `1px solid ${tokens.border}`, px: 1 }}
+          sx={{
+            minHeight: 36,
+            borderBottom: `1px solid ${tokens.border}`,
+            px: 1,
+          }}
         >
-          <Tab value="unread" label={`Unread (${unreadCount})`} sx={{ minHeight: 36, py: 0.5, fontSize: '0.75rem' }} />
-          <Tab value="all" label="All" sx={{ minHeight: 36, py: 0.5, fontSize: '0.75rem' }} />
+          <Tab
+            value="unread"
+            label={`Unread (${unreadCount})`}
+            sx={{ minHeight: 36, py: 0.5, fontSize: "0.75rem" }}
+          />
+          <Tab
+            value="all"
+            label="All"
+            sx={{ minHeight: 36, py: 0.5, fontSize: "0.75rem" }}
+          />
         </Tabs>
 
-        {desktopPerm !== 'granted' && isDesktopNotificationSupported() && (
-          <Box sx={{
-            px: 1.5,
-            py: 1,
-            backgroundColor: `${tokens.primary}14`,
-            borderBottom: `1px solid ${tokens.border}`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {desktopPerm !== "granted" && isDesktopNotificationSupported() && (
+          <Box
+            sx={{
+              px: 1.5,
+              py: 1,
+              backgroundColor: `${tokens.primary}14`,
+              borderBottom: `1px solid ${tokens.border}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 1,
+            }}
+          >
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Monitor size={15} color={tokens.primary} />
-              <Typography sx={{ fontSize: '0.75rem', color: tokens.textPrimary, fontWeight: 500 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  color: tokens.textPrimary,
+                  fontWeight: 500,
+                }}
+              >
                 Nhận thông báo đẩy trên Windows
               </Typography>
             </Box>
@@ -197,13 +288,13 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               variant="contained"
               onClick={handleEnableDesktop}
               sx={{
-                fontSize: '0.6875rem',
+                fontSize: "0.6875rem",
                 py: 0.25,
                 px: 1.2,
-                minWidth: 'auto',
-                textTransform: 'none',
+                minWidth: "auto",
+                textTransform: "none",
                 backgroundColor: tokens.primary,
-                color: '#ffffff'
+                color: "#ffffff",
               }}
             >
               Bật ngay
@@ -211,10 +302,17 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </Box>
         )}
 
-        <List dense sx={{ py: 0, maxHeight: 380, overflowY: 'auto' }}>
+        <List dense sx={{ py: 0, maxHeight: 380, overflowY: "auto" }}>
           {filtered.length === 0 ? (
-            <Box sx={{ py: 4, textAlign: 'center', color: tokens.textSecondary, fontSize: '0.8125rem' }}>
-              No {filterTab === 'unread' ? 'unread ' : ''}notifications.
+            <Box
+              sx={{
+                py: 4,
+                textAlign: "center",
+                color: tokens.textSecondary,
+                fontSize: "0.8125rem",
+              }}
+            >
+              No {filterTab === "unread" ? "unread " : ""}notifications.
             </Box>
           ) : (
             filtered.map((item) => (
@@ -225,36 +323,83 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   py: 1,
                   px: 1.5,
                   borderBottom: `1px solid ${tokens.divider}`,
-                  backgroundColor: item.isRead ? 'transparent' : tokens.hover,
-                  alignItems: 'flex-start',
-                  gap: 1.5
+                  backgroundColor: item.isRead ? "transparent" : tokens.hover,
+                  alignItems: "flex-start",
+                  gap: 1.5,
                 }}
               >
                 <ListItemAvatar sx={{ minWidth: 28, mt: 0.5 }}>
                   {item.actor ? (
-                    <UserAvatar user={item.actor} size={26} showTooltip={false} />
+                    <UserAvatar
+                      user={item.actor}
+                      size={26}
+                      showTooltip={false}
+                    />
                   ) : (
                     renderIcon(item.type)
                   )}
                 </ListItemAvatar>
                 <ListItemText
                   primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" sx={{ fontWeight: item.isRead ? 500 : 700, fontSize: '0.8125rem' }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: item.isRead ? 500 : 700,
+                          fontSize: "0.8125rem",
+                        }}
+                      >
                         {item.title}
                       </Typography>
                       {!item.isRead && (
-                        <Box sx={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: tokens.primary, ml: 1, flexShrink: 0 }} />
+                        <Box
+                          sx={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            backgroundColor: tokens.primary,
+                            ml: 1,
+                            flexShrink: 0,
+                          }}
+                        />
                       )}
                     </Box>
                   }
                   secondary={
                     <>
-                      <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', mt: 0.2 }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: tokens.textSecondary,
+                          display: "block",
+                          mt: 0.2,
+                        }}
+                      >
                         {item.message}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: tokens.textSecondary, opacity: 0.8, fontSize: '0.6875rem' }}>
-                        {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: tokens.textSecondary,
+                          opacity: 0.8,
+                          fontSize: "0.6875rem",
+                        }}
+                      >
+                        {new Date(item.createdAt).toLocaleDateString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
                       </Typography>
                     </>
                   }
@@ -267,4 +412,3 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     </>
   );
 };
-

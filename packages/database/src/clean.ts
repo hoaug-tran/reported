@@ -1,12 +1,12 @@
-import { db, pool } from './db.js';
-import { sql } from 'drizzle-orm';
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { db, pool } from "./db.js";
+import { sql } from "drizzle-orm";
+import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
 export async function cleanDatabase(): Promise<void> {
   try {
@@ -43,9 +43,9 @@ export async function cleanDatabase(): Promise<void> {
         auth_challenges
       CASCADE;
     `);
-    console.log('Clean database: All mock and test data successfully wiped.');
+    console.log("Clean database: All mock and test data successfully wiped.");
   } catch (err) {
-    console.error('Failed to clean database:', err);
+    console.error("Failed to clean database:", err);
     throw err;
   } finally {
     await pool.end();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
 
 interface UseSmoothLoadingOptions {
   delay?: number;
@@ -7,7 +7,7 @@ interface UseSmoothLoadingOptions {
 
 export function useSmoothLoading(
   isLoading: boolean,
-  options: UseSmoothLoadingOptions = {}
+  options: UseSmoothLoadingOptions = {},
 ): boolean {
   const { delay = 160, minDuration = 280 } = options;
   const [showLoading, setShowLoading] = useState(false);

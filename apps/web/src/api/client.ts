@@ -3,7 +3,7 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public status: number,
-    public details?: unknown
+    public details?: unknown,
   ) {
     super(message);
     Object.setPrototypeOf(this, ApiError.prototype);
@@ -19,10 +19,7 @@ interface CacheEntry {
   expiresAt: number;
 }
 
-// In-flight request deduplication map for GET requests
 const inFlightRequests = new Map<string, Promise<any>>();
-
-// In-memory response cache for GET requests
 const responseCache = new Map<string, CacheEntry>();
 
 export function clearApiCache(pattern?: string) {
@@ -38,48 +35,46 @@ export function clearApiCache(pattern?: string) {
 }
 
 function getCacheTtl(url: string): number {
-  // Semi-static endpoints can be cached longer (15 seconds)
   if (
-    url.includes('/github/repositories') ||
-    url.includes('/members') ||
-    url.includes('/projects') ||
-    url.includes('/saved-views')
+    url.includes("/github/repositories") ||
+    url.includes("/members") ||
+    url.includes("/projects") ||
+    url.includes("/saved-views")
   ) {
     return 15_000;
   }
-  // Frequent / dynamic GET requests cached briefly (3 seconds) to coalesce concurrent component fetches
   return 3_000;
 }
 
-export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {}): Promise<T> {
-  const method = (options.method || 'GET').toUpperCase();
-  const url = endpoint.startsWith('/api') ? endpoint : `/api/v1${endpoint}`;
+export async function apiFetch<T>(
+  endpoint: string,
+  options: ApiFetchOptions = {},
+): Promise<T> {
+  const method = (options.method || "GET").toUpperCase();
+  const url = endpoint.startsWith("/api") ? endpoint : `/api/v1${endpoint}`;
 
   const headers = new Headers(options.headers || {});
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
+  if (!headers.has("Content-Type") && !(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
   }
 
-  const activeWsId = localStorage.getItem('reported_active_workspace_id');
-  if (activeWsId && !headers.has('x-workspace-id')) {
-    headers.set('x-workspace-id', activeWsId);
+  const activeWsId = localStorage.getItem("reported_active_workspace_id");
+  if (activeWsId && !headers.has("x-workspace-id")) {
+    headers.set("x-workspace-id", activeWsId);
   }
 
-  // Mutating requests automatically invalidate cache
-  if (method !== 'GET') {
+  if (method !== "GET") {
     clearApiCache();
   }
 
-  const cacheKey = `${method}:${activeWsId || 'none'}:${url}`;
+  const cacheKey = `${method}:${activeWsId || "none"}:${url}`;
 
-  // Check cache for GET requests
-  if (method === 'GET' && !options.skipCache) {
+  if (method === "GET" && !options.skipCache) {
     const cached = responseCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) {
       return cached.data as T;
     }
 
-    // Check in-flight promise deduplication
     const inFlight = inFlightRequests.get(cacheKey);
     if (inFlight) {
       return inFlight as Promise<T>;
@@ -91,7 +86,7 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
       const response = await fetch(url, {
         ...options,
         headers,
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (response.status === 204) {
@@ -103,17 +98,17 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
       if (!response.ok) {
         const errObj = data.error || {};
         throw new ApiError(
-          errObj.code || 'UNKNOWN_ERROR',
-          errObj.message || response.statusText || 'An error occurred',
+          errObj.code || "UNKNOWN_ERROR",
+          errObj.message || response.statusText || "An error occurred",
           response.status,
-          errObj.details
+          errObj.details,
         );
       }
 
-      if (method === 'GET' && !options.skipCache) {
+      if (method === "GET" && !options.skipCache) {
         responseCache.set(cacheKey, {
           data,
-          expiresAt: Date.now() + getCacheTtl(url)
+          expiresAt: Date.now() + getCacheTtl(url),
         });
       }
 
@@ -123,7 +118,7 @@ export async function apiFetch<T>(endpoint: string, options: ApiFetchOptions = {
     }
   })();
 
-  if (method === 'GET' && !options.skipCache) {
+  if (method === "GET" && !options.skipCache) {
     inFlightRequests.set(cacheKey, requestPromise);
   }
 

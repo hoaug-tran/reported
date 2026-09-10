@@ -6,19 +6,19 @@ export interface ImageOptimizeOptions {
 
 export async function convertImageToWebP(
   file: File,
-  options: ImageOptimizeOptions = {}
+  options: ImageOptimizeOptions = {},
 ): Promise<File> {
   const { quality = 0.82, maxWidth = 1920, maxHeight = 1920 } = options;
 
-  if (!file.type.startsWith('image/')) {
+  if (!file.type.startsWith("image/")) {
     return file;
   }
 
-  if (file.type === 'image/svg+xml' || file.type === 'image/gif') {
+  if (file.type === "image/svg+xml" || file.type === "image/gif") {
     return file;
   }
 
-  if (file.type === 'image/webp' && file.size < 500 * 1024) {
+  if (file.type === "image/webp" && file.size < 500 * 1024) {
     return file;
   }
 
@@ -36,11 +36,11 @@ export async function convertImageToWebP(
           height = Math.round(height * ratio);
         }
 
-        const canvas = document.createElement('canvas');
+        const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext("2d");
         if (!ctx) {
           return resolve(file);
         }
@@ -53,10 +53,10 @@ export async function convertImageToWebP(
               return resolve(file);
             }
 
-            const newName = file.name.replace(/\.[^.]+$/, '') + '.webp';
+            const newName = file.name.replace(/\.[^.]+$/, "") + ".webp";
             const webpFile = new File([blob], newName, {
-              type: 'image/webp',
-              lastModified: Date.now()
+              type: "image/webp",
+              lastModified: Date.now(),
             });
 
             if (webpFile.size < file.size) {
@@ -65,8 +65,8 @@ export async function convertImageToWebP(
               resolve(file);
             }
           },
-          'image/webp',
-          quality
+          "image/webp",
+          quality,
         );
       };
 
@@ -83,6 +83,6 @@ export async function compressAvatarToWebP(file: File): Promise<File> {
   return convertImageToWebP(file, {
     quality: 0.85,
     maxWidth: 512,
-    maxHeight: 512
+    maxHeight: 512,
   });
 }

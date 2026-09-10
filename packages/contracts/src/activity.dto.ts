@@ -1,5 +1,5 @@
-import { UserSummaryDto } from './auth.dto.js';
-import { TargetType } from './enums.js';
+import { UserSummaryDto } from "./auth.dto.js";
+import { TargetType } from "./enums.js";
 
 export interface ActivityTimelineDto {
   id: string;
@@ -21,11 +21,10 @@ export interface SavedViewDto {
 
 export interface SearchResultItemDto {
   id: string;
-  type: 'ISSUE' | 'REVIEW' | 'USER' | 'REPOSITORY' | 'PROJECT' | 'COMMENT';
+  type: "ISSUE" | "REVIEW" | "USER" | "REPOSITORY" | "PROJECT" | "COMMENT";
   number?: number;
   title: string;
   snippet?: string;
   status?: string;
   link: string;
 }
-

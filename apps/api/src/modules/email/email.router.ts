@@ -1,29 +1,38 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { db, emailJobs, desc } from '@reported/database';
-import { requireAuth } from '../../middleware/auth.js';
-import { sendEmail } from '../../services/email.service.js';
+import { Router, Request, Response, NextFunction } from "express";
+import { db, emailJobs, desc } from "@reported/database";
+import { requireAuth } from "../../middleware/auth.js";
+import { sendEmail } from "../../services/email.service.js";
 
 export const emailRouter = Router();
 
-emailRouter.get('/', requireAuth, async (_req: Request, res: Response, next: NextFunction) => {
-  try {
-    const jobs = await db.select().from(emailJobs)
-      .orderBy(desc(emailJobs.createdAt))
-      .limit(50);
+emailRouter.get(
+  "/",
+  requireAuth,
+  async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const jobs = await db
+        .select()
+        .from(emailJobs)
+        .orderBy(desc(emailJobs.createdAt))
+        .limit(50);
 
-    return res.json(jobs);
-  } catch (error) {
-    next(error);
-  }
-});
+      return res.json(jobs);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
-emailRouter.post('/send-test', requireAuth, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const user = req.user!;
-    const targetEmail = req.body.recipientEmail?.trim() || user.email;
-    const targetName = req.body.recipientName?.trim() || user.displayName;
+emailRouter.post(
+  "/send-test",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user!;
+      const targetEmail = req.body.recipientEmail?.trim() || user.email;
+      const targetName = req.body.recipientName?.trim() || user.displayName;
 
-    const html = `
+      const html = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6; max-width: 600px; margin: 0 auto; border: 1px solid #d0d7de; border-radius: 8px; overflow: hidden;">
         <div style="background-color: #0969da; padding: 18px 24px; color: #ffffff;">
           <h2 style="margin: 0; font-size: 18px;">Reported Notification System Test</h2>
@@ -42,33 +51,40 @@ emailRouter.post('/send-test', requireAuth, async (req: Request, res: Response, 
       </div>
     `;
 
-    const text = `Reported Test Email\n\nXin chào ${targetName},\nĐây là email kiểm tra hệ thống thông báo từ nền tảng Reported.\nThời điểm: ${new Date().toISOString()}`;
+      const text = `Reported Test Email\n\nXin chào ${targetName},\nĐây là email kiểm tra hệ thống thông báo từ nền tảng Reported.\nThời điểm: ${new Date().toISOString()}`;
 
-    const sendResult = await sendEmail({
-      to: targetEmail,
-      toName: targetName,
-      subject: `[Reported] Kiểm tra hệ thống thông báo Email (${new Date().toLocaleTimeString()})`,
-      html,
-      text
-    });
+      const sendResult = await sendEmail({
+        to: targetEmail,
+        toName: targetName,
+        subject: `[Reported] Kiểm tra hệ thống thông báo Email (${new Date().toLocaleTimeString()})`,
+        html,
+        text,
+      });
 
-    const [job] = await db.insert(emailJobs).values({
-      recipientEmail: targetEmail,
-      recipientName: targetName,
-      subject: `[Reported] Kiểm tra hệ thống thông báo Email`,
-      template: 'test-notification',
-      htmlBody: html,
-      textBody: text,
-      status: sendResult.success ? (sendResult.mode === 'smtp' ? 'SENT' : 'SIMULATED') : 'FAILED',
-      sentAt: sendResult.success ? new Date() : null
-    }).returning();
+      const [job] = await db
+        .insert(emailJobs)
+        .values({
+          recipientEmail: targetEmail,
+          recipientName: targetName,
+          subject: `[Reported] Kiểm tra hệ thống thông báo Email`,
+          template: "test-notification",
+          htmlBody: html,
+          textBody: text,
+          status: sendResult.success
+            ? sendResult.mode === "smtp"
+              ? "SENT"
+              : "SIMULATED"
+            : "FAILED",
+          sentAt: sendResult.success ? new Date() : null,
+        })
+        .returning();
 
-    return res.status(201).json({
-      ...job,
-      deliveryResult: sendResult
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
+      return res.status(201).json({
+        ...job,
+        deliveryResult: sendResult,
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);

@@ -1,6 +1,6 @@
-import React from 'react';
-import { Avatar, Tooltip } from '@mui/material';
-import { UserSummaryDto } from '@reported/contracts';
+import React from "react";
+import { Avatar, Tooltip } from "@mui/material";
+import { UserSummaryDto } from "@reported/contracts";
 
 interface UserAvatarProps {
   user?: Partial<UserSummaryDto> | null;
@@ -11,7 +11,7 @@ interface UserAvatarProps {
 export const UserAvatar: React.FC<UserAvatarProps> = ({
   user,
   size = 24,
-  showTooltip = true
+  showTooltip = true,
 }) => {
   if (!user) {
     return (
@@ -20,8 +20,8 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
           width: size,
           height: size,
           fontSize: size * 0.45,
-          backgroundColor: '#8b949e',
-          color: '#ffffff'
+          backgroundColor: "#8b949e",
+          color: "#ffffff",
         }}
       >
         ?
@@ -29,10 +29,10 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     );
   }
 
-  const initials = (user.displayName || user.username || 'U')
-    .split(' ')
-    .map(p => p[0])
-    .join('')
+  const initials = (user.displayName || user.username || "U")
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
     .substring(0, 2)
     .toUpperCase();
 
@@ -41,16 +41,16 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
       src={user.avatarUrl || undefined}
       alt=""
       aria-hidden="true"
-      imgProps={{ alt: '', 'aria-hidden': true }}
+      imgProps={{ alt: "", "aria-hidden": true }}
       sx={{
         width: size,
         height: size,
         fontSize: size * 0.42,
         fontWeight: 600,
-        backgroundColor: '#30363d',
-        color: '#f0f6fc',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        userSelect: 'none'
+        backgroundColor: "#30363d",
+        color: "#f0f6fc",
+        border: "1px solid rgba(255, 255, 255, 0.1)",
+        userSelect: "none",
       }}
     >
       {initials}
@@ -65,4 +65,3 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     </Tooltip>
   );
 };
-

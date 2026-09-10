@@ -1,4 +1,4 @@
-import { convertImageToWebP } from './imageOptimizer';
+import { convertImageToWebP } from "./imageOptimizer";
 
 export interface UploadAttachmentResult {
   id: string;
@@ -22,43 +22,45 @@ const CHUNK_SIZE = 2 * 1024 * 1024;
 export async function uploadFileWithChunking(
   file: File | Blob,
   fileName: string,
-  options: UploadOptions = {}
+  options: UploadOptions = {},
 ): Promise<UploadAttachmentResult> {
   let processedFile = file;
   let processedName = fileName;
-  if (file instanceof File && file.type.startsWith('image/')) {
+  if (file instanceof File && file.type.startsWith("image/")) {
     processedFile = await convertImageToWebP(file);
     processedName = (processedFile as File).name || fileName;
   }
 
-  const token = localStorage.getItem('reported_token');
-  const activeWorkspaceId = localStorage.getItem('reported_active_workspace_id');
+  const token = localStorage.getItem("reported_token");
+  const activeWorkspaceId = localStorage.getItem(
+    "reported_active_workspace_id",
+  );
 
   const headers: Record<string, string> = {};
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
   if (activeWorkspaceId) {
-    headers['x-workspace-id'] = activeWorkspaceId;
+    headers["x-workspace-id"] = activeWorkspaceId;
   }
 
   const fileSize = processedFile.size;
 
   if (fileSize <= CHUNK_SIZE) {
     const formData = new FormData();
-    formData.append('file', processedFile, processedName);
-    if (options.targetType) formData.append('targetType', options.targetType);
-    if (options.targetId) formData.append('targetId', options.targetId);
+    formData.append("file", processedFile, processedName);
+    if (options.targetType) formData.append("targetType", options.targetType);
+    if (options.targetId) formData.append("targetId", options.targetId);
 
-    const res = await fetch('/api/v1/attachments', {
-      method: 'POST',
+    const res = await fetch("/api/v1/attachments", {
+      method: "POST",
       headers,
-      body: formData
+      body: formData,
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Upload failed' }));
-      throw new Error(err.message || 'Upload failed');
+      const err = await res.json().catch(() => ({ message: "Upload failed" }));
+      throw new Error(err.message || "Upload failed");
     }
 
     if (options.onProgress) options.onProgress(100);
@@ -75,23 +77,25 @@ export async function uploadFileWithChunking(
     const chunkBlob = file.slice(start, end);
 
     const formData = new FormData();
-    formData.append('chunk', chunkBlob, `chunk_${i}`);
-    formData.append('uploadId', uploadId);
-    formData.append('chunkIndex', String(i));
-    formData.append('totalChunks', String(totalChunks));
-    formData.append('filename', fileName);
-    formData.append('mimeType', file.type || 'application/octet-stream');
-    if (options.targetType) formData.append('targetType', options.targetType);
-    if (options.targetId) formData.append('targetId', options.targetId);
+    formData.append("chunk", chunkBlob, `chunk_${i}`);
+    formData.append("uploadId", uploadId);
+    formData.append("chunkIndex", String(i));
+    formData.append("totalChunks", String(totalChunks));
+    formData.append("filename", fileName);
+    formData.append("mimeType", file.type || "application/octet-stream");
+    if (options.targetType) formData.append("targetType", options.targetType);
+    if (options.targetId) formData.append("targetId", options.targetId);
 
-    const res = await fetch('/api/v1/attachments/chunk', {
-      method: 'POST',
+    const res = await fetch("/api/v1/attachments/chunk", {
+      method: "POST",
       headers,
-      body: formData
+      body: formData,
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ message: 'Chunk upload failed' }));
+      const err = await res
+        .json()
+        .catch(() => ({ message: "Chunk upload failed" }));
       throw new Error(err.message || `Chunk ${i} failed`);
     }
 
@@ -106,7 +110,7 @@ export async function uploadFileWithChunking(
   }
 
   if (!finalResult) {
-    throw new Error('Upload assembly failed');
+    throw new Error("Upload assembly failed");
   }
 
   return finalResult;

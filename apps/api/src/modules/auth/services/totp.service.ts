@@ -1,11 +1,11 @@
-import crypto from 'crypto';
+import crypto from "crypto";
 
-const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
 function base32Encode(buffer: Buffer): string {
   let bits = 0;
   let value = 0;
-  let output = '';
+  let output = "";
 
   for (let i = 0; i < buffer.length; i++) {
     value = (value << 8) | buffer[i];
@@ -25,7 +25,10 @@ function base32Encode(buffer: Buffer): string {
 }
 
 function base32Decode(input: string): Buffer {
-  const cleaned = input.toUpperCase().replace(/=+$/, '').replace(/[^A-Z2-7]/g, '');
+  const cleaned = input
+    .toUpperCase()
+    .replace(/=+$/, "")
+    .replace(/[^A-Z2-7]/g, "");
   let bits = 0;
   let value = 0;
   const bytes: number[] = [];
@@ -52,7 +55,11 @@ export class TotpService {
     return base32Encode(randomBytes);
   }
 
-  generateOtpauthUrl(email: string, secret: string, issuer = 'Reported'): string {
+  generateOtpauthUrl(
+    email: string,
+    secret: string,
+    issuer = "Reported",
+  ): string {
     const encodedIssuer = encodeURIComponent(issuer);
     const encodedLabel = encodeURIComponent(`${issuer}:${email}`);
     return `otpauth://totp/${encodedLabel}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
@@ -65,11 +72,11 @@ export class TotpService {
     const buffer = Buffer.alloc(8);
     buffer.writeBigUInt64BE(BigInt(counter));
 
-    const hmac = crypto.createHmac('sha1', key).update(buffer).digest();
+    const hmac = crypto.createHmac("sha1", key).update(buffer).digest();
     const offset = hmac[hmac.length - 1] & 0xf;
     const code = (hmac.readUInt32BE(offset) & 0x7fffffff) % 1000000;
 
-    return code.toString().padStart(6, '0');
+    return code.toString().padStart(6, "0");
   }
 
   verifyTOTP(token: string, secret: string): boolean {
@@ -80,7 +87,9 @@ export class TotpService {
 
     for (let window = -1; window <= 1; window++) {
       const generated = this.generateTOTP(secret, window);
-      if (crypto.timingSafeEqual(Buffer.from(cleanToken), Buffer.from(generated))) {
+      if (
+        crypto.timingSafeEqual(Buffer.from(cleanToken), Buffer.from(generated))
+      ) {
         return true;
       }
     }
@@ -91,13 +100,16 @@ export class TotpService {
   generateBackupCodes(count = 8): string[] {
     const codes: string[] = [];
     for (let i = 0; i < count; i++) {
-      const hex = crypto.randomBytes(4).toString('hex');
+      const hex = crypto.randomBytes(4).toString("hex");
       codes.push(`${hex.slice(0, 4)}-${hex.slice(4, 8)}`);
     }
     return codes;
   }
 
-  verifyBackupCode(code: string, backupCodesJson: string | null): { isValid: boolean; remainingCodesJson: string | null } {
+  verifyBackupCode(
+    code: string,
+    backupCodesJson: string | null,
+  ): { isValid: boolean; remainingCodesJson: string | null } {
     if (!backupCodesJson) {
       return { isValid: false, remainingCodesJson: null };
     }

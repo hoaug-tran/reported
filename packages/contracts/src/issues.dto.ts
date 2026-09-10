@@ -1,16 +1,24 @@
-import { z } from 'zod';
-import { BugFrequency, IssuePriority, IssueSeverity, IssueStatus, IssueType } from './enums.js';
-import { UserSummaryDto } from './auth.dto.js';
-import { PullRequestSummaryDto, RepositorySummaryDto } from './github.dto.js';
+import { z } from "zod";
+import {
+  BugFrequency,
+  IssuePriority,
+  IssueSeverity,
+  IssueStatus,
+  IssueType,
+} from "./enums.js";
+import { UserSummaryDto } from "./auth.dto.js";
+import { PullRequestSummaryDto, RepositorySummaryDto } from "./github.dto.js";
 
 export const BugTemplateDataSchema = z.object({
-  environment: z.string().min(1, 'Environment is required (e.g. Chrome 128, Node 22, macOS 14.5)'),
+  environment: z
+    .string()
+    .min(1, "Environment is required (e.g. Chrome 128, Node 22, macOS 14.5)"),
   precondition: z.string().optional(),
-  stepsToReproduce: z.string().min(1, 'Steps to reproduce are required'),
-  actualResult: z.string().min(1, 'Actual result is required'),
-  expectedResult: z.string().min(1, 'Expected result is required'),
+  stepsToReproduce: z.string().min(1, "Steps to reproduce are required"),
+  actualResult: z.string().min(1, "Actual result is required"),
+  expectedResult: z.string().min(1, "Expected result is required"),
   frequency: z.nativeEnum(BugFrequency).default(BugFrequency.ALWAYS),
-  evidenceJsonOrLogs: z.string().optional()
+  evidenceJsonOrLogs: z.string().optional(),
 });
 
 export type BugTemplateData = z.infer<typeof BugTemplateDataSchema>;
@@ -19,7 +27,7 @@ export const CreateIssueSchema = z.object({
   workspaceId: z.string().uuid().optional().nullable(),
   projectId: z.string().uuid().optional().nullable(),
   title: z.string().min(3).max(200),
-  description: z.string().min(1, 'Description or template content is required'),
+  description: z.string().min(1, "Description or template content is required"),
   type: z.nativeEnum(IssueType).default(IssueType.BUG),
   status: z.nativeEnum(IssueStatus).default(IssueStatus.OPEN),
   priority: z.nativeEnum(IssuePriority).default(IssuePriority.P2),
@@ -30,7 +38,7 @@ export const CreateIssueSchema = z.object({
   prUrl: z.string().url().optional().nullable(),
   branch: z.string().optional().nullable(),
   commitHash: z.string().optional().nullable(),
-  bugDetails: BugTemplateDataSchema.optional().nullable()
+  bugDetails: BugTemplateDataSchema.optional().nullable(),
 });
 
 export type CreateIssueDto = z.infer<typeof CreateIssueSchema>;
@@ -46,10 +54,13 @@ export const UpdateIssueSchema = z.object({
   labels: z.array(z.string()).optional(),
   assigneeIds: z.array(z.string()).optional(),
   repositoryId: z.string().uuid().optional().nullable(),
-  prUrl: z.union([z.string().url(), z.literal('')]).optional().nullable(),
+  prUrl: z
+    .union([z.string().url(), z.literal("")])
+    .optional()
+    .nullable(),
   branch: z.string().optional().nullable(),
   commitHash: z.string().optional().nullable(),
-  bugDetails: BugTemplateDataSchema.partial().optional().nullable()
+  bugDetails: BugTemplateDataSchema.partial().optional().nullable(),
 });
 
 export type UpdateIssueDto = z.infer<typeof UpdateIssueSchema>;
@@ -59,18 +70,33 @@ export const IssueFilterSchema = z.object({
   projectId: z.string().uuid().optional(),
   search: z.string().optional(),
   type: z.nativeEnum(IssueType).optional(),
-  status: z.nativeEnum(IssueStatus).or(z.array(z.nativeEnum(IssueStatus))).optional(),
-  priority: z.nativeEnum(IssuePriority).or(z.array(z.nativeEnum(IssuePriority))).optional(),
-  severity: z.nativeEnum(IssueSeverity).or(z.array(z.nativeEnum(IssueSeverity))).optional(),
+  status: z
+    .nativeEnum(IssueStatus)
+    .or(z.array(z.nativeEnum(IssueStatus)))
+    .optional(),
+  priority: z
+    .nativeEnum(IssuePriority)
+    .or(z.array(z.nativeEnum(IssuePriority)))
+    .optional(),
+  severity: z
+    .nativeEnum(IssueSeverity)
+    .or(z.array(z.nativeEnum(IssueSeverity)))
+    .optional(),
   authorId: z.string().optional(),
   assigneeId: z.string().optional(),
   repositoryId: z.string().optional(),
   label: z.string().optional(),
-  includeDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
-  onlyDeleted: z.preprocess((v) => v === 'true' || v === true, z.boolean()).optional(),
-  sortBy: z.enum(['newest', 'oldest', 'updated', 'priority', 'severity', 'comments']).default('newest'),
+  includeDeleted: z
+    .preprocess((v) => v === "true" || v === true, z.boolean())
+    .optional(),
+  onlyDeleted: z
+    .preprocess((v) => v === "true" || v === true, z.boolean())
+    .optional(),
+  sortBy: z
+    .enum(["newest", "oldest", "updated", "priority", "severity", "comments"])
+    .default("newest"),
   page: z.coerce.number().int().positive().default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(25)
+  limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
 export type IssueFilterDto = z.infer<typeof IssueFilterSchema>;
@@ -110,4 +136,3 @@ export interface IssueDetailDto {
 }
 
 export type IssueDto = IssueDetailDto;
-

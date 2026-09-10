@@ -1,16 +1,35 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  Box, Typography, IconButton, Collapse, Button, Tooltip, CircularProgress
-} from '@mui/material';
+  Box,
+  Typography,
+  IconButton,
+  Collapse,
+  Button,
+  Tooltip,
+  CircularProgress,
+  Tabs,
+  Tab,
+} from "@mui/material";
 import {
-  ChevronDown, ChevronUp, Image as ImageIcon, FileText, Download,
-  ExternalLink, CheckCircle2, Plus, Paperclip, FileCode, Archive, File, Mic
-} from 'lucide-react';
-import { useThemeContext } from '../../contexts/ThemeContext';
-import { apiFetch } from '../../api/client';
-import { MediaLightbox } from './MediaLightbox';
-import { uploadFileWithChunking } from '../../utils/chunkedUpload';
-import { CommentDto } from '@reported/contracts';
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  FileText,
+  Download,
+  ExternalLink,
+  CheckCircle2,
+  Plus,
+  Paperclip,
+  FileCode,
+  Archive,
+  File,
+  Mic,
+} from "lucide-react";
+import { useThemeContext } from "../../contexts/ThemeContext";
+import { apiFetch } from "../../api/client";
+import { MediaLightbox } from "./MediaLightbox";
+import { uploadFileWithChunking } from "../../utils/chunkedUpload";
+import { CommentDto } from "@reported/contracts";
 
 interface AttachmentItem {
   id: string;
@@ -25,7 +44,7 @@ interface AttachmentItem {
 }
 
 interface MediaFilesLinksSidebarProps {
-  targetType: 'ISSUE' | 'REVIEW';
+  targetType: "ISSUE" | "REVIEW";
   targetId: string;
   content?: string;
   comments?: CommentDto[];
@@ -36,10 +55,10 @@ interface MediaFilesLinksSidebarProps {
 export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   targetType,
   targetId,
-  content = '',
+  content = "",
   comments = [],
   prUrl,
-  isVi = true
+  isVi = true,
 }) => {
   const { tokens } = useThemeContext();
 
@@ -51,17 +70,21 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   const [filesOpen, setFilesOpen] = useState(true);
   const [linksOpen, setLinksOpen] = useState(true);
   const [showAllFiles, setShowAllFiles] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'media' | 'files' | 'links'>('all');
+  const [activeTab, setActiveTab] = useState<
+    "all" | "media" | "files" | "links"
+  >("all");
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxSrc, setLightboxSrc] = useState('');
-  const [lightboxAlt, setLightboxAlt] = useState('');
+  const [lightboxSrc, setLightboxSrc] = useState("");
+  const [lightboxAlt, setLightboxAlt] = useState("");
 
   const fetchAttachments = useCallback(async () => {
     if (!targetId) return;
     setLoading(true);
     try {
-      const items = await apiFetch<AttachmentItem[]>(`/attachments?targetType=${targetType}&targetId=${targetId}`);
+      const items = await apiFetch<AttachmentItem[]>(
+        `/attachments?targetType=${targetType}&targetId=${targetId}`,
+      );
       setAttachments(items || []);
     } catch {
       setAttachments([]);
@@ -82,19 +105,19 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
     try {
       await uploadFileWithChunking(file, file.name, {
         targetType,
-        targetId
+        targetId,
       });
       await fetchAttachments();
     } catch (err) {
       console.error(err);
     } finally {
       setIsUploading(false);
-      e.target.value = '';
+      e.target.value = "";
     }
   };
 
   const combinedContent = useMemo(() => {
-    const parts = [content || ''];
+    const parts = [content || ""];
     if (comments && comments.length > 0) {
       for (const c of comments) {
         if (!c.isDeleted && c.content) {
@@ -109,23 +132,27 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         }
       }
     }
-    return parts.join('\n\n');
+    return parts.join("\n\n");
   }, [content, comments]);
 
   const isImageFile = (filenameOrUrl: string, mimeType?: string) => {
-    if (mimeType && mimeType.startsWith('image/')) return true;
-    return /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?.*)?$/i.test(filenameOrUrl);
+    if (mimeType && mimeType.startsWith("image/")) return true;
+    return /\.(png|jpe?g|gif|webp|svg|bmp|ico|avif)(\?.*)?$/i.test(
+      filenameOrUrl,
+    );
   };
 
   const images = useMemo(() => {
     const list: AttachmentItem[] = [
-      ...attachments.filter(a => isImageFile(a.url || a.filename || a.originalName, a.mimeType))
+      ...attachments.filter((a) =>
+        isImageFile(a.url || a.filename || a.originalName, a.mimeType),
+      ),
     ];
-    const existingUrls = new Set(list.map(a => a.inlineUrl || a.url));
+    const existingUrls = new Set(list.map((a) => a.inlineUrl || a.url));
 
     const imgMatches = combinedContent.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g);
     for (const m of imgMatches) {
-      const alt = m[1] || 'Ảnh đính kèm';
+      const alt = m[1] || "Ảnh đính kèm";
       const url = m[2];
       if (!existingUrls.has(url)) {
         existingUrls.add(url);
@@ -133,11 +160,11 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
           id: url,
           filename: alt,
           originalName: alt,
-          mimeType: 'image/png',
+          mimeType: "image/png",
           sizeBytes: 0,
           url,
           inlineUrl: url,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
       }
     }
@@ -152,11 +179,11 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
           id: url,
           filename: alt,
           originalName: alt,
-          mimeType: 'image/png',
+          mimeType: "image/png",
           sizeBytes: 0,
           url,
           inlineUrl: url,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
       }
     }
@@ -166,32 +193,49 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
 
   const nonMediaFiles = useMemo(() => {
     const list: AttachmentItem[] = [
-      ...attachments.filter(a => !isImageFile(a.url || a.filename || a.originalName, a.mimeType))
+      ...attachments.filter(
+        (a) => !isImageFile(a.url || a.filename || a.originalName, a.mimeType),
+      ),
     ];
-    const existingUrls = new Set(list.map(a => a.url));
+    const existingUrls = new Set(list.map((a) => a.url));
 
     const fileMatches = combinedContent.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g);
     for (const m of fileMatches) {
       const title = m[1];
       const url = m[2];
       if (isImageFile(url)) continue;
-      const isVoice = title.includes('🎙️') || title.toLowerCase().includes('tin nhắn thoại') || title.toLowerCase().includes('voice');
-      const isAttachmentUrl = url.includes('/api/v1/attachments/');
-      const hasFileExt = /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|webm|mp3|wav|m4a|log|sql)(\?.*)?$/i.test(url);
+      const isVoice =
+        title.includes("🎙️") ||
+        title.toLowerCase().includes("tin nhắn thoại") ||
+        title.toLowerCase().includes("voice");
+      const isAttachmentUrl = url.includes("/api/v1/attachments/");
+      const hasFileExt =
+        /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|webm|mp3|wav|m4a|log|sql)(\?.*)?$/i.test(
+          url,
+        );
 
-      if ((isVoice || isAttachmentUrl || hasFileExt) && !existingUrls.has(url)) {
+      if (
+        (isVoice || isAttachmentUrl || hasFileExt) &&
+        !existingUrls.has(url)
+      ) {
         existingUrls.add(url);
-        const cleanName = title.replace(/^[📎🎙️\s]+/, '').trim() || (isVoice ? 'Tin nhắn thoại' : 'Tệp đính kèm');
+        const cleanName =
+          title.replace(/^[📎🎙️\s]+/, "").trim() ||
+          (isVoice ? "Tin nhắn thoại" : "Tệp đính kèm");
         list.push({
           id: url,
           filename: cleanName,
           originalName: cleanName,
-          mimeType: isVoice ? 'audio/webm' : (cleanName.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream'),
+          mimeType: isVoice
+            ? "audio/webm"
+            : cleanName.endsWith(".pdf")
+              ? "application/pdf"
+              : "application/octet-stream",
           sizeBytes: 0,
           url,
           inlineUrl: url,
           isVoiceNote: isVoice,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         });
       }
     }
@@ -201,31 +245,38 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   const extractedLinks = useMemo(() => {
     const list: Array<{ url: string; title: string }> = [];
     if (prUrl) {
-      list.push({ url: prUrl, title: 'Linked Pull Request' });
+      list.push({ url: prUrl, title: "Linked Pull Request" });
     }
 
     const isExcluded = (url: string) => {
       return (
-        url.includes('/api/v1/attachments/') ||
-        url.startsWith('#') ||
+        url.includes("/api/v1/attachments/") ||
+        url.startsWith("#") ||
         isImageFile(url) ||
         /\.(mp4|mov|webm|mkv|avi)(\?.*)?$/i.test(url)
       );
     };
 
-    const linkMatches = combinedContent.matchAll(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g);
+    const linkMatches = combinedContent.matchAll(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+    );
     for (const m of linkMatches) {
       const title = m[1];
       const url = m[2];
-      if (!isExcluded(url) && !list.some(l => l.url === url)) {
-        list.push({ title: title.replace(/^[📎🎙️\s]+/, '').trim() || url, url });
+      if (!isExcluded(url) && !list.some((l) => l.url === url)) {
+        list.push({
+          title: title.replace(/^[📎🎙️\s]+/, "").trim() || url,
+          url,
+        });
       }
     }
 
-    const rawUrlMatches = combinedContent.matchAll(/(https?:\/\/[^\s\)\>\]]+)/g);
+    const rawUrlMatches = combinedContent.matchAll(
+      /(https?:\/\/[^\s\)\>\]]+)/g,
+    );
     for (const m of rawUrlMatches) {
-      const url = m[1].replace(/[.,;:!?]+$/, '');
-      if (!isExcluded(url) && !list.some(l => l.url === url)) {
+      const url = m[1].replace(/[.,;:!?]+$/, "");
+      if (!isExcluded(url) && !list.some((l) => l.url === url)) {
         list.push({ title: url, url });
       }
     }
@@ -234,114 +285,132 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   }, [combinedContent, prUrl]);
 
   const formatFileSize = (bytes: number) => {
-    if (!bytes || bytes <= 0) return 'Đính kèm';
+    if (!bytes || bytes <= 0) return "Đính kèm";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString('vi-VN');
+    return new Date(iso).toLocaleDateString("vi-VN");
   };
 
   const renderFileIcon = (mime: string, name: string) => {
-    const ext = name.split('.').pop()?.toLowerCase() || '';
+    const ext = name.split(".").pop()?.toLowerCase() || "";
 
-    if (ext === 'doc' || ext === 'docx' || mime.includes('word')) {
+    if (ext === "doc" || ext === "docx" || mime.includes("word")) {
       return (
         <Box
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '6px',
-            backgroundColor: '#2563eb',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            borderRadius: "6px",
+            backgroundColor: "#2563eb",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             fontWeight: 800,
-            fontSize: '0.875rem',
-            flexShrink: 0
+            fontSize: "0.875rem",
+            flexShrink: 0,
           }}
         >
           W
         </Box>
       );
     }
-    if (ext === 'xls' || ext === 'xlsx' || mime.includes('sheet') || mime.includes('excel')) {
+    if (
+      ext === "xls" ||
+      ext === "xlsx" ||
+      mime.includes("sheet") ||
+      mime.includes("excel")
+    ) {
       return (
         <Box
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '6px',
-            backgroundColor: '#16a34a',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            borderRadius: "6px",
+            backgroundColor: "#16a34a",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             fontWeight: 800,
-            fontSize: '0.875rem',
-            flexShrink: 0
+            fontSize: "0.875rem",
+            flexShrink: 0,
           }}
         >
           X
         </Box>
       );
     }
-    if (ext === 'pdf' || mime.includes('pdf')) {
+    if (ext === "pdf" || mime.includes("pdf")) {
       return (
         <Box
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '6px',
-            backgroundColor: '#dc2626',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            borderRadius: "6px",
+            backgroundColor: "#dc2626",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             fontWeight: 800,
-            fontSize: '0.75rem',
-            flexShrink: 0
+            fontSize: "0.75rem",
+            flexShrink: 0,
           }}
         >
           PDF
         </Box>
       );
     }
-    if (ext === 'zip' || ext === 'tar' || ext === 'gz' || mime.includes('zip')) {
+    if (
+      ext === "zip" ||
+      ext === "tar" ||
+      ext === "gz" ||
+      mime.includes("zip")
+    ) {
       return (
         <Box
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '6px',
-            backgroundColor: '#ca8a04',
-            color: '#fff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
+            borderRadius: "6px",
+            backgroundColor: "#ca8a04",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
           <Archive size={18} />
         </Box>
       );
     }
-    if (ext === 'webm' || ext === 'mp3' || ext === 'wav' || ext === 'ogg' || ext === 'm4a' || mime.startsWith('audio/') || name.toLowerCase().includes('thoại')) {
+    if (
+      ext === "webm" ||
+      ext === "mp3" ||
+      ext === "wav" ||
+      ext === "ogg" ||
+      ext === "m4a" ||
+      mime.startsWith("audio/") ||
+      name.toLowerCase().includes("thoại")
+    ) {
       return (
         <Box
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '6px',
+            borderRadius: "6px",
             backgroundColor: `${tokens.primary}20`,
             color: tokens.primary,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
           }}
         >
           <Mic size={18} />
@@ -353,14 +422,14 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         sx={{
           width: 36,
           height: 36,
-          borderRadius: '6px',
+          borderRadius: "6px",
           backgroundColor: tokens.surfaceSecondary,
           border: `1px solid ${tokens.border}`,
           color: tokens.textSecondary,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
         }}
       >
         <FileText size={18} />
@@ -368,167 +437,190 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
     );
   };
 
-  const displayedFiles = showAllFiles ? nonMediaFiles : nonMediaFiles.slice(0, 3);
+  const displayedFiles = showAllFiles
+    ? nonMediaFiles
+    : nonMediaFiles.slice(0, 3);
 
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
-        borderRadius: '8px',
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: "8px",
         border: `1px solid ${tokens.border}`,
         backgroundColor: tokens.surface,
-        overflow: 'hidden',
-        mt: 2
+        overflow: "hidden",
+        mt: 2,
       }}
     >
       <Box
         sx={{
           p: 1.5,
           borderBottom: `1px solid ${tokens.divider}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.04em', color: tokens.textSecondary, textTransform: 'uppercase' }}>
-          {isVi ? 'Phương tiện & Tệp đính kèm' : 'Media & Attachments'}
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            color: tokens.textSecondary,
+            textTransform: "uppercase",
+          }}
+        >
+          {isVi ? "Phương tiện & Tệp đính kèm" : "Media & Attachments"}
         </Typography>
 
-        <label style={{ cursor: 'pointer' }}>
+        <label style={{ cursor: "pointer" }}>
           <input
             type="file"
-            style={{ display: 'none' }}
+            style={{ display: "none" }}
             onChange={handleFileUpload}
             disabled={isUploading}
           />
           <Box
             component="span"
             sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
+              display: "inline-flex",
+              alignItems: "center",
               gap: 0.5,
-              fontSize: '0.75rem',
+              fontSize: "0.75rem",
               fontWeight: 600,
               color: tokens.primary,
-              cursor: 'pointer',
-              '&:hover': { textDecoration: 'underline' }
+              cursor: "pointer",
+              "&:hover": { textDecoration: "underline" },
             }}
           >
             {isUploading ? <CircularProgress size={12} /> : <Plus size={14} />}
-            {isVi ? 'Thêm' : 'Add'}
+            {isVi ? "Thêm" : "Add"}
           </Box>
         </label>
       </Box>
 
-      {/* Category Tab Bar */}
-      <Box
+      <Tabs
+        value={activeTab}
+        onChange={(_, val) => {
+          setActiveTab(val);
+          if (val === "media") setMediaOpen(true);
+          if (val === "files") setFilesOpen(true);
+          if (val === "links") setLinksOpen(true);
+        }}
+        variant="fullWidth"
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 0.5,
-          px: 1.2,
-          py: 0.8,
+          minHeight: 38,
           borderBottom: `1px solid ${tokens.divider}`,
-          backgroundColor: tokens.surfaceSecondary,
-          overflowX: 'auto',
-          '&::-webkit-scrollbar': { display: 'none' }
+          backgroundColor: tokens.surface,
+          "& .MuiTabs-indicator": {
+            backgroundColor: tokens.primary,
+            height: 2,
+          },
+          "& .MuiTab-root": {
+            minHeight: 38,
+            py: 0.75,
+            px: 0.5,
+            fontSize: "0.75rem",
+            fontWeight: 600,
+            textTransform: "none",
+            color: tokens.textSecondary,
+            minWidth: 0,
+            "&.Mui-selected": {
+              color: tokens.primary,
+              fontWeight: 700,
+            },
+            "&:hover": {
+              color: tokens.textPrimary,
+            },
+          },
         }}
       >
-        {[
-          { id: 'all', label: isVi ? 'Tất cả' : 'All', count: images.length + nonMediaFiles.length + extractedLinks.length },
-          { id: 'media', label: isVi ? 'Ảnh' : 'Media', count: images.length },
-          { id: 'files', label: isVi ? 'Tệp' : 'Files', count: nonMediaFiles.length },
-          { id: 'links', label: 'Link', count: extractedLinks.length }
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <Button
-              key={tab.id}
-              size="small"
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                if (tab.id === 'media') setMediaOpen(true);
-                if (tab.id === 'files') setFilesOpen(true);
-                if (tab.id === 'links') setLinksOpen(true);
-              }}
-              sx={{
-                minWidth: 'auto',
-                px: 1,
-                py: 0.25,
-                borderRadius: '12px',
-                fontSize: '0.72rem',
-                fontWeight: isActive ? 700 : 500,
-                textTransform: 'none',
-                color: isActive ? tokens.primary : tokens.textSecondary,
-                backgroundColor: isActive ? `${tokens.primary}18` : 'transparent',
-                border: `1px solid ${isActive ? `${tokens.primary}40` : 'transparent'}`,
-                '&:hover': {
-                  backgroundColor: isActive ? `${tokens.primary}25` : tokens.hover
-                }
-              }}
-            >
-              {tab.label}
-              {tab.count > 0 && (
-                <Box
-                  component="span"
-                  sx={{
-                    ml: 0.5,
-                    px: 0.6,
-                    py: 0.05,
-                    fontSize: '0.65rem',
-                    borderRadius: '10px',
-                    backgroundColor: isActive ? tokens.primary : tokens.border,
-                    color: isActive ? '#fff' : tokens.textSecondary,
-                    fontWeight: 700
-                  }}
-                >
-                  {tab.count}
-                </Box>
-              )}
-            </Button>
-          );
-        })}
-      </Box>
+        <Tab
+          value="all"
+          label={
+            isVi
+              ? `Tất cả (${images.length + nonMediaFiles.length + extractedLinks.length})`
+              : `All (${images.length + nonMediaFiles.length + extractedLinks.length})`
+          }
+        />
+        <Tab
+          value="media"
+          label={isVi ? `Ảnh (${images.length})` : `Media (${images.length})`}
+        />
+        <Tab
+          value="files"
+          label={
+            isVi
+              ? `Tệp (${nonMediaFiles.length})`
+              : `Files (${nonMediaFiles.length})`
+          }
+        />
+        <Tab value="links" label={`Link (${extractedLinks.length})`} />
+      </Tabs>
 
-      {/* Media Section */}
-      {(activeTab === 'all' || activeTab === 'media') && (
-        <Box sx={{ borderBottom: activeTab === 'all' ? `1px solid ${tokens.divider}` : 'none' }}>
+      {(activeTab === "all" || activeTab === "media") && (
+        <Box
+          sx={{
+            borderBottom:
+              activeTab === "all" ? `1px solid ${tokens.divider}` : "none",
+          }}
+        >
           <Box
             onClick={() => setMediaOpen(!mediaOpen)}
             sx={{
               p: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              userSelect: 'none',
-              '&:hover': { backgroundColor: tokens.hover }
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+              userSelect: "none",
+              "&:hover": { backgroundColor: tokens.hover },
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
-              {isVi ? 'Ảnh/Video' : 'Photos/Videos'} ({images.length})
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, color: tokens.textPrimary }}
+            >
+              {isVi ? "Ảnh/Video" : "Photos/Videos"} ({images.length})
             </Typography>
-            {mediaOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+            {mediaOpen ? (
+              <ChevronUp size={16} color={tokens.textSecondary} />
+            ) : (
+              <ChevronDown size={16} color={tokens.textSecondary} />
+            )}
           </Box>
 
           <Collapse in={mediaOpen}>
             <Box sx={{ px: 1.5, pb: 1.5 }}>
               {images.length === 0 ? (
-                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                  {isVi ? 'Chưa có Ảnh/Video được chia sẻ trong hội thoại này' : 'No photos or videos shared in this item'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: tokens.textSecondary,
+                    display: "block",
+                    textAlign: "center",
+                    py: 1.5,
+                  }}
+                >
+                  {isVi
+                    ? "Chưa có Ảnh/Video được chia sẻ trong hội thoại này"
+                    : "No photos or videos shared in this item"}
                 </Typography>
               ) : (
                 <Box
                   sx={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    display: "grid",
+                    gridTemplateColumns: "repeat(3, 1fr)",
                     gap: 1,
-                    maxHeight: activeTab === 'all' ? 180 : 340,
-                    overflowY: 'auto',
+                    maxHeight: activeTab === "all" ? 180 : 340,
+                    overflowY: "auto",
                     pr: 0.5,
-                    '&::-webkit-scrollbar': { width: 4 },
-                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                    "&::-webkit-scrollbar": { width: 4 },
+                    "&::-webkit-scrollbar-thumb": {
+                      backgroundColor: tokens.border,
+                      borderRadius: 2,
+                    },
                   }}
                 >
                   {images.map((img) => (
@@ -540,14 +632,14 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         setLightboxOpen(true);
                       }}
                       sx={{
-                        position: 'relative',
-                        paddingTop: '100%',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
+                        position: "relative",
+                        paddingTop: "100%",
+                        borderRadius: "6px",
+                        overflow: "hidden",
+                        cursor: "pointer",
                         border: `1px solid ${tokens.border}`,
                         backgroundColor: tokens.surfaceSecondary,
-                        '&:hover img': { transform: 'scale(1.08)' }
+                        "&:hover img": { transform: "scale(1.08)" },
                       }}
                     >
                       <Box
@@ -555,13 +647,13 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         src={img.inlineUrl}
                         alt={img.originalName}
                         sx={{
-                          position: 'absolute',
+                          position: "absolute",
                           top: 0,
                           left: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          transition: 'transform 0.2s ease'
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          transition: "transform 0.2s ease",
                         }}
                       />
                     </Box>
@@ -573,87 +665,160 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         </Box>
       )}
 
-      {/* Files Section */}
-      {(activeTab === 'all' || activeTab === 'files') && (
-        <Box sx={{ borderBottom: activeTab === 'all' ? `1px solid ${tokens.divider}` : 'none' }}>
+      {(activeTab === "all" || activeTab === "files") && (
+        <Box
+          sx={{
+            borderBottom:
+              activeTab === "all" ? `1px solid ${tokens.divider}` : "none",
+          }}
+        >
           <Box
             onClick={() => setFilesOpen(!filesOpen)}
             sx={{
               p: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              userSelect: 'none',
-              '&:hover': { backgroundColor: tokens.hover }
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+              userSelect: "none",
+              "&:hover": { backgroundColor: tokens.hover },
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, color: tokens.textPrimary }}
+            >
               File ({nonMediaFiles.length})
             </Typography>
-            {filesOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+            {filesOpen ? (
+              <ChevronUp size={16} color={tokens.textSecondary} />
+            ) : (
+              <ChevronDown size={16} color={tokens.textSecondary} />
+            )}
           </Box>
 
           <Collapse in={filesOpen}>
             <Box sx={{ px: 1.5, pb: 1.5 }}>
               {nonMediaFiles.length === 0 ? (
-                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                  {isVi ? 'Chưa có Tập tin được chia sẻ trong hội thoại này' : 'No files shared in this item'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: tokens.textSecondary,
+                    display: "block",
+                    textAlign: "center",
+                    py: 1.5,
+                  }}
+                >
+                  {isVi
+                    ? "Chưa có Tập tin được chia sẻ trong hội thoại này"
+                    : "No files shared in this item"}
                 </Typography>
               ) : (
                 <Box
                   sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
+                    display: "flex",
+                    flexDirection: "column",
                     gap: 1,
-                    maxHeight: activeTab === 'all' ? 220 : 340,
-                    overflowY: 'auto',
+                    maxHeight: activeTab === "all" ? 220 : 340,
+                    overflowY: "auto",
                     pr: 0.5,
-                    '&::-webkit-scrollbar': { width: 4 },
-                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                    "&::-webkit-scrollbar": { width: 4 },
+                    "&::-webkit-scrollbar-thumb": {
+                      backgroundColor: tokens.border,
+                      borderRadius: 2,
+                    },
                   }}
                 >
                   {displayedFiles.map((f) => (
                     <Box
                       key={f.id}
                       sx={{
-                        display: 'flex',
-                        alignItems: 'center',
+                        display: "flex",
+                        alignItems: "center",
                         gap: 1.5,
                         p: 1,
-                        borderRadius: '6px',
+                        borderRadius: "6px",
                         backgroundColor: tokens.surfaceSecondary,
                         border: `1px solid ${tokens.border}`,
-                        transition: 'background-color 0.12s ease',
-                        '&:hover': { backgroundColor: tokens.hover }
+                        transition: "background-color 0.12s ease",
+                        "&:hover": { backgroundColor: tokens.hover },
                       }}
                     >
                       {renderFileIcon(f.mimeType, f.originalName)}
 
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem', color: tokens.textPrimary }} noWrap>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 600,
+                            fontSize: "0.8125rem",
+                            color: tokens.textPrimary,
+                          }}
+                          noWrap
+                        >
                           {f.originalName}
                         </Typography>
 
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.2 }}>
-                          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem' }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1,
+                            mt: 0.2,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: tokens.textSecondary,
+                              fontSize: "0.6875rem",
+                            }}
+                          >
                             {formatFileSize(f.sizeBytes)}
                           </Typography>
                           <CheckCircle2 size={11} color={tokens.success} />
-                          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem', ml: 'auto' }}>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              color: tokens.textSecondary,
+                              fontSize: "0.6875rem",
+                              ml: "auto",
+                            }}
+                          >
                             {formatDate(f.createdAt)}
                           </Typography>
                         </Box>
                       </Box>
 
-                      <Tooltip title={f.isVoiceNote || f.mimeType.startsWith('audio/') ? (isVi ? 'Mở / Nghe âm thanh' : 'Play audio') : (isVi ? 'Tải tệp về' : 'Download file')}>
+                      <Tooltip
+                        title={
+                          f.isVoiceNote || f.mimeType.startsWith("audio/")
+                            ? isVi
+                              ? "Mở / Nghe âm thanh"
+                              : "Play audio"
+                            : isVi
+                              ? "Tải tệp về"
+                              : "Download file"
+                        }
+                      >
                         <IconButton
                           size="small"
                           component="a"
                           href={f.url}
-                          target={f.isVoiceNote || f.mimeType.startsWith('audio/') ? '_blank' : undefined}
-                          download={f.isVoiceNote || f.mimeType.startsWith('audio/') ? undefined : f.originalName}
-                          sx={{ color: tokens.textSecondary, '&:hover': { color: tokens.primary } }}
+                          target={
+                            f.isVoiceNote || f.mimeType.startsWith("audio/")
+                              ? "_blank"
+                              : undefined
+                          }
+                          download={
+                            f.isVoiceNote || f.mimeType.startsWith("audio/")
+                              ? undefined
+                              : f.originalName
+                          }
+                          sx={{
+                            color: tokens.textSecondary,
+                            "&:hover": { color: tokens.primary },
+                          }}
                         >
                           <Download size={16} />
                         </IconButton>
@@ -667,9 +832,20 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                       variant="text"
                       fullWidth
                       onClick={() => setShowAllFiles(!showAllFiles)}
-                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', mt: 0.5 }}
+                      sx={{
+                        textTransform: "none",
+                        fontWeight: 600,
+                        fontSize: "0.75rem",
+                        mt: 0.5,
+                      }}
                     >
-                      {showAllFiles ? (isVi ? 'Thu gọn' : 'Show less') : (isVi ? 'Xem tất cả' : 'View all')}
+                      {showAllFiles
+                        ? isVi
+                          ? "Thu gọn"
+                          : "Show less"
+                        : isVi
+                          ? "Xem tất cả"
+                          : "View all"}
                     </Button>
                   )}
                 </Box>
@@ -679,44 +855,63 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         </Box>
       )}
 
-      {/* Links Section */}
-      {(activeTab === 'all' || activeTab === 'links') && (
+      {(activeTab === "all" || activeTab === "links") && (
         <Box>
           <Box
             onClick={() => setLinksOpen(!linksOpen)}
             sx={{
               p: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
-              userSelect: 'none',
-              '&:hover': { backgroundColor: tokens.hover }
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+              userSelect: "none",
+              "&:hover": { backgroundColor: tokens.hover },
             }}
           >
-            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+            <Typography
+              variant="body2"
+              sx={{ fontWeight: 700, color: tokens.textPrimary }}
+            >
               Link ({extractedLinks.length})
             </Typography>
-            {linksOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+            {linksOpen ? (
+              <ChevronUp size={16} color={tokens.textSecondary} />
+            ) : (
+              <ChevronDown size={16} color={tokens.textSecondary} />
+            )}
           </Box>
 
           <Collapse in={linksOpen}>
             <Box sx={{ px: 1.5, pb: 1.5 }}>
               {extractedLinks.length === 0 ? (
-                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                  {isVi ? 'Chưa có Link được chia sẻ trong hội thoại này' : 'No links shared in this conversation'}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: tokens.textSecondary,
+                    display: "block",
+                    textAlign: "center",
+                    py: 1.5,
+                  }}
+                >
+                  {isVi
+                    ? "Chưa có Link được chia sẻ trong hội thoại này"
+                    : "No links shared in this conversation"}
                 </Typography>
               ) : (
                 <Box
                   sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
+                    display: "flex",
+                    flexDirection: "column",
                     gap: 0.8,
-                    maxHeight: activeTab === 'all' ? 180 : 340,
-                    overflowY: 'auto',
+                    maxHeight: activeTab === "all" ? 180 : 340,
+                    overflowY: "auto",
                     pr: 0.5,
-                    '&::-webkit-scrollbar': { width: 4 },
-                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                    "&::-webkit-scrollbar": { width: 4 },
+                    "&::-webkit-scrollbar-thumb": {
+                      backgroundColor: tokens.border,
+                      borderRadius: 2,
+                    },
                   }}
                 >
                   {extractedLinks.map((l, i) => (
@@ -727,26 +922,30 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       sx={{
-                        display: 'flex',
-                        alignItems: 'center',
+                        display: "flex",
+                        alignItems: "center",
                         gap: 1,
                         p: 0.8,
                         px: 1,
-                        borderRadius: '6px',
+                        borderRadius: "6px",
                         backgroundColor: tokens.surfaceSecondary,
-                        textDecoration: 'none',
+                        textDecoration: "none",
                         color: tokens.primary,
-                        fontSize: '0.75rem',
+                        fontSize: "0.75rem",
                         fontWeight: 500,
-                        transition: 'background-color 0.12s ease',
-                        '&:hover': {
+                        transition: "background-color 0.12s ease",
+                        "&:hover": {
                           backgroundColor: tokens.hover,
-                          textDecoration: 'underline'
-                        }
+                          textDecoration: "underline",
+                        },
                       }}
                     >
                       <ExternalLink size={13} style={{ flexShrink: 0 }} />
-                      <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 600 }} noWrap>
+                      <Typography
+                        variant="caption"
+                        sx={{ color: "inherit", fontWeight: 600 }}
+                        noWrap
+                      >
                         {l.title}
                       </Typography>
                     </Box>

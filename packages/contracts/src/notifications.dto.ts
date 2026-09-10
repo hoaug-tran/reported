@@ -1,6 +1,6 @@
-import { z } from 'zod';
-import { NotificationChannel, NotificationType } from './enums.js';
-import { UserSummaryDto } from './auth.dto.js';
+import { z } from "zod";
+import { NotificationChannel, NotificationType } from "./enums.js";
+import { UserSummaryDto } from "./auth.dto.js";
 
 export interface NotificationDto {
   id: string;
@@ -16,14 +16,15 @@ export interface NotificationDto {
 export const UpdateNotificationPreferencesSchema = z.object({
   preferences: z.record(
     z.nativeEnum(NotificationType),
-    z.nativeEnum(NotificationChannel)
-  )
+    z.nativeEnum(NotificationChannel),
+  ),
 });
 
-export type UpdateNotificationPreferencesDto = z.infer<typeof UpdateNotificationPreferencesSchema>;
+export type UpdateNotificationPreferencesDto = z.infer<
+  typeof UpdateNotificationPreferencesSchema
+>;
 
 export interface NotificationPreferenceDto {
   eventType: NotificationType;
   channel: NotificationChannel;
 }
-

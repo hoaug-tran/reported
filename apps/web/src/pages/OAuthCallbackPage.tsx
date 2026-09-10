@@ -1,13 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
-  Box, Typography, Paper, CircularProgress, Button, Alert
-} from '@mui/material';
-import { CheckCircle2 } from 'lucide-react';
-import { useLocation } from 'wouter';
-import { useThemeContext } from '../contexts/ThemeContext';
-import { useAuthContext } from '../contexts/AuthContext';
-import { apiFetch } from '../api/client';
-import { UserDto } from '@reported/contracts';
+  Box,
+  Typography,
+  Paper,
+  CircularProgress,
+  Button,
+  Alert,
+} from "@mui/material";
+import { CheckCircle2 } from "lucide-react";
+import { useLocation } from "wouter";
+import { useThemeContext } from "../contexts/ThemeContext";
+import { useAuthContext } from "../contexts/AuthContext";
+import { apiFetch } from "../api/client";
+import { UserDto } from "@reported/contracts";
 
 interface OAuthExchangeResponse {
   user: UserDto;
@@ -30,29 +35,31 @@ export const OAuthCallbackPage: React.FC = () => {
     if (processedRef.current) return;
 
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state') || '';
+    const code = urlParams.get("code");
+    const state = urlParams.get("state") || "";
 
-    let provider = urlParams.get('provider');
+    let provider = urlParams.get("provider");
     if (!provider && state) {
       try {
-        const rawPayload = state.split('.')[0];
-        const base64 = rawPayload.replace(/-/g, '+').replace(/_/g, '/');
+        const rawPayload = state.split(".")[0];
+        const base64 = rawPayload.replace(/-/g, "+").replace(/_/g, "/");
         const jsonStr = atob(base64);
         const parsed = JSON.parse(jsonStr);
         if (parsed.provider) {
           provider = parsed.provider;
         }
       } catch {
-        provider = 'github';
+        provider = "github";
       }
     }
     if (!provider) {
-      provider = 'github';
+      provider = "github";
     }
 
     if (!code || !state) {
-      setError('Thiếu mã xác thực hoặc trạng thái phiên OAuth (state/code parameter missing).');
+      setError(
+        "Thiếu mã xác thực hoặc trạng thái phiên OAuth (state/code parameter missing).",
+      );
       setLoading(false);
       return;
     }
@@ -63,24 +70,30 @@ export const OAuthCallbackPage: React.FC = () => {
 
     const processOAuth = async () => {
       try {
-        const res = await apiFetch<OAuthExchangeResponse>(`/auth/oauth/${provider}/callback`, {
-          method: 'POST',
-          body: JSON.stringify({ code, state })
-        });
+        const res = await apiFetch<OAuthExchangeResponse>(
+          `/auth/oauth/${provider}/callback`,
+          {
+            method: "POST",
+            body: JSON.stringify({ code, state }),
+          },
+        );
 
         await refreshUser();
         await fetchConnectedAccounts();
 
         if (res.isLinked) {
-          setSuccessMessage(`Đã liên kết thành công tài khoản ${provider.toUpperCase()}!`);
+          setSuccessMessage(
+            `Đã liên kết thành công tài khoản ${provider.toUpperCase()}!`,
+          );
           timer = setTimeout(() => {
-            setLocation('/settings/connected-accounts');
+            setLocation("/settings/connected-accounts");
           }, 800);
         } else {
-          setLocation(res.returnTo || '/');
+          setLocation(res.returnTo || "/");
         }
       } catch (err: unknown) {
-        const errMsg = err instanceof Error ? err.message : 'Xác thực OAuth thất bại';
+        const errMsg =
+          err instanceof Error ? err.message : "Xác thực OAuth thất bại";
         setError(errMsg);
         setLoading(false);
       }
@@ -96,29 +109,37 @@ export const OAuthCallbackPage: React.FC = () => {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
-        width: '100vw',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
+        minHeight: "100vh",
+        width: "100vw",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         p: 3,
-        backgroundColor: tokens.background
+        backgroundColor: tokens.background,
       }}
     >
       <Paper
         elevation={0}
         sx={{
-          width: '100%',
+          width: "100%",
           maxWidth: 480,
           p: 4,
-          borderRadius: '8px',
+          borderRadius: "8px",
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
-          textAlign: 'center'
+          textAlign: "center",
         }}
       >
         {loading && (
-          <Box sx={{ py: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <Box
+            sx={{
+              py: 4,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 2,
+            }}
+          >
             <CircularProgress size={36} />
             <Typography variant="body1" sx={{ fontWeight: 600 }}>
               Đang xác thực và đồng bộ tài khoản...
@@ -130,9 +151,20 @@ export const OAuthCallbackPage: React.FC = () => {
         )}
 
         {successMessage && (
-          <Box sx={{ py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              py: 3,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 1.5,
+            }}
+          >
             <CheckCircle2 size={48} color={tokens.success} />
-            <Typography variant="h4" sx={{ fontWeight: 700, color: tokens.success }}>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 700, color: tokens.success }}
+            >
               Xác thực hoàn tất
             </Typography>
             <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
@@ -143,10 +175,10 @@ export const OAuthCallbackPage: React.FC = () => {
 
         {error && (
           <Box sx={{ py: 2 }}>
-            <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
+            <Alert severity="error" sx={{ mb: 3, textAlign: "left" }}>
               {error}
             </Alert>
-            <Button variant="contained" onClick={() => setLocation('/login')}>
+            <Button variant="contained" onClick={() => setLocation("/login")}>
               Quay lại Đăng nhập
             </Button>
           </Box>

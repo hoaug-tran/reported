@@ -1,8 +1,8 @@
-import { IAuthProvider } from './auth-provider.interface.js';
-import { GitHubAuthProvider } from './github-auth.provider.js';
-import { GitLabAuthProvider } from './gitlab-auth.provider.js';
-import { GoogleAuthProvider } from './google-auth.provider.js';
-import { AppError } from '../../../middleware/error.js';
+import { IAuthProvider } from "./auth-provider.interface.js";
+import { GitHubAuthProvider } from "./github-auth.provider.js";
+import { GitLabAuthProvider } from "./gitlab-auth.provider.js";
+import { GoogleAuthProvider } from "./google-auth.provider.js";
+import { AppError } from "../../../middleware/error.js";
 
 class AuthProviderRegistry {
   private providers = new Map<string, IAuthProvider>();
@@ -21,11 +21,19 @@ class AuthProviderRegistry {
     const id = providerId.toLowerCase();
     const provider = this.providers.get(id);
     if (!provider) {
-      throw new AppError(400, 'UNSUPPORTED_PROVIDER', `Provider '${providerId}' is not supported`);
+      throw new AppError(
+        400,
+        "UNSUPPORTED_PROVIDER",
+        `Provider '${providerId}' is not supported`,
+      );
     }
 
     if (!provider.isConfigured()) {
-      throw new AppError(400, 'PROVIDER_NOT_CONFIGURED', `OAuth provider '${provider.name}' is not configured on this server. Missing CLIENT_ID and CLIENT_SECRET.`);
+      throw new AppError(
+        400,
+        "PROVIDER_NOT_CONFIGURED",
+        `OAuth provider '${provider.name}' is not configured on this server. Missing CLIENT_ID and CLIENT_SECRET.`,
+      );
     }
 
     return provider;
@@ -35,7 +43,7 @@ class AuthProviderRegistry {
     return Array.from(this.providers.values()).map((p) => ({
       id: p.id,
       name: p.name,
-      isConfigured: p.isConfigured()
+      isConfigured: p.isConfigured(),
     }));
   }
 }

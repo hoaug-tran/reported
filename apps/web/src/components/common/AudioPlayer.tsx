@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Box, IconButton, Slider, Typography, Tooltip } from '@mui/material';
-import { Play, Pause, Volume2, VolumeX, Mic } from 'lucide-react';
-import { useThemeContext } from '../../contexts/ThemeContext';
+import React, { useState, useRef, useEffect, useMemo } from "react";
+import { Box, IconButton, Slider, Typography, Tooltip } from "@mui/material";
+import { Play, Pause, Volume2, VolumeX, Mic } from "lucide-react";
+import { useThemeContext } from "../../contexts/ThemeContext";
 
 interface AudioPlayerProps {
   src: string;
@@ -12,7 +12,7 @@ interface AudioPlayerProps {
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   src,
   durationSeconds,
-  label = 'Tin nhắn thoại'
+  label = "Tin nhắn thoại",
 }) => {
   const { tokens } = useThemeContext();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -20,7 +20,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   const initialDuration = useMemo(() => {
     try {
       const url = new URL(src, window.location.href);
-      const d = url.searchParams.get('d') || url.searchParams.get('duration');
+      const d = url.searchParams.get("d") || url.searchParams.get("duration");
       if (d && !isNaN(Number(d)) && Number(d) > 0) {
         return Math.round(Number(d));
       }
@@ -44,7 +44,12 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (!audio) return;
 
     const onLoadedMetadata = () => {
-      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration) && audio.duration > 0) {
+      if (
+        audio.duration &&
+        !isNaN(audio.duration) &&
+        isFinite(audio.duration) &&
+        audio.duration > 0
+      ) {
         setDuration(Math.round(audio.duration));
       } else if (audio.duration === Infinity && initialDuration === 0) {
         audio.currentTime = 1e101;
@@ -75,14 +80,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       if (audio) audio.currentTime = 0;
     };
 
-    audio.addEventListener('loadedmetadata', onLoadedMetadata);
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('ended', onEnded);
+    audio.addEventListener("loadedmetadata", onLoadedMetadata);
+    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("ended", onEnded);
 
     return () => {
-      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
+      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("ended", onEnded);
     };
   }, []);
 
@@ -110,11 +115,17 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       audio.pause();
       setIsPlaying(false);
     } else {
-      if (audio.ended || (duration > 0 && Math.abs(audio.currentTime - duration) < 0.2)) {
+      if (
+        audio.ended ||
+        (duration > 0 && Math.abs(audio.currentTime - duration) < 0.2)
+      ) {
         audio.currentTime = 0;
         setCurrentTime(0);
       }
-      audio.play().then(() => setIsPlaying(true)).catch(console.error);
+      audio
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(console.error);
     }
   };
 
@@ -134,28 +145,28 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   };
 
   const formatTime = (secs: number) => {
-    if (isNaN(secs) || !isFinite(secs) || secs < 0) return '0:00';
+    if (isNaN(secs) || !isFinite(secs) || secs < 0) return "0:00";
     const total = Math.floor(secs);
     const m = Math.floor(total / 60);
     const s = total % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
+    return `${m}:${s < 10 ? "0" : ""}${s}`;
   };
 
   return (
     <Box
       sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
+        display: "inline-flex",
+        alignItems: "center",
         gap: 1.5,
         p: 1,
         px: 1.5,
         my: 0.5,
-        borderRadius: '8px',
+        borderRadius: "8px",
         backgroundColor: tokens.surfaceSecondary,
         border: `1px solid ${tokens.border}`,
         maxWidth: 360,
-        width: '100%',
-        boxSizing: 'border-box'
+        width: "100%",
+        boxSizing: "border-box",
       }}
     >
       <audio ref={audioRef} src={src} preload="auto" />
@@ -165,26 +176,52 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
         onClick={togglePlay}
         sx={{
           backgroundColor: tokens.primary,
-          color: '#fff',
+          color: "#fff",
           width: 32,
           height: 32,
           flexShrink: 0,
-          '&:hover': {
+          "&:hover": {
             backgroundColor: tokens.primary,
-            filter: 'brightness(1.1)'
-          }
+            filter: "brightness(1.1)",
+          },
         }}
       >
-        {isPlaying ? <Pause size={16} /> : <Play size={16} style={{ marginLeft: 2 }} />}
+        {isPlaying ? (
+          <Pause size={16} />
+        ) : (
+          <Play size={16} style={{ marginLeft: 2 }} />
+        )}
       </IconButton>
 
-      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: -0.5 }}>
-          <Typography variant="caption" sx={{ fontWeight: 600, color: tokens.textPrimary, fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box
+        sx={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}
+      >
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            mb: -0.5,
+          }}
+        >
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: tokens.textPrimary,
+              fontSize: "0.75rem",
+              display: "flex",
+              alignItems: "center",
+              gap: 0.5,
+            }}
+          >
             <Mic size={12} color={tokens.primary} />
             {label}
           </Typography>
-          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem' }}>
+          <Typography
+            variant="caption"
+            sx={{ color: tokens.textSecondary, fontSize: "0.6875rem" }}
+          >
             {formatTime(currentTime)} / {formatTime(duration)}
           </Typography>
         </Box>
@@ -198,23 +235,23 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
           sx={{
             color: tokens.primary,
             height: 4,
-            p: '6px 0',
-            '& .MuiSlider-thumb': {
+            p: "6px 0",
+            "& .MuiSlider-thumb": {
               width: 10,
               height: 10,
-              transition: 'none',
-              '&:hover, &.Mui-focusVisible': {
-                boxShadow: `0px 0px 0px 6px ${tokens.primary}20`
-              }
+              transition: "none",
+              "&:hover, &.Mui-focusVisible": {
+                boxShadow: `0px 0px 0px 6px ${tokens.primary}20`,
+              },
             },
-            '& .MuiSlider-rail': {
-              opacity: 0.28
-            }
+            "& .MuiSlider-rail": {
+              opacity: 0.28,
+            },
           }}
         />
       </Box>
 
-      <Tooltip title={isMuted ? 'Bật âm thanh' : 'Tắt tiếng'}>
+      <Tooltip title={isMuted ? "Bật âm thanh" : "Tắt tiếng"}>
         <IconButton
           size="small"
           onClick={toggleMute}
@@ -222,9 +259,9 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
             color: isMuted ? tokens.error : tokens.textSecondary,
             p: 0.5,
             flexShrink: 0,
-            '&:hover': {
-              color: tokens.textPrimary
-            }
+            "&:hover": {
+              color: tokens.textPrimary,
+            },
           }}
         >
           {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}

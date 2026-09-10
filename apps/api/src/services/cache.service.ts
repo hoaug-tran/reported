@@ -35,11 +35,15 @@ class InMemoryCacheService {
   set<T>(key: string, value: T, ttlSeconds = 60): void {
     this.store.set(key, {
       value,
-      expiresAt: Date.now() + ttlSeconds * 1000
+      expiresAt: Date.now() + ttlSeconds * 1000,
     });
   }
 
-  async getOrSet<T>(key: string, ttlSeconds: number, fetcher: () => Promise<T>): Promise<T> {
+  async getOrSet<T>(
+    key: string,
+    ttlSeconds: number,
+    fetcher: () => Promise<T>,
+  ): Promise<T> {
     const cached = this.get<T>(key);
     if (cached !== undefined) {
       return cached;

@@ -1,4 +1,4 @@
-import { pool } from './db.js';
+import { pool } from "./db.js";
 
 export async function migrate() {
   const client = await pool.connect();
@@ -427,7 +427,10 @@ export async function migrate() {
   }
 }
 
-if (process.argv[1]?.endsWith('migrate.ts') || process.argv[1]?.endsWith('migrate.js')) {
+if (
+  process.argv[1]?.endsWith("migrate.ts") ||
+  process.argv[1]?.endsWith("migrate.js")
+) {
   migrate()
     .then(() => process.exit(0))
     .catch((err) => {
@@ -435,4 +438,3 @@ if (process.argv[1]?.endsWith('migrate.ts') || process.argv[1]?.endsWith('migrat
       process.exit(1);
     });
 }
-

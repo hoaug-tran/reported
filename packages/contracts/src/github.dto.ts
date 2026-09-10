@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { PullRequestChecksStatus, PullRequestState } from './enums.js';
+import { z } from "zod";
+import { PullRequestChecksStatus, PullRequestState } from "./enums.js";
 
 export interface RepositorySummaryDto {
   id: string;
@@ -45,8 +45,7 @@ export const LinkGitHubResourceSchema = z.object({
   repositoryId: z.string().uuid().optional(),
   prUrl: z.string().url().optional(),
   branch: z.string().optional(),
-  commitHash: z.string().optional()
+  commitHash: z.string().optional(),
 });
 
 export type LinkGitHubResourceDto = z.infer<typeof LinkGitHubResourceSchema>;
-

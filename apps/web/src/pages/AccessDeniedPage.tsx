@@ -1,9 +1,9 @@
-import React from 'react';
-import { Box, Typography, Button, Alert } from '@mui/material';
-import { ShieldOff, Home, ArrowLeft } from 'lucide-react';
-import { useLocation } from 'wouter';
-import { useThemeContext } from '../contexts/ThemeContext';
-import { useI18n } from '../contexts/I18nContext';
+import React from "react";
+import { Box, Typography, Button, Alert } from "@mui/material";
+import { ShieldOff, Home, ArrowLeft } from "lucide-react";
+import { useLocation } from "wouter";
+import { useThemeContext } from "../contexts/ThemeContext";
+import { useI18n } from "../contexts/I18nContext";
 
 interface AccessDeniedPageProps {
   isDeleted?: boolean;
@@ -25,12 +25,12 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
   return (
     <Box
       sx={{
-        minHeight: '60vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
+        minHeight: "60vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
         py: 8,
         px: 3,
       }}
@@ -39,11 +39,11 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         sx={{
           width: 80,
           height: 80,
-          borderRadius: '50%',
-          backgroundColor: 'rgba(248,81,73,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          borderRadius: "50%",
+          backgroundColor: "rgba(248,81,73,0.08)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
           mb: 3,
         }}
       >
@@ -53,12 +53,12 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
       <Typography
         variant="h1"
         sx={{
-          fontSize: '5rem',
+          fontSize: "5rem",
           fontWeight: 800,
           color: tokens.textPrimary,
           lineHeight: 1,
           mb: 1,
-          letterSpacing: '-0.04em',
+          letterSpacing: "-0.04em",
           opacity: 0.15,
         }}
       >
@@ -69,14 +69,18 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
         variant="h5"
         sx={{ fontWeight: 700, color: tokens.textPrimary, mb: 1 }}
       >
-        {message || t('notAuthorized')}
+        {message || t("notAuthorized")}
       </Typography>
 
       <Typography
         variant="body1"
-        sx={{ color: tokens.textSecondary, mb: isDeleted ? 2 : 4, maxWidth: 480 }}
+        sx={{
+          color: tokens.textSecondary,
+          mb: isDeleted ? 2 : 4,
+          maxWidth: 480,
+        }}
       >
-        {description || t('notAuthorizedDesc')}
+        {description || t("notAuthorizedDesc")}
       </Typography>
 
       {isDeleted && (
@@ -85,39 +89,39 @@ export const AccessDeniedPage: React.FC<AccessDeniedPageProps> = ({
           sx={{
             mb: 4,
             maxWidth: 480,
-            borderRadius: '8px',
-            backgroundColor: 'rgba(210,153,34,0.1)',
-            border: '1px solid rgba(210,153,34,0.3)',
-            '& .MuiAlert-icon': { color: '#d2991e' },
+            borderRadius: "8px",
+            backgroundColor: "rgba(210,153,34,0.1)",
+            border: "1px solid rgba(210,153,34,0.3)",
+            "& .MuiAlert-icon": { color: "#d2991e" },
           }}
         >
-          {t('notAuthorizedDesc')}
+          {t("notAuthorizedDesc")}
         </Alert>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1.5 }}>
+      <Box sx={{ display: "flex", gap: 1.5 }}>
         {showBackButton && (
           <Button
             variant="outlined"
             startIcon={<ArrowLeft size={16} />}
             onClick={() => window.history.back()}
-            sx={{ textTransform: 'none', borderRadius: '8px' }}
+            sx={{ textTransform: "none", borderRadius: "8px" }}
           >
-            {t('goBack')}
+            {t("goBack")}
           </Button>
         )}
         <Button
           variant="contained"
           startIcon={<Home size={16} />}
-          onClick={() => setLocation('/')}
+          onClick={() => setLocation("/")}
           sx={{
-            textTransform: 'none',
-            borderRadius: '8px',
+            textTransform: "none",
+            borderRadius: "8px",
             backgroundColor: tokens.primary,
-            boxShadow: 'none',
+            boxShadow: "none",
           }}
         >
-          {t('backToDashboard')}
+          {t("backToDashboard")}
         </Button>
       </Box>
     </Box>

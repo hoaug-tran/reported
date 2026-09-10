@@ -19,8 +19,12 @@ export interface IAuthProvider {
   id: string;
   name: string;
   isConfigured(): boolean;
-  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes?: string[], redirectUri?: string): string;
+  getAuthorizationUrl(
+    state: string,
+    intent: "login" | "link",
+    extraScopes?: string[],
+    redirectUri?: string,
+  ): string;
   exchangeCode(code: string, redirectUri?: string): Promise<OAuthTokens>;
   getUserProfile(accessToken: string): Promise<ExternalUserProfile>;
 }
-

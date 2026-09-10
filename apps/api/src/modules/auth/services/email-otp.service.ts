@@ -1,31 +1,36 @@
-import crypto from 'crypto';
-import { db, authChallenges, eq, and, gt } from '@reported/database';
-import { sendEmail } from '../../../services/email.service.js';
-import { AppError } from '../../../middleware/error.js';
+import crypto from "crypto";
+import { db, authChallenges, eq, and, gt } from "@reported/database";
+import { sendEmail } from "../../../services/email.service.js";
+import { AppError } from "../../../middleware/error.js";
 
 export class EmailOtpService {
-  async sendOtp(email: string, displayName?: string): Promise<{ success: boolean; expiresAt: Date }> {
+  async sendOtp(
+    email: string,
+    displayName?: string,
+  ): Promise<{ success: boolean; expiresAt: Date }> {
     const normalizedEmail = email.trim().toLowerCase();
 
     const codeInt = crypto.randomInt(100000, 999999);
     const code = codeInt.toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await db.delete(authChallenges).where(
-      and(
-        eq(authChallenges.target, normalizedEmail),
-        eq(authChallenges.challengeType, 'EMAIL_OTP')
-      )
-    );
+    await db
+      .delete(authChallenges)
+      .where(
+        and(
+          eq(authChallenges.target, normalizedEmail),
+          eq(authChallenges.challengeType, "EMAIL_OTP"),
+        ),
+      );
 
     await db.insert(authChallenges).values({
       target: normalizedEmail,
-      challengeType: 'EMAIL_OTP',
+      challengeType: "EMAIL_OTP",
       code,
-      expiresAt
+      expiresAt,
     });
 
-    const greeting = displayName ? `Chào ${displayName},` : 'Xin chào,';
+    const greeting = displayName ? `Chào ${displayName},` : "Xin chào,";
     const emailHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e1e4e8; color: #24292e;">
         <div style="margin-bottom: 24px;">
@@ -49,7 +54,7 @@ export class EmailOtpService {
       toName: displayName,
       subject: `[Reported] Mã xác thực đăng nhập: ${code}`,
       html: emailHtml,
-      text: `Mã xác thực đăng nhập Reported của bạn là: ${code} (có hiệu lực trong 5 phút).`
+      text: `Mã xác thực đăng nhập Reported của bạn là: ${code} (có hiệu lực trong 5 phút).`,
     });
 
     return { success: true, expiresAt };
@@ -62,17 +67,21 @@ export class EmailOtpService {
     const challenge = await db.query.authChallenges.findFirst({
       where: and(
         eq(authChallenges.target, normalizedEmail),
-        eq(authChallenges.challengeType, 'EMAIL_OTP'),
-        gt(authChallenges.expiresAt, new Date())
-      )
+        eq(authChallenges.challengeType, "EMAIL_OTP"),
+        gt(authChallenges.expiresAt, new Date()),
+      ),
     });
 
     if (!challenge) {
-      throw new AppError(400, 'OTP_EXPIRED_OR_INVALID', 'Mã xác thực đã hết hạn hoặc không tồn tại. Vui lòng yêu cầu mã mới.');
+      throw new AppError(
+        400,
+        "OTP_EXPIRED_OR_INVALID",
+        "Mã xác thực đã hết hạn hoặc không tồn tại. Vui lòng yêu cầu mã mới.",
+      );
     }
 
     if (challenge.code !== cleanCode) {
-      throw new AppError(400, 'OTP_INCORRECT', 'Mã xác thực không chính xác.');
+      throw new AppError(400, "OTP_INCORRECT", "Mã xác thực không chính xác.");
     }
 
     await db.delete(authChallenges).where(eq(authChallenges.id, challenge.id));

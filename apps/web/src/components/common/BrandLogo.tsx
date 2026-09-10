@@ -1,40 +1,40 @@
-import React from 'react';
-import { Box, Typography } from '@mui/material';
-import { useThemeContext } from '../../contexts/ThemeContext';
+import React from "react";
+import { Box, Typography } from "@mui/material";
+import { useThemeContext } from "../../contexts/ThemeContext";
 
 interface BrandLogoProps {
-  size?: 'small' | 'medium' | 'large';
+  size?: "small" | "medium" | "large";
   showText?: boolean;
   showIcon?: boolean;
 }
 
 export const BrandLogo: React.FC<BrandLogoProps> = ({
-  size = 'medium',
+  size = "medium",
   showText = true,
-  showIcon = false
+  showIcon = false,
 }) => {
   const { resolvedMode, tokens } = useThemeContext();
 
   const fontSizes = {
-    small: '1.45rem',
-    medium: '2.05rem',
-    large: '2.85rem'
+    small: "1.45rem",
+    medium: "2.05rem",
+    large: "2.85rem",
   };
 
-  const isDark = resolvedMode === 'dark';
+  const isDark = resolvedMode === "dark";
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', userSelect: 'none' }}>
+    <Box sx={{ display: "flex", alignItems: "center", userSelect: "none" }}>
       {showText ? (
         <Box
           sx={{
-            display: 'inline-flex',
-            flexDirection: 'column',
-            alignItems: 'flex-start',
-            position: 'relative',
-            cursor: 'pointer',
+            display: "inline-flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            position: "relative",
+            cursor: "pointer",
             px: 0.5,
-            py: 0.2
+            py: 0.2,
           }}
         >
           <Typography
@@ -44,14 +44,14 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
               fontSize: fontSizes[size],
               fontWeight: 700,
               lineHeight: 1,
-              letterSpacing: '0.015em',
-              color: isDark ? '#ffffff' : '#0f172a',
+              letterSpacing: "0.015em",
+              color: isDark ? "#ffffff" : "#0f172a",
               textShadow: isDark
-                ? '0 2px 12px rgba(255, 255, 255, 0.15)'
-                : '0 2px 8px rgba(15, 23, 42, 0.12)',
-              transform: 'rotate(-2.5deg)',
-              display: 'inline-block',
-              whiteSpace: 'nowrap'
+                ? "0 2px 12px rgba(255, 255, 255, 0.15)"
+                : "0 2px 8px rgba(15, 23, 42, 0.12)",
+              transform: "rotate(-2.5deg)",
+              display: "inline-block",
+              whiteSpace: "nowrap",
             }}
           >
             Reported
@@ -62,12 +62,12 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
             sx={{
-              width: size === 'large' ? 140 : size === 'medium' ? 105 : 75,
-              height: 'auto',
+              width: size === "large" ? 140 : size === "medium" ? 105 : 75,
+              height: "auto",
               mt: -0.2,
               ml: 0.5,
               opacity: 0.9,
-              transform: 'rotate(-2.5deg)'
+              transform: "rotate(-2.5deg)",
             }}
           >
             <path
@@ -81,17 +81,17 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           sx={{
             width: 36,
             height: 36,
-            borderRadius: '8px',
+            borderRadius: "8px",
             background: `linear-gradient(135deg, ${tokens.primary}, ${tokens.primaryHover})`,
-            color: '#ffffff',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            color: "#ffffff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
             fontFamily: '"Kaushan Script", "Permanent Marker", cursive',
             fontWeight: 700,
-            fontSize: '1.45rem',
+            fontSize: "1.45rem",
             boxShadow: `0 2px 8px ${tokens.primaryGlow}`,
-            userSelect: 'none'
+            userSelect: "none",
           }}
         >
           R
@@ -100,5 +100,3 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     </Box>
   );
 };
-
-

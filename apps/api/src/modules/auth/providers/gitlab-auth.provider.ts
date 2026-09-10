@@ -1,6 +1,10 @@
-import { IAuthProvider, ExternalUserProfile, OAuthTokens } from './auth-provider.interface.js';
-import { config } from '../../../config/index.js';
-import { AppError } from '../../../middleware/error.js';
+import {
+  IAuthProvider,
+  ExternalUserProfile,
+  OAuthTokens,
+} from "./auth-provider.interface.js";
+import { config } from "../../../config/index.js";
+import { AppError } from "../../../middleware/error.js";
 
 interface GitLabTokenResponse {
   access_token: string;
@@ -22,15 +26,22 @@ interface GitLabUserResponse {
 }
 
 export class GitLabAuthProvider implements IAuthProvider {
-  readonly id = 'gitlab';
-  readonly name = 'GitLab';
+  readonly id = "gitlab";
+  readonly name = "GitLab";
 
   isConfigured(): boolean {
-    return Boolean(config.oauth.gitlab.clientId && config.oauth.gitlab.clientSecret);
+    return Boolean(
+      config.oauth.gitlab.clientId && config.oauth.gitlab.clientSecret,
+    );
   }
 
-  getAuthorizationUrl(state: string, intent: 'login' | 'link', extraScopes: string[] = [], redirectUri?: string): string {
-    const baseScopes = ['read_user'];
+  getAuthorizationUrl(
+    state: string,
+    intent: "login" | "link",
+    extraScopes: string[] = [],
+    redirectUri?: string,
+  ): string {
+    const baseScopes = ["read_user"];
     const allScopes = Array.from(new Set([...baseScopes, ...extraScopes]));
 
     const effectiveRedirectUri = redirectUri || config.oauth.gitlab.redirectUri;
@@ -38,9 +49,9 @@ export class GitLabAuthProvider implements IAuthProvider {
     const params = new URLSearchParams({
       client_id: config.oauth.gitlab.clientId,
       redirect_uri: effectiveRedirectUri,
-      response_type: 'code',
-      scope: allScopes.join(' '),
-      state
+      response_type: "code",
+      scope: allScopes.join(" "),
+      state,
     });
 
     return `https://gitlab.com/oauth/authorize?${params.toString()}`;
@@ -49,50 +60,62 @@ export class GitLabAuthProvider implements IAuthProvider {
   async exchangeCode(code: string, redirectUri?: string): Promise<OAuthTokens> {
     const effectiveRedirectUri = redirectUri || config.oauth.gitlab.redirectUri;
 
-    const res = await fetch('https://gitlab.com/oauth/token', {
-      method: 'POST',
+    const res = await fetch("https://gitlab.com/oauth/token", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
       body: JSON.stringify({
         client_id: config.oauth.gitlab.clientId,
         client_secret: config.oauth.gitlab.clientSecret,
         code,
-        grant_type: 'authorization_code',
-        redirect_uri: effectiveRedirectUri
-      })
+        grant_type: "authorization_code",
+        redirect_uri: effectiveRedirectUri,
+      }),
     });
 
     if (!res.ok) {
-      throw new AppError(400, 'OAUTH_TOKEN_EXCHANGE_FAILED', 'Failed to exchange GitLab authorization code');
+      throw new AppError(
+        400,
+        "OAUTH_TOKEN_EXCHANGE_FAILED",
+        "Failed to exchange GitLab authorization code",
+      );
     }
 
     const data = (await res.json()) as GitLabTokenResponse;
     if (data.error) {
-      throw new AppError(400, 'OAUTH_ERROR', data.error_description || data.error);
+      throw new AppError(
+        400,
+        "OAUTH_ERROR",
+        data.error_description || data.error,
+      );
     }
 
-    const scopes = data.scope ? data.scope.split(' ') : ['read_user'];
+    const scopes = data.scope ? data.scope.split(" ") : ["read_user"];
 
     return {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       expiresIn: data.expires_in,
-      scopes
+      scopes,
     };
   }
 
   async getUserProfile(accessToken: string): Promise<ExternalUserProfile> {
-    const userRes = await fetch('https://gitlab.com/api/v4/user', {
+    const userRes = await fetch("https://gitlab.com/api/v4/user", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        Accept: 'application/json'
-      }
+        Accept: "application/json",
+      },
     });
 
     if (!userRes.ok) {
-      throw new AppError(400, 'OAUTH_USER_PROFILE_FAILED', 'Failed to fetch GitLab user profile');
+      throw new AppError(
+        400,
+        "OAUTH_USER_PROFILE_FAILED",
+        "Failed to fetch GitLab user profile",
+      );
     }
 
     const user = (await userRes.json()) as GitLabUserResponse;
@@ -104,8 +127,7 @@ export class GitLabAuthProvider implements IAuthProvider {
       email: user.email || `${user.username}@gitlab.com`,
       emailVerified: Boolean(user.confirmed_at || user.email),
       avatarUrl: user.avatar_url,
-      bio: user.bio
+      bio: user.bio,
     };
   }
 }
-

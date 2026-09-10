@@ -1,9 +1,21 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Box, Typography, IconButton, Button } from '@mui/material';
-import { CheckCircle2, AlertCircle, AlertTriangle, Info, X } from 'lucide-react';
-import { useThemeContext } from './ThemeContext';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
+import { Box, Typography, IconButton, Button } from "@mui/material";
+import {
+  CheckCircle2,
+  AlertCircle,
+  AlertTriangle,
+  Info,
+  X,
+} from "lucide-react";
+import { useThemeContext } from "./ThemeContext";
 
-export type ToastType = 'success' | 'error' | 'warning' | 'info';
+export type ToastType = "success" | "error" | "warning" | "info";
 
 export interface ToastOptions {
   id?: string;
@@ -25,9 +37,21 @@ export interface ToastItem extends ToastOptions {
 
 interface ToastContextValue {
   showToast: (options: ToastOptions | string, type?: ToastType) => string;
-  success: (message: React.ReactNode, title?: string, duration?: number) => string;
-  error: (message: React.ReactNode, title?: string, duration?: number) => string;
-  warning: (message: React.ReactNode, title?: string, duration?: number) => string;
+  success: (
+    message: React.ReactNode,
+    title?: string,
+    duration?: number,
+  ) => string;
+  error: (
+    message: React.ReactNode,
+    title?: string,
+    duration?: number,
+  ) => string;
+  warning: (
+    message: React.ReactNode,
+    title?: string,
+    duration?: number,
+  ) => string;
   info: (message: React.ReactNode, title?: string, duration?: number) => string;
   dismiss: (id: string) => void;
   clearAll: () => void;
@@ -35,17 +59,33 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-let globalToastHandler: ((options: ToastOptions | string, type?: ToastType) => string) | null = null;
+let globalToastHandler:
+  ((options: ToastOptions | string, type?: ToastType) => string) | null = null;
 
 export const toast = {
-  show: (options: ToastOptions | string, type?: ToastType) => globalToastHandler ? globalToastHandler(options, type) : '',
-  success: (message: React.ReactNode, title?: string, duration?: number) => globalToastHandler ? globalToastHandler({ message, title, type: 'success', duration }) : '',
-  error: (message: React.ReactNode, title?: string, duration?: number) => globalToastHandler ? globalToastHandler({ message, title, type: 'error', duration }) : '',
-  warning: (message: React.ReactNode, title?: string, duration?: number) => globalToastHandler ? globalToastHandler({ message, title, type: 'warning', duration }) : '',
-  info: (message: React.ReactNode, title?: string, duration?: number) => globalToastHandler ? globalToastHandler({ message, title, type: 'info', duration }) : ''
+  show: (options: ToastOptions | string, type?: ToastType) =>
+    globalToastHandler ? globalToastHandler(options, type) : "",
+  success: (message: React.ReactNode, title?: string, duration?: number) =>
+    globalToastHandler
+      ? globalToastHandler({ message, title, type: "success", duration })
+      : "",
+  error: (message: React.ReactNode, title?: string, duration?: number) =>
+    globalToastHandler
+      ? globalToastHandler({ message, title, type: "error", duration })
+      : "",
+  warning: (message: React.ReactNode, title?: string, duration?: number) =>
+    globalToastHandler
+      ? globalToastHandler({ message, title, type: "warning", duration })
+      : "",
+  info: (message: React.ReactNode, title?: string, duration?: number) =>
+    globalToastHandler
+      ? globalToastHandler({ message, title, type: "info", duration })
+      : "",
 };
 
-export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { tokens, resolvedMode } = useThemeContext();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
@@ -59,22 +99,27 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showToast = useCallback(
     (options: ToastOptions | string, typeParam?: ToastType): string => {
-      const id = typeof options === 'object' && options.id ? options.id : `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      const normalized: ToastItem = typeof options === 'string'
-        ? {
-            id,
-            message: options,
-            type: typeParam || 'info',
-            duration: 4500,
-            createdAt: Date.now()
-          }
-        : {
-            ...options,
-            id,
-            type: options.type || typeParam || 'info',
-            duration: options.duration !== undefined ? options.duration : 4500,
-            createdAt: Date.now()
-          };
+      const id =
+        typeof options === "object" && options.id
+          ? options.id
+          : `toast_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const normalized: ToastItem =
+        typeof options === "string"
+          ? {
+              id,
+              message: options,
+              type: typeParam || "info",
+              duration: 4500,
+              createdAt: Date.now(),
+            }
+          : {
+              ...options,
+              id,
+              type: options.type || typeParam || "info",
+              duration:
+                options.duration !== undefined ? options.duration : 4500,
+              createdAt: Date.now(),
+            };
 
       setToasts((prev) => {
         const filtered = prev.filter((t) => t.id !== id);
@@ -89,24 +134,36 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       return id;
     },
-    [dismiss]
+    [dismiss],
   );
 
-  const success = useCallback((message: React.ReactNode, title?: string, duration?: number) => {
-    return showToast({ message, title, type: 'success', duration });
-  }, [showToast]);
+  const success = useCallback(
+    (message: React.ReactNode, title?: string, duration?: number) => {
+      return showToast({ message, title, type: "success", duration });
+    },
+    [showToast],
+  );
 
-  const error = useCallback((message: React.ReactNode, title?: string, duration?: number) => {
-    return showToast({ message, title, type: 'error', duration });
-  }, [showToast]);
+  const error = useCallback(
+    (message: React.ReactNode, title?: string, duration?: number) => {
+      return showToast({ message, title, type: "error", duration });
+    },
+    [showToast],
+  );
 
-  const warning = useCallback((message: React.ReactNode, title?: string, duration?: number) => {
-    return showToast({ message, title, type: 'warning', duration });
-  }, [showToast]);
+  const warning = useCallback(
+    (message: React.ReactNode, title?: string, duration?: number) => {
+      return showToast({ message, title, type: "warning", duration });
+    },
+    [showToast],
+  );
 
-  const info = useCallback((message: React.ReactNode, title?: string, duration?: number) => {
-    return showToast({ message, title, type: 'info', duration });
-  }, [showToast]);
+  const info = useCallback(
+    (message: React.ReactNode, title?: string, duration?: number) => {
+      return showToast({ message, title, type: "info", duration });
+    },
+    [showToast],
+  );
 
   useEffect(() => {
     globalToastHandler = showToast;
@@ -116,75 +173,77 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         showToast(customEvent.detail);
       }
     };
-    window.addEventListener('reported-toast', handleCustomToast);
+    window.addEventListener("reported-toast", handleCustomToast);
     return () => {
       globalToastHandler = null;
-      window.removeEventListener('reported-toast', handleCustomToast);
+      window.removeEventListener("reported-toast", handleCustomToast);
     };
   }, [showToast]);
 
   const getToastStyle = (type: ToastType) => {
     switch (type) {
-      case 'success':
+      case "success":
         return {
           icon: <CheckCircle2 size={19} color={tokens.success} />,
           borderColor: `${tokens.success}40`,
           glowColor: tokens.successGlow,
-          badgeColor: tokens.success
+          badgeColor: tokens.success,
         };
-      case 'error':
+      case "error":
         return {
           icon: <AlertCircle size={19} color={tokens.error} />,
           borderColor: `${tokens.error}40`,
           glowColor: tokens.errorGlow,
-          badgeColor: tokens.error
+          badgeColor: tokens.error,
         };
-      case 'warning':
+      case "warning":
         return {
           icon: <AlertTriangle size={19} color={tokens.warning} />,
           borderColor: `${tokens.warning}40`,
           glowColor: tokens.warningGlow,
-          badgeColor: tokens.warning
+          badgeColor: tokens.warning,
         };
-      case 'info':
+      case "info":
       default:
         return {
           icon: <Info size={19} color={tokens.info} />,
           borderColor: `${tokens.info}40`,
-          glowColor: 'rgba(56, 139, 253, 0.15)',
-          badgeColor: tokens.info
+          glowColor: "rgba(56, 139, 253, 0.15)",
+          badgeColor: tokens.info,
         };
     }
   };
 
-  const isDark = resolvedMode === 'dark';
+  const isDark = resolvedMode === "dark";
 
   return (
-    <ToastContext.Provider value={{ showToast, success, error, warning, info, dismiss, clearAll }}>
+    <ToastContext.Provider
+      value={{ showToast, success, error, warning, info, dismiss, clearAll }}
+    >
       {children}
       <Box
         id="reported-toast-container"
         sx={{
-          position: 'fixed',
+          position: "fixed",
           bottom: 28,
           right: 28,
           zIndex: 99999,
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
           gap: 1.5,
           maxWidth: 400,
-          width: 'calc(100vw - 56px)',
-          pointerEvents: 'none',
-          '@keyframes toastSlideIn': {
-            '0%': {
-              transform: 'translateX(60px) translateY(10px) scale(0.96)',
-              opacity: 0
+          width: "calc(100vw - 56px)",
+          pointerEvents: "none",
+          "@keyframes toastSlideIn": {
+            "0%": {
+              transform: "translateX(60px) translateY(10px) scale(0.96)",
+              opacity: 0,
             },
-            '100%': {
-              transform: 'translateX(0) translateY(0) scale(1)',
-              opacity: 1
-            }
-          }
+            "100%": {
+              transform: "translateX(0) translateY(0) scale(1)",
+              opacity: 1,
+            },
+          },
         }}
       >
         {toasts.map((t) => {
@@ -193,38 +252,38 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <Box
               key={t.id}
               sx={{
-                pointerEvents: 'auto',
-                display: 'flex',
-                alignItems: 'flex-start',
+                pointerEvents: "auto",
+                display: "flex",
+                alignItems: "flex-start",
                 gap: 1.5,
                 p: 1.8,
-                borderRadius: '10px',
-                backgroundColor: isDark ? 'rgba(18, 24, 36, 0.94)' : 'rgba(255, 255, 255, 0.96)',
-                backdropFilter: 'blur(16px)',
+                borderRadius: "10px",
+                backgroundColor: isDark
+                  ? "rgba(18, 24, 36, 0.94)"
+                  : "rgba(255, 255, 255, 0.96)",
+                backdropFilter: "blur(16px)",
                 border: `1px solid ${style.borderColor}`,
                 boxShadow: isDark
                   ? `0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px ${style.glowColor}`
                   : `0 10px 25px rgba(0, 0, 0, 0.12), 0 0 10px ${style.glowColor}`,
-                animation: 'toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                transition: 'all 0.2s ease',
-                position: 'relative',
-                overflow: 'hidden'
+                animation: "toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                transition: "all 0.2s ease",
+                position: "relative",
+                overflow: "hidden",
               }}
             >
               <Box
                 sx={{
-                  position: 'absolute',
+                  position: "absolute",
                   left: 0,
                   top: 0,
                   bottom: 0,
                   width: 3.5,
-                  backgroundColor: style.badgeColor
+                  backgroundColor: style.badgeColor,
                 }}
               />
 
-              <Box sx={{ flexShrink: 0, mt: 0.2 }}>
-                {style.icon}
-              </Box>
+              <Box sx={{ flexShrink: 0, mt: 0.2 }}>{style.icon}</Box>
 
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 {t.title && (
@@ -232,10 +291,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     variant="subtitle2"
                     sx={{
                       fontWeight: 700,
-                      fontSize: '0.875rem',
+                      fontSize: "0.875rem",
                       color: tokens.textPrimary,
                       lineHeight: 1.3,
-                      mb: 0.3
+                      mb: 0.3,
                     }}
                   >
                     {t.title}
@@ -244,10 +303,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 <Typography
                   variant="body2"
                   sx={{
-                    fontSize: '0.8125rem',
+                    fontSize: "0.8125rem",
                     color: t.title ? tokens.textSecondary : tokens.textPrimary,
                     lineHeight: 1.45,
-                    wordBreak: 'break-word'
+                    wordBreak: "break-word",
                   }}
                 >
                   {t.message}
@@ -265,11 +324,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                       mt: 1,
                       py: 0.3,
                       px: 1.2,
-                      fontSize: '0.75rem',
-                      borderRadius: '6px',
-                      textTransform: 'none',
+                      fontSize: "0.75rem",
+                      borderRadius: "6px",
+                      textTransform: "none",
                       borderColor: style.borderColor,
-                      color: style.badgeColor
+                      color: style.badgeColor,
                     }}
                   >
                     {t.action.label}
@@ -285,10 +344,10 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   mt: -0.4,
                   mr: -0.4,
                   color: tokens.textSecondary,
-                  '&:hover': {
+                  "&:hover": {
                     color: tokens.textPrimary,
-                    backgroundColor: tokens.hover
-                  }
+                    backgroundColor: tokens.hover,
+                  },
                 }}
               >
                 <X size={15} />
@@ -311,7 +370,7 @@ export const useToast = () => {
       warning: toast.warning,
       info: toast.info,
       dismiss: () => {},
-      clearAll: () => {}
+      clearAll: () => {},
     };
   }
   return context;

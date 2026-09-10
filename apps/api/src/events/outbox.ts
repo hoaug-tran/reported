@@ -1,10 +1,22 @@
 import {
-  db, outboxEvents, emailJobs, notifications, notificationPreferences, users, activities,
-  eq, and, sql
-} from '@reported/database';
-import { NotificationChannel, NotificationType, TargetType } from '@reported/contracts';
-import { config } from '../config/index.js';
-import { sendEmail } from '../services/email.service.js';
+  db,
+  outboxEvents,
+  emailJobs,
+  notifications,
+  notificationPreferences,
+  users,
+  activities,
+  eq,
+  and,
+  sql,
+} from "@reported/database";
+import {
+  NotificationChannel,
+  NotificationType,
+  TargetType,
+} from "@reported/contracts";
+import { config } from "../config/index.js";
+import { sendEmail } from "../services/email.service.js";
 
 interface OutboxPayload {
   targetUserIds?: string[];
@@ -28,32 +40,44 @@ interface OutboxPayload {
   [key: string]: unknown;
 }
 
-export async function recordOutboxEvent(eventType: string, payload: Record<string, unknown>) {
+export async function recordOutboxEvent(
+  eventType: string,
+  payload: Record<string, unknown>,
+) {
   try {
-    const [inserted] = await db.insert(outboxEvents).values({
-      eventType,
-      payload,
-      status: 'PENDING'
-    }).returning();
+    const [inserted] = await db
+      .insert(outboxEvents)
+      .values({
+        eventType,
+        payload,
+        status: "PENDING",
+      })
+      .returning();
     return inserted;
   } catch (err) {
-    console.error('Failed to record outbox event:', err);
+    console.error("Failed to record outbox event:", err);
   }
 }
 
-async function shouldSendEmail(userId: string, eventType: NotificationType): Promise<boolean> {
+async function shouldSendEmail(
+  userId: string,
+  eventType: NotificationType,
+): Promise<boolean> {
   const pref = await db.query.notificationPreferences.findFirst({
     where: and(
       eq(notificationPreferences.userId, userId),
-      eq(notificationPreferences.eventType, eventType)
-    )
+      eq(notificationPreferences.eventType, eventType),
+    ),
   });
 
   if (!pref) {
     return true;
   }
 
-  return pref.channel === NotificationChannel.EMAIL || pref.channel === NotificationChannel.BOTH;
+  return (
+    pref.channel === NotificationChannel.EMAIL ||
+    pref.channel === NotificationChannel.BOTH
+  );
 }
 
 async function dispatchEmailJob({
@@ -63,7 +87,7 @@ async function dispatchEmailJob({
   subject,
   template,
   htmlBody,
-  textBody
+  textBody,
 }: {
   outboxEventId: string;
   recipientEmail: string;
@@ -78,7 +102,7 @@ async function dispatchEmailJob({
     toName: recipientName,
     subject,
     html: htmlBody,
-    text: textBody
+    text: textBody,
   });
 
   await db.insert(emailJobs).values({
@@ -89,16 +113,21 @@ async function dispatchEmailJob({
     template,
     htmlBody,
     textBody,
-    status: result.success ? (result.mode === 'smtp' ? 'SENT' : 'SIMULATED') : 'FAILED',
-    sentAt: result.success ? new Date() : null
+    status: result.success
+      ? result.mode === "smtp"
+        ? "SENT"
+        : "SIMULATED"
+      : "FAILED",
+    sentAt: result.success ? new Date() : null,
   });
 }
 
 export async function processOutboxEvents() {
   try {
-
-    const pendingEvents = await db.select().from(outboxEvents)
-      .where(eq(outboxEvents.status, 'PENDING'))
+    const pendingEvents = await db
+      .select()
+      .from(outboxEvents)
+      .where(eq(outboxEvents.status, "PENDING"))
       .limit(20);
 
     for (const evt of pendingEvents) {
@@ -106,22 +135,33 @@ export async function processOutboxEvents() {
         const payload = (evt.payload || {}) as OutboxPayload;
 
         switch (evt.eventType) {
-          case 'USER_MENTIONED': {
-            const { targetUserIds = [], actorId, title, message, link } = payload;
-            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId) }) : null;
+          case "USER_MENTIONED": {
+            const {
+              targetUserIds = [],
+              actorId,
+              title,
+              message,
+              link,
+            } = payload;
+            const actor = actorId
+              ? await db.query.users.findFirst({ where: eq(users.id, actorId) })
+              : null;
 
             for (const userId of targetUserIds) {
               if (userId === actorId) continue;
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, userId),
+              });
               if (!targetUser) continue;
 
               await db.insert(notifications).values({
                 userId,
                 actorId,
                 type: NotificationType.MENTIONED,
-                title: title || `${actor?.displayName || 'Someone'} mentioned you`,
-                message: message || '',
-                link: link || '/'
+                title:
+                  title || `${actor?.displayName || "Someone"} mentioned you`,
+                message: message || "",
+                link: link || "/",
               });
 
               if (await shouldSendEmail(userId, NotificationType.MENTIONED)) {
@@ -130,7 +170,7 @@ export async function processOutboxEvents() {
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
                   subject: `[Reported] ${actor?.displayName} mentioned you: ${title}`,
-                  template: 'user-mention',
+                  template: "user-mention",
                   htmlBody: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
                       <h3 style="margin-bottom: 8px;">${actor?.displayName} mentioned you</h3>
@@ -142,20 +182,30 @@ export async function processOutboxEvents() {
                       </p>
                     </div>
                   `,
-                  textBody: `${actor?.displayName} mentioned you: ${message}\n\nLink: ${config.clientUrl}${link}`
+                  textBody: `${actor?.displayName} mentioned you: ${message}\n\nLink: ${config.clientUrl}${link}`,
                 });
               }
             }
             break;
           }
 
-          case 'ISSUE_ASSIGNED': {
-            const { assigneeIds = [], actorId, issueNumber, issueTitle, link } = payload;
-            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId) }) : null;
+          case "ISSUE_ASSIGNED": {
+            const {
+              assigneeIds = [],
+              actorId,
+              issueNumber,
+              issueTitle,
+              link,
+            } = payload;
+            const actor = actorId
+              ? await db.query.users.findFirst({ where: eq(users.id, actorId) })
+              : null;
 
             for (const userId of assigneeIds) {
               if (userId === actorId) continue;
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, userId),
+              });
               if (!targetUser) continue;
 
               await db.insert(notifications).values({
@@ -163,8 +213,8 @@ export async function processOutboxEvents() {
                 actorId,
                 type: NotificationType.ASSIGNED,
                 title: `Assigned to Issue #${issueNumber}`,
-                message: `${actor?.displayName || 'Someone'} assigned you to "${issueTitle}"`,
-                link: link || `/issues/${issueNumber}`
+                message: `${actor?.displayName || "Someone"} assigned you to "${issueTitle}"`,
+                link: link || `/issues/${issueNumber}`,
               });
 
               if (await shouldSendEmail(userId, NotificationType.ASSIGNED)) {
@@ -173,27 +223,37 @@ export async function processOutboxEvents() {
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
                   subject: `[Reported] Assigned to #${issueNumber}: ${issueTitle}`,
-                  template: 'issue-assigned',
+                  template: "issue-assigned",
                   htmlBody: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
                       <p><strong>${actor?.displayName}</strong> assigned you to <strong>#${issueNumber}: ${issueTitle}</strong>.</p>
                       <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open Issue</a></p>
                     </div>
                   `,
-                  textBody: `You have been assigned to #${issueNumber}: ${issueTitle}\n\nLink: ${config.clientUrl}${link}`
+                  textBody: `You have been assigned to #${issueNumber}: ${issueTitle}\n\nLink: ${config.clientUrl}${link}`,
                 });
               }
             }
             break;
           }
 
-          case 'REVIEW_REQUESTED': {
-            const { reviewerIds = [], actorId, reviewNumber, reviewTitle, link } = payload;
-            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId) }) : null;
+          case "REVIEW_REQUESTED": {
+            const {
+              reviewerIds = [],
+              actorId,
+              reviewNumber,
+              reviewTitle,
+              link,
+            } = payload;
+            const actor = actorId
+              ? await db.query.users.findFirst({ where: eq(users.id, actorId) })
+              : null;
 
             for (const userId of reviewerIds) {
               if (userId === actorId) continue;
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, userId),
+              });
               if (!targetUser) continue;
 
               await db.insert(notifications).values({
@@ -201,35 +261,43 @@ export async function processOutboxEvents() {
                 actorId,
                 type: NotificationType.REVIEW_REQUESTED,
                 title: `Review Requested on #${reviewNumber}`,
-                message: `${actor?.displayName || 'Someone'} requested your review on "${reviewTitle}"`,
-                link: link || `/reviews/${reviewNumber}`
+                message: `${actor?.displayName || "Someone"} requested your review on "${reviewTitle}"`,
+                link: link || `/reviews/${reviewNumber}`,
               });
 
-              if (await shouldSendEmail(userId, NotificationType.REVIEW_REQUESTED)) {
+              if (
+                await shouldSendEmail(userId, NotificationType.REVIEW_REQUESTED)
+              ) {
                 await dispatchEmailJob({
                   outboxEventId: evt.id,
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
                   subject: `[Reported] Review requested on #${reviewNumber}: ${reviewTitle}`,
-                  template: 'review-requested',
+                  template: "review-requested",
                   htmlBody: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
                       <p><strong>${actor?.displayName}</strong> requested your review on <strong>#${reviewNumber}: ${reviewTitle}</strong>.</p>
                       <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">Start Review</a></p>
                     </div>
                   `,
-                  textBody: `Review requested on #${reviewNumber}: ${reviewTitle}\n\nLink: ${config.clientUrl}${link}`
+                  textBody: `Review requested on #${reviewNumber}: ${reviewTitle}\n\nLink: ${config.clientUrl}${link}`,
                 });
               }
             }
             break;
           }
 
-          case 'COMMENT_CREATED': {
+          case "COMMENT_CREATED": {
             const { targetAuthorId, actorId, title, snippet, link } = payload;
             if (targetAuthorId && targetAuthorId !== actorId) {
-              const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId) }) : null;
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, targetAuthorId) });
+              const actor = actorId
+                ? await db.query.users.findFirst({
+                    where: eq(users.id, actorId),
+                  })
+                : null;
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, targetAuthorId),
+              });
 
               if (targetUser) {
                 await db.insert(notifications).values({
@@ -238,16 +306,21 @@ export async function processOutboxEvents() {
                   type: NotificationType.COMMENTED,
                   title: `New comment on "${title}"`,
                   message: `${actor?.displayName}: ${snippet}`,
-                  link: link || '/'
+                  link: link || "/",
                 });
 
-                if (await shouldSendEmail(targetAuthorId, NotificationType.COMMENTED)) {
+                if (
+                  await shouldSendEmail(
+                    targetAuthorId,
+                    NotificationType.COMMENTED,
+                  )
+                ) {
                   await dispatchEmailJob({
                     outboxEventId: evt.id,
                     recipientEmail: targetUser.email,
                     recipientName: targetUser.displayName,
                     subject: `[Reported] New comment on ${title}`,
-                    template: 'new-comment',
+                    template: "new-comment",
                     htmlBody: `
                       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
                         <p><strong>${actor?.displayName}</strong> commented on <strong>${title}</strong>:</p>
@@ -257,7 +330,7 @@ export async function processOutboxEvents() {
                         <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Comment</a></p>
                       </div>
                     `,
-                    textBody: `${actor?.displayName} commented on ${title}:\n\n${snippet}\n\nLink: ${config.clientUrl}${link}`
+                    textBody: `${actor?.displayName} commented on ${title}:\n\n${snippet}\n\nLink: ${config.clientUrl}${link}`,
                   });
                 }
               }
@@ -265,11 +338,25 @@ export async function processOutboxEvents() {
             break;
           }
 
-          case 'ISSUE_STATUS_CHANGED': {
-            const { issueNumber, issueTitle, fromStatus, toStatus, authorId, actorId, link } = payload;
+          case "ISSUE_STATUS_CHANGED": {
+            const {
+              issueNumber,
+              issueTitle,
+              fromStatus,
+              toStatus,
+              authorId,
+              actorId,
+              link,
+            } = payload;
             if (authorId && authorId !== actorId) {
-              const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId) }) : null;
-              const author = await db.query.users.findFirst({ where: eq(users.id, authorId) });
+              const actor = actorId
+                ? await db.query.users.findFirst({
+                    where: eq(users.id, actorId),
+                  })
+                : null;
+              const author = await db.query.users.findFirst({
+                where: eq(users.id, authorId),
+              });
 
               if (author) {
                 await db.insert(notifications).values({
@@ -278,23 +365,28 @@ export async function processOutboxEvents() {
                   type: NotificationType.ISSUE_STATUS_CHANGED,
                   title: `Issue #${issueNumber} status changed: ${fromStatus} → ${toStatus}`,
                   message: `${actor?.displayName} changed status to ${toStatus}`,
-                  link: link || `/issues/${issueNumber}`
+                  link: link || `/issues/${issueNumber}`,
                 });
 
-                if (await shouldSendEmail(authorId, NotificationType.ISSUE_STATUS_CHANGED)) {
+                if (
+                  await shouldSendEmail(
+                    authorId,
+                    NotificationType.ISSUE_STATUS_CHANGED,
+                  )
+                ) {
                   await dispatchEmailJob({
                     outboxEventId: evt.id,
                     recipientEmail: author.email,
                     recipientName: author.displayName,
                     subject: `[Reported] #${issueNumber} status changed to ${toStatus}`,
-                    template: 'status-changed',
+                    template: "status-changed",
                     htmlBody: `
                       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
                         <p><strong>${actor?.displayName}</strong> updated the status of <strong>#${issueNumber}: ${issueTitle}</strong> from <code>${fromStatus}</code> to <code>${toStatus}</code>.</p>
                         <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Issue</a></p>
                       </div>
                     `,
-                    textBody: `Status updated on #${issueNumber}: ${issueTitle} -> ${toStatus}\n\nLink: ${config.clientUrl}${link}`
+                    textBody: `Status updated on #${issueNumber}: ${issueTitle} -> ${toStatus}\n\nLink: ${config.clientUrl}${link}`,
                   });
                 }
               }
@@ -302,14 +394,34 @@ export async function processOutboxEvents() {
             break;
           }
 
-          case 'REVIEW_STATUS_CHANGED': {
-            const { targetUserIds = [], reviewNumber, reviewTitle, fromStatus, toStatus, authorId, actorId, link } = payload;
-            const recipientIds = ((targetUserIds as string[]).length > 0 ? (targetUserIds as string[]) : (authorId ? [authorId as string] : []))
-              .filter((uid: string) => uid !== actorId);
-            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId as string) }) : null;
+          case "REVIEW_STATUS_CHANGED": {
+            const {
+              targetUserIds = [],
+              reviewNumber,
+              reviewTitle,
+              fromStatus,
+              toStatus,
+              authorId,
+              actorId,
+              link,
+            } = payload;
+            const recipientIds = (
+              (targetUserIds as string[]).length > 0
+                ? (targetUserIds as string[])
+                : authorId
+                  ? [authorId as string]
+                  : []
+            ).filter((uid: string) => uid !== actorId);
+            const actor = actorId
+              ? await db.query.users.findFirst({
+                  where: eq(users.id, actorId as string),
+                })
+              : null;
 
             for (const userId of recipientIds) {
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, userId),
+              });
               if (!targetUser) continue;
 
               await db.insert(notifications).values({
@@ -317,37 +429,57 @@ export async function processOutboxEvents() {
                 actorId: actorId as string | undefined,
                 type: NotificationType.REVIEW_STATUS_CHANGED,
                 title: `Review #${reviewNumber} status: ${fromStatus} → ${toStatus}`,
-                message: `${actor?.displayName || 'Someone'} changed review status to ${toStatus}`,
-                link: (link as string) || `/reviews/${reviewNumber}`
+                message: `${actor?.displayName || "Someone"} changed review status to ${toStatus}`,
+                link: (link as string) || `/reviews/${reviewNumber}`,
               });
 
-              if (await shouldSendEmail(userId, NotificationType.REVIEW_STATUS_CHANGED)) {
+              if (
+                await shouldSendEmail(
+                  userId,
+                  NotificationType.REVIEW_STATUS_CHANGED,
+                )
+              ) {
                 await dispatchEmailJob({
                   outboxEventId: evt.id,
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
                   subject: `[Reported] Review #${reviewNumber} status changed to ${toStatus}`,
-                  template: 'status-changed',
+                  template: "status-changed",
                   htmlBody: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
-                      <p><strong>${actor?.displayName || 'Someone'}</strong> updated the status of <strong>#${reviewNumber}: ${reviewTitle || ''}</strong> from <code>${fromStatus}</code> to <code>${toStatus}</code>.</p>
+                      <p><strong>${actor?.displayName || "Someone"}</strong> updated the status of <strong>#${reviewNumber}: ${reviewTitle || ""}</strong> from <code>${fromStatus}</code> to <code>${toStatus}</code>.</p>
                       <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Review</a></p>
                     </div>
                   `,
-                  textBody: `Review #${reviewNumber} status changed: ${fromStatus} -> ${toStatus}\n\nLink: ${config.clientUrl}${link}`
+                  textBody: `Review #${reviewNumber} status changed: ${fromStatus} -> ${toStatus}\n\nLink: ${config.clientUrl}${link}`,
                 });
               }
             }
             break;
           }
 
-          case 'PR_UPDATED': {
-            const { targetUserIds = [], actorId, prNumber, reviewNumber, reviewTitle, link } = payload;
-            const recipientIds = (targetUserIds as string[]).filter((uid: string) => uid !== actorId);
-            const actor = actorId ? await db.query.users.findFirst({ where: eq(users.id, actorId as string) }) : null;
+          case "PR_UPDATED": {
+            const {
+              targetUserIds = [],
+              actorId,
+              prNumber,
+              reviewNumber,
+              reviewTitle,
+              link,
+            } = payload;
+            const recipientIds = (targetUserIds as string[]).filter(
+              (uid: string) => uid !== actorId,
+            );
+            const actor = actorId
+              ? await db.query.users.findFirst({
+                  where: eq(users.id, actorId as string),
+                })
+              : null;
 
             for (const userId of recipientIds) {
-              const targetUser = await db.query.users.findFirst({ where: eq(users.id, userId) });
+              const targetUser = await db.query.users.findFirst({
+                where: eq(users.id, userId),
+              });
               if (!targetUser) continue;
 
               await db.insert(notifications).values({
@@ -356,7 +488,7 @@ export async function processOutboxEvents() {
                 type: NotificationType.PR_UPDATED,
                 title: `PR #${prNumber} updated on Review #${reviewNumber}`,
                 message: `Pull Request #${prNumber} has new changes. Review status set to Pending Review.`,
-                link: (link as string) || `/reviews/${reviewNumber}`
+                link: (link as string) || `/reviews/${reviewNumber}`,
               });
 
               if (await shouldSendEmail(userId, NotificationType.PR_UPDATED)) {
@@ -365,15 +497,15 @@ export async function processOutboxEvents() {
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
                   subject: `[Reported] PR #${prNumber} updated for Review #${reviewNumber}`,
-                  template: 'pr-updated',
+                  template: "pr-updated",
                   htmlBody: `
                     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
-                      <p>Pull Request <strong>#${prNumber}</strong> linked to review <strong>#${reviewNumber}: ${reviewTitle || ''}</strong> has new commits.</p>
+                      <p>Pull Request <strong>#${prNumber}</strong> linked to review <strong>#${reviewNumber}: ${reviewTitle || ""}</strong> has new commits.</p>
                       <p>Review status has been updated to <strong>Pending Review</strong>.</p>
                       <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">Open Review</a></p>
                     </div>
                   `,
-                  textBody: `PR #${prNumber} linked to Review #${reviewNumber} has new changes. Status reset to Pending Review.\n\nLink: ${config.clientUrl}${link}`
+                  textBody: `PR #${prNumber} linked to Review #${reviewNumber} has new changes. Status reset to Pending Review.\n\nLink: ${config.clientUrl}${link}`,
                 });
               }
             }
@@ -381,23 +513,24 @@ export async function processOutboxEvents() {
           }
         }
 
-        await db.update(outboxEvents)
-          .set({ status: 'PROCESSED', processedAt: new Date() })
+        await db
+          .update(outboxEvents)
+          .set({ status: "PROCESSED", processedAt: new Date() })
           .where(eq(outboxEvents.id, evt.id));
-
       } catch (err: unknown) {
         console.error(`Error processing outbox event ${evt.id}:`, err);
-        await db.update(outboxEvents)
+        await db
+          .update(outboxEvents)
           .set({
-            status: evt.attempts >= 3 ? 'FAILED' : 'PENDING',
+            status: evt.attempts >= 3 ? "FAILED" : "PENDING",
             attempts: evt.attempts + 1,
-            error: err instanceof Error ? err.message : 'Processing error'
+            error: err instanceof Error ? err.message : "Processing error",
           })
           .where(eq(outboxEvents.id, evt.id));
       }
     }
   } catch (error) {
-    console.error('Outbox processor error:', error);
+    console.error("Outbox processor error:", error);
   }
 }
 
@@ -405,7 +538,9 @@ let workerInterval: NodeJS.Timeout | null = null;
 
 export function startOutboxWorker(intervalMs = 3000) {
   if (workerInterval) return;
-  console.log(`🚀 Transactional Outbox worker started (polling every ${intervalMs}ms)`);
+  console.log(
+    `🚀 Transactional Outbox worker started (polling every ${intervalMs}ms)`,
+  );
   workerInterval = setInterval(() => {
     processOutboxEvents().catch(console.error);
   }, intervalMs);
@@ -417,4 +552,3 @@ export function stopOutboxWorker() {
     workerInterval = null;
   }
 }
-
