@@ -1,7 +1,8 @@
-import React from 'react';
-import { Box, Typography, Tooltip, Link } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Tooltip, Link, IconButton } from '@mui/material';
 import {
-  CheckCircle2, XCircle, Clock, MinusCircle, SkipForward, ExternalLink
+  CheckCircle2, XCircle, Clock, MinusCircle, SkipForward, ExternalLink,
+  ChevronDown, ChevronUp
 } from 'lucide-react';
 import { useThemeContext } from '../../contexts/ThemeContext';
 
@@ -83,41 +84,62 @@ export const CICheckRunsList: React.FC<CICheckRunsListProps> = ({
   const passCount = checkRuns.filter(r => r.conclusion === 'success').length;
   const failCount = checkRuns.filter(r => r.conclusion === 'failure' || r.conclusion === 'timed_out').length;
   const pendingCount = checkRuns.filter(r => r.status !== 'completed').length;
+  const [expanded, setExpanded] = useState(failCount > 0);
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        {passCount > 0 && (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.success, fontSize: '0.75rem' }}>
-            <CheckCircle2 size={13} />
-            <span>{passCount} passed</span>
-          </Box>
-        )}
-        {failCount > 0 && (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.error, fontSize: '0.75rem' }}>
-            <XCircle size={13} />
-            <span>{failCount} failed</span>
-          </Box>
-        )}
-        {pendingCount > 0 && (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.warning, fontSize: '0.75rem' }}>
-            <Clock size={13} />
-            <span>{pendingCount} running</span>
-          </Box>
-        )}
-      </Box>
-
       <Box
+        onClick={() => setExpanded(!expanded)}
         sx={{
-          borderRadius: '6px',
-          border: `1px solid ${tokens.border}`,
-          overflow: 'hidden',
-          maxHeight: 180,
-          overflowY: 'auto',
-          '&::-webkit-scrollbar': { width: 4 },
-          '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          py: 0.5,
+          userSelect: 'none',
+          '&:hover': { opacity: 0.85 }
         }}
       >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          {passCount > 0 && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.success, fontSize: '0.75rem', fontWeight: 600 }}>
+              <CheckCircle2 size={13} />
+              <span>{passCount} passed</span>
+            </Box>
+          )}
+          {failCount > 0 && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.error, fontSize: '0.75rem', fontWeight: 600 }}>
+              <XCircle size={13} />
+              <span>{failCount} failed</span>
+            </Box>
+          )}
+          {pendingCount > 0 && (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, color: tokens.warning, fontSize: '0.75rem', fontWeight: 600 }}>
+              <Clock size={13} />
+              <span>{pendingCount} running</span>
+            </Box>
+          )}
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: tokens.textSecondary, fontSize: '0.75rem', ml: 'auto' }}>
+          <span>{expanded ? 'Thu gọn' : 'Chi tiết'}</span>
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </Box>
+      </Box>
+
+      {expanded && (
+        <Box
+          sx={{
+            mt: 1,
+            borderRadius: '6px',
+            border: `1px solid ${tokens.border}`,
+            overflow: 'hidden',
+            maxHeight: 160,
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': { width: 4 },
+            '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+          }}
+        >
         {checkRuns.map((run, idx) => (
           <Box
             key={`${run.name}-${idx}`}
@@ -164,7 +186,8 @@ export const CICheckRunsList: React.FC<CICheckRunsListProps> = ({
             )}
           </Box>
         ))}
-      </Box>
+        </Box>
+      )}
     </Box>
   );
 };

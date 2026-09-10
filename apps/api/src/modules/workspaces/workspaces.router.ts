@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import {
   db, workspaces, workspaceMembers, projects, projectMembers, invitations, users, issues, reviewRequests,
-  eq, ne, and, or, sql, isNull
+  reviewReviewers, issueAssignees,
+  eq, ne, and, or, sql, isNull, inArray
 } from '@reported/database';
 import {
   CreateWorkspaceSchema, UpdateWorkspaceSchema, CreateProjectSchema, UpdateProjectSchema,
-  InviteMemberSchema, UpdateMemberRoleSchema, WorkspaceRole
+  InviteMemberSchema, UpdateMemberRoleSchema, WorkspaceRole, ReviewerDecision
 } from '@reported/contracts';
 import { requireAuth } from '../../middleware/auth.js';
 import { AppError } from '../../middleware/error.js';
@@ -372,6 +373,52 @@ workspacesRouter.delete('/:id/members/:userId', async (req: Request, res: Respon
     await db.delete(workspaceMembers).where(
       and(eq(workspaceMembers.workspaceId, id), eq(workspaceMembers.userId, userId))
     );
+
+    // Cascade cleanup: remove pending review assignments in this workspace
+    const wsReviews = await db.select({ id: reviewRequests.id })
+      .from(reviewRequests)
+      .where(eq(reviewRequests.workspaceId, id));
+
+    if (wsReviews.length > 0) {
+      const reviewIds = wsReviews.map(r => r.id);
+      await db.delete(reviewReviewers).where(
+        and(
+          inArray(reviewReviewers.reviewId, reviewIds),
+          eq(reviewReviewers.userId, userId),
+          eq(reviewReviewers.status, ReviewerDecision.PENDING)
+        )
+      );
+    }
+
+    // Cascade cleanup: remove issue assignments in this workspace
+    const wsIssues = await db.select({ id: issues.id })
+      .from(issues)
+      .where(eq(issues.workspaceId, id));
+
+    if (wsIssues.length > 0) {
+      const issueIds = wsIssues.map(i => i.id);
+      await db.delete(issueAssignees).where(
+        and(
+          inArray(issueAssignees.issueId, issueIds),
+          eq(issueAssignees.userId, userId)
+        )
+      );
+    }
+
+    // Cascade cleanup: remove project memberships in this workspace
+    const wsProjects = await db.select({ id: projects.id })
+      .from(projects)
+      .where(eq(projects.workspaceId, id));
+
+    if (wsProjects.length > 0) {
+      const projectIds = wsProjects.map(p => p.id);
+      await db.delete(projectMembers).where(
+        and(
+          inArray(projectMembers.projectId, projectIds),
+          eq(projectMembers.userId, userId)
+        )
+      );
+    }
 
     return res.json({ success: true, message: 'Member removed from workspace' });
   } catch (error) {

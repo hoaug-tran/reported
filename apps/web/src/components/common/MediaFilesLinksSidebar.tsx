@@ -51,6 +51,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   const [filesOpen, setFilesOpen] = useState(true);
   const [linksOpen, setLinksOpen] = useState(true);
   const [showAllFiles, setShowAllFiles] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'media' | 'files' | 'links'>('all');
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState('');
@@ -420,230 +421,342 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         </label>
       </Box>
 
-      <Box sx={{ borderBottom: `1px solid ${tokens.divider}` }}>
-        <Box
-          onClick={() => setMediaOpen(!mediaOpen)}
-          sx={{
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            userSelect: 'none',
-            '&:hover': { backgroundColor: tokens.hover }
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
-            {isVi ? 'Ảnh/Video' : 'Photos/Videos'} ({images.length})
-          </Typography>
-          {mediaOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
-        </Box>
+      {/* Category Tab Bar */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 0.5,
+          px: 1.2,
+          py: 0.8,
+          borderBottom: `1px solid ${tokens.divider}`,
+          backgroundColor: tokens.surfaceSecondary,
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' }
+        }}
+      >
+        {[
+          { id: 'all', label: isVi ? 'Tất cả' : 'All', count: images.length + nonMediaFiles.length + extractedLinks.length },
+          { id: 'media', label: isVi ? 'Ảnh' : 'Media', count: images.length },
+          { id: 'files', label: isVi ? 'Tệp' : 'Files', count: nonMediaFiles.length },
+          { id: 'links', label: 'Link', count: extractedLinks.length }
+        ].map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <Button
+              key={tab.id}
+              size="small"
+              onClick={() => {
+                setActiveTab(tab.id as any);
+                if (tab.id === 'media') setMediaOpen(true);
+                if (tab.id === 'files') setFilesOpen(true);
+                if (tab.id === 'links') setLinksOpen(true);
+              }}
+              sx={{
+                minWidth: 'auto',
+                px: 1,
+                py: 0.25,
+                borderRadius: '12px',
+                fontSize: '0.72rem',
+                fontWeight: isActive ? 700 : 500,
+                textTransform: 'none',
+                color: isActive ? tokens.primary : tokens.textSecondary,
+                backgroundColor: isActive ? `${tokens.primary}18` : 'transparent',
+                border: `1px solid ${isActive ? `${tokens.primary}40` : 'transparent'}`,
+                '&:hover': {
+                  backgroundColor: isActive ? `${tokens.primary}25` : tokens.hover
+                }
+              }}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <Box
+                  component="span"
+                  sx={{
+                    ml: 0.5,
+                    px: 0.6,
+                    py: 0.05,
+                    fontSize: '0.65rem',
+                    borderRadius: '10px',
+                    backgroundColor: isActive ? tokens.primary : tokens.border,
+                    color: isActive ? '#fff' : tokens.textSecondary,
+                    fontWeight: 700
+                  }}
+                >
+                  {tab.count}
+                </Box>
+              )}
+            </Button>
+          );
+        })}
+      </Box>
 
-        <Collapse in={mediaOpen}>
-          <Box sx={{ px: 1.5, pb: 1.5 }}>
-            {images.length === 0 ? (
-              <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                {isVi ? 'Chưa có Ảnh/Video được chia sẻ trong hội thoại này' : 'No photos or videos shared in this item'}
-              </Typography>
-            ) : (
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1 }}>
-                {images.map((img) => (
-                  <Box
-                    key={img.id}
-                    onClick={() => {
-                      setLightboxSrc(img.inlineUrl);
-                      setLightboxAlt(img.originalName);
-                      setLightboxOpen(true);
-                    }}
-                    sx={{
-                      position: 'relative',
-                      paddingTop: '100%',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      border: `1px solid ${tokens.border}`,
-                      backgroundColor: tokens.surfaceSecondary,
-                      '&:hover img': { transform: 'scale(1.08)' }
-                    }}
-                  >
+      {/* Media Section */}
+      {(activeTab === 'all' || activeTab === 'media') && (
+        <Box sx={{ borderBottom: activeTab === 'all' ? `1px solid ${tokens.divider}` : 'none' }}>
+          <Box
+            onClick={() => setMediaOpen(!mediaOpen)}
+            sx={{
+              p: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': { backgroundColor: tokens.hover }
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+              {isVi ? 'Ảnh/Video' : 'Photos/Videos'} ({images.length})
+            </Typography>
+            {mediaOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+          </Box>
+
+          <Collapse in={mediaOpen}>
+            <Box sx={{ px: 1.5, pb: 1.5 }}>
+              {images.length === 0 ? (
+                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
+                  {isVi ? 'Chưa có Ảnh/Video được chia sẻ trong hội thoại này' : 'No photos or videos shared in this item'}
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: 1,
+                    maxHeight: activeTab === 'all' ? 180 : 340,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                  }}
+                >
+                  {images.map((img) => (
                     <Box
-                      component="img"
-                      src={img.inlineUrl}
-                      alt={img.originalName}
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        transition: 'transform 0.2s ease'
+                      key={img.id}
+                      onClick={() => {
+                        setLightboxSrc(img.inlineUrl);
+                        setLightboxAlt(img.originalName);
+                        setLightboxOpen(true);
                       }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Collapse>
-      </Box>
-
-      <Box sx={{ borderBottom: `1px solid ${tokens.divider}` }}>
-        <Box
-          onClick={() => setFilesOpen(!filesOpen)}
-          sx={{
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            userSelect: 'none',
-            '&:hover': { backgroundColor: tokens.hover }
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
-            File ({nonMediaFiles.length})
-          </Typography>
-          {filesOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
-        </Box>
-
-        <Collapse in={filesOpen}>
-          <Box sx={{ px: 1.5, pb: 1.5 }}>
-            {nonMediaFiles.length === 0 ? (
-              <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                {isVi ? 'Chưa có Tập tin được chia sẻ trong hội thoại này' : 'No files shared in this item'}
-              </Typography>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {displayedFiles.map((f) => (
-                  <Box
-                    key={f.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      p: 1,
-                      borderRadius: '6px',
-                      backgroundColor: tokens.surfaceSecondary,
-                      border: `1px solid ${tokens.border}`,
-                      transition: 'background-color 0.12s ease',
-                      '&:hover': { backgroundColor: tokens.hover }
-                    }}
-                  >
-                    {renderFileIcon(f.mimeType, f.originalName)}
-
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem', color: tokens.textPrimary }} noWrap>
-                        {f.originalName}
-                      </Typography>
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.2 }}>
-                        <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem' }}>
-                          {formatFileSize(f.sizeBytes)}
-                        </Typography>
-                        <CheckCircle2 size={11} color={tokens.success} />
-                        <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem', ml: 'auto' }}>
-                          {formatDate(f.createdAt)}
-                        </Typography>
-                      </Box>
+                      sx={{
+                        position: 'relative',
+                        paddingTop: '100%',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        border: `1px solid ${tokens.border}`,
+                        backgroundColor: tokens.surfaceSecondary,
+                        '&:hover img': { transform: 'scale(1.08)' }
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={img.inlineUrl}
+                        alt={img.originalName}
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.2s ease'
+                        }}
+                      />
                     </Box>
-
-                    <Tooltip title={f.isVoiceNote || f.mimeType.startsWith('audio/') ? (isVi ? 'Mở / Nghe âm thanh' : 'Play audio') : (isVi ? 'Tải tệp về' : 'Download file')}>
-                      <IconButton
-                        size="small"
-                        component="a"
-                        href={f.url}
-                        target={f.isVoiceNote || f.mimeType.startsWith('audio/') ? '_blank' : undefined}
-                        download={f.isVoiceNote || f.mimeType.startsWith('audio/') ? undefined : f.originalName}
-                        sx={{ color: tokens.textSecondary, '&:hover': { color: tokens.primary } }}
-                      >
-                        <Download size={16} />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                ))}
-
-                {nonMediaFiles.length > 3 && (
-                  <Button
-                    size="small"
-                    variant="text"
-                    fullWidth
-                    onClick={() => setShowAllFiles(!showAllFiles)}
-                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', mt: 0.5 }}
-                  >
-                    {showAllFiles ? (isVi ? 'Thu gọn' : 'Show less') : (isVi ? 'Xem tất cả' : 'View all')}
-                  </Button>
-                )}
-              </Box>
-            )}
-          </Box>
-        </Collapse>
-      </Box>
-
-      <Box>
-        <Box
-          onClick={() => setLinksOpen(!linksOpen)}
-          sx={{
-            p: 1.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
-            userSelect: 'none',
-            '&:hover': { backgroundColor: tokens.hover }
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
-            Link ({extractedLinks.length})
-          </Typography>
-          {linksOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Collapse>
         </Box>
+      )}
 
-        <Collapse in={linksOpen}>
-          <Box sx={{ px: 1.5, pb: 1.5 }}>
-            {extractedLinks.length === 0 ? (
-              <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
-                {isVi ? 'Chưa có Link được chia sẻ trong hội thoại này' : 'No links shared in this conversation'}
-              </Typography>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
-                {extractedLinks.map((l, i) => (
-                  <Box
-                    key={i}
-                    component="a"
-                    href={l.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      p: 0.8,
-                      px: 1,
-                      borderRadius: '6px',
-                      backgroundColor: tokens.surfaceSecondary,
-                      textDecoration: 'none',
-                      color: tokens.primary,
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
-                      transition: 'background-color 0.12s ease',
-                      '&:hover': {
-                        backgroundColor: tokens.hover,
-                        textDecoration: 'underline'
-                      }
-                    }}
-                  >
-                    <ExternalLink size={13} style={{ flexShrink: 0 }} />
-                    <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 600 }} noWrap>
-                      {l.title}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            )}
+      {/* Files Section */}
+      {(activeTab === 'all' || activeTab === 'files') && (
+        <Box sx={{ borderBottom: activeTab === 'all' ? `1px solid ${tokens.divider}` : 'none' }}>
+          <Box
+            onClick={() => setFilesOpen(!filesOpen)}
+            sx={{
+              p: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': { backgroundColor: tokens.hover }
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+              File ({nonMediaFiles.length})
+            </Typography>
+            {filesOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
           </Box>
-        </Collapse>
-      </Box>
+
+          <Collapse in={filesOpen}>
+            <Box sx={{ px: 1.5, pb: 1.5 }}>
+              {nonMediaFiles.length === 0 ? (
+                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
+                  {isVi ? 'Chưa có Tập tin được chia sẻ trong hội thoại này' : 'No files shared in this item'}
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 1,
+                    maxHeight: activeTab === 'all' ? 220 : 340,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                  }}
+                >
+                  {displayedFiles.map((f) => (
+                    <Box
+                      key={f.id}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.5,
+                        p: 1,
+                        borderRadius: '6px',
+                        backgroundColor: tokens.surfaceSecondary,
+                        border: `1px solid ${tokens.border}`,
+                        transition: 'background-color 0.12s ease',
+                        '&:hover': { backgroundColor: tokens.hover }
+                      }}
+                    >
+                      {renderFileIcon(f.mimeType, f.originalName)}
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem', color: tokens.textPrimary }} noWrap>
+                          {f.originalName}
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.2 }}>
+                          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem' }}>
+                            {formatFileSize(f.sizeBytes)}
+                          </Typography>
+                          <CheckCircle2 size={11} color={tokens.success} />
+                          <Typography variant="caption" sx={{ color: tokens.textSecondary, fontSize: '0.6875rem', ml: 'auto' }}>
+                            {formatDate(f.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Tooltip title={f.isVoiceNote || f.mimeType.startsWith('audio/') ? (isVi ? 'Mở / Nghe âm thanh' : 'Play audio') : (isVi ? 'Tải tệp về' : 'Download file')}>
+                        <IconButton
+                          size="small"
+                          component="a"
+                          href={f.url}
+                          target={f.isVoiceNote || f.mimeType.startsWith('audio/') ? '_blank' : undefined}
+                          download={f.isVoiceNote || f.mimeType.startsWith('audio/') ? undefined : f.originalName}
+                          sx={{ color: tokens.textSecondary, '&:hover': { color: tokens.primary } }}
+                        >
+                          <Download size={16} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  ))}
+
+                  {nonMediaFiles.length > 3 && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      fullWidth
+                      onClick={() => setShowAllFiles(!showAllFiles)}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', mt: 0.5 }}
+                    >
+                      {showAllFiles ? (isVi ? 'Thu gọn' : 'Show less') : (isVi ? 'Xem tất cả' : 'View all')}
+                    </Button>
+                  )}
+                </Box>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
+      )}
+
+      {/* Links Section */}
+      {(activeTab === 'all' || activeTab === 'links') && (
+        <Box>
+          <Box
+            onClick={() => setLinksOpen(!linksOpen)}
+            sx={{
+              p: 1.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+              userSelect: 'none',
+              '&:hover': { backgroundColor: tokens.hover }
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 700, color: tokens.textPrimary }}>
+              Link ({extractedLinks.length})
+            </Typography>
+            {linksOpen ? <ChevronUp size={16} color={tokens.textSecondary} /> : <ChevronDown size={16} color={tokens.textSecondary} />}
+          </Box>
+
+          <Collapse in={linksOpen}>
+            <Box sx={{ px: 1.5, pb: 1.5 }}>
+              {extractedLinks.length === 0 ? (
+                <Typography variant="caption" sx={{ color: tokens.textSecondary, display: 'block', textAlign: 'center', py: 1.5 }}>
+                  {isVi ? 'Chưa có Link được chia sẻ trong hội thoại này' : 'No links shared in this conversation'}
+                </Typography>
+              ) : (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 0.8,
+                    maxHeight: activeTab === 'all' ? 180 : 340,
+                    overflowY: 'auto',
+                    pr: 0.5,
+                    '&::-webkit-scrollbar': { width: 4 },
+                    '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+                  }}
+                >
+                  {extractedLinks.map((l, i) => (
+                    <Box
+                      key={i}
+                      component="a"
+                      href={l.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        p: 0.8,
+                        px: 1,
+                        borderRadius: '6px',
+                        backgroundColor: tokens.surfaceSecondary,
+                        textDecoration: 'none',
+                        color: tokens.primary,
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        transition: 'background-color 0.12s ease',
+                        '&:hover': {
+                          backgroundColor: tokens.hover,
+                          textDecoration: 'underline'
+                        }
+                      }}
+                    >
+                      <ExternalLink size={13} style={{ flexShrink: 0 }} />
+                      <Typography variant="caption" sx={{ color: 'inherit', fontWeight: 600 }} noWrap>
+                        {l.title}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          </Collapse>
+        </Box>
+      )}
 
       <MediaLightbox
         open={lightboxOpen}

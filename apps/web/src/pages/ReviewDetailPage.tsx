@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Chip, Divider, CircularProgress, Breadcrumbs,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, Alert,
-  Select, MenuItem
+  Select, MenuItem, IconButton, Tooltip
 } from '@mui/material';
 import {
   CheckSquare, CheckCircle2, AlertCircle, Clock, Edit3, Trash2,
   AlertTriangle, Check, Plus, FolderGit2, GitBranch, GitPullRequest,
-  Eye, ListChecks, Code2
+  Eye, ListChecks, Code2, X
 } from 'lucide-react';
 import { useRoute, useLocation, Link } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -294,6 +294,21 @@ export const ReviewDetailPage: React.FC = () => {
       console.error('Failed to change status:', err);
     }
   };
+
+  const handleRemoveReviewer = async (reviewerUserId: string) => {
+    if (!review || !canEdit) return;
+    const nextIds = (review.reviewers || []).filter((r) => r.user.id !== reviewerUserId).map((r) => r.user.id);
+    try {
+      await apiFetch(`/reviews/${review.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ reviewerIds: nextIds })
+      });
+      toast.success(isVi ? 'Đã xoá reviewer khỏi bài review' : 'Reviewer removed');
+      fetchReviewData(true);
+    } catch (err) {
+      toast.error(isVi ? 'Không thể xoá reviewer' : 'Failed to remove reviewer');
+    }
+  };
   const currentProject = projects.find((p) => p.id === review.projectId);
 
   return (
@@ -470,12 +485,16 @@ export const ReviewDetailPage: React.FC = () => {
             border: `1px solid ${tokens.border}`,
             backgroundColor: tokens.surface,
             position: { xs: 'static', lg: 'sticky' },
-            top: 20,
-            maxHeight: { lg: 'calc(100vh - 40px)' },
+            top: 16,
+            maxHeight: { lg: 'calc(100vh - 100px)' },
             overflowY: { lg: 'auto' },
-            overscrollBehavior: 'contain',
-            '&::-webkit-scrollbar': { width: 4 },
-            '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+            overscrollBehavior: 'auto',
+            '&::-webkit-scrollbar': { width: 6 },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: tokens.border,
+              borderRadius: 3,
+              '&:hover': { backgroundColor: tokens.textSecondary }
+            }
           }}
         >
 
@@ -557,51 +576,69 @@ export const ReviewDetailPage: React.FC = () => {
                           </Typography>
                         </Box>
 
-                        {isApproved && (
-                          <Chip
-                            icon={<CheckCircle2 size={14} />}
-                            label={isVi ? 'Đã duyệt' : 'Approved'}
-                            sx={{
-                              height: 24,
-                              fontSize: '0.76rem',
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              backgroundColor: 'rgba(63, 185, 80, 0.15)',
-                              color: tokens.success,
-                              border: '1px solid rgba(63, 185, 80, 0.25)'
-                            }}
-                          />
-                        )}
-                        {isChangesReq && (
-                          <Chip
-                            icon={<AlertCircle size={14} />}
-                            label={isVi ? 'Yêu cầu sửa' : 'Changes'}
-                            sx={{
-                              height: 24,
-                              fontSize: '0.76rem',
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              backgroundColor: 'rgba(248, 81, 73, 0.15)',
-                              color: tokens.error,
-                              border: '1px solid rgba(248, 81, 73, 0.25)'
-                            }}
-                          />
-                        )}
-                        {isPending && (
-                          <Chip
-                            icon={<Clock size={14} />}
-                            label={isVi ? 'Chờ review' : 'Pending'}
-                            sx={{
-                              height: 24,
-                              fontSize: '0.76rem',
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              backgroundColor: 'rgba(210, 153, 34, 0.15)',
-                              color: tokens.warning,
-                              border: '1px solid rgba(210, 153, 34, 0.25)'
-                            }}
-                          />
-                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                          {isApproved && (
+                            <Chip
+                              icon={<CheckCircle2 size={14} />}
+                              label={isVi ? 'Đã duyệt' : 'Approved'}
+                              sx={{
+                                height: 24,
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(63, 185, 80, 0.15)',
+                                color: tokens.success,
+                                border: '1px solid rgba(63, 185, 80, 0.25)'
+                              }}
+                            />
+                          )}
+                          {isChangesReq && (
+                            <Chip
+                              icon={<AlertCircle size={14} />}
+                              label={isVi ? 'Yêu cầu sửa' : 'Changes'}
+                              sx={{
+                                height: 24,
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(248, 81, 73, 0.15)',
+                                color: tokens.error,
+                                border: '1px solid rgba(248, 81, 73, 0.25)'
+                              }}
+                            />
+                          )}
+                          {isPending && (
+                            <Chip
+                              icon={<Clock size={14} />}
+                              label={isVi ? 'Chờ review' : 'Pending'}
+                              sx={{
+                                height: 24,
+                                fontSize: '0.76rem',
+                                fontWeight: 600,
+                                borderRadius: '6px',
+                                backgroundColor: 'rgba(210, 153, 34, 0.15)',
+                                color: tokens.warning,
+                                border: '1px solid rgba(210, 153, 34, 0.25)'
+                              }}
+                            />
+                          )}
+
+                          {canEdit && (
+                            <Tooltip title={isVi ? 'Xoá reviewer' : 'Remove reviewer'}>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleRemoveReviewer(r.user.id)}
+                                sx={{
+                                  p: 0.3,
+                                  color: tokens.textSecondary,
+                                  '&:hover': { color: tokens.error, backgroundColor: 'rgba(248, 81, 73, 0.1)' }
+                                }}
+                              >
+                                <X size={14} />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                        </Box>
                       </Box>
 
                       {r.acknowledgementStatus && ackStatusConfig[r.acknowledgementStatus] && (() => {
@@ -959,8 +996,26 @@ export const ReviewDetailPage: React.FC = () => {
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((val) => {
-                    const u = usersList.find((usr) => usr.id === val);
-                    return <Chip key={val} size="small" label={u?.displayName || val} sx={{ height: 22 }} />;
+                    const u = usersList.find((usr) => usr.id === val)
+                      || review?.reviewers?.find((r) => r.user.id === val)?.user;
+                    const isFormer = !usersList.some((usr) => usr.id === val);
+                    return (
+                      <Chip
+                        key={val}
+                        size="small"
+                        label={
+                          isFormer
+                            ? `${u?.displayName || val} (${isVi ? 'Đã rời WS' : 'Former'})`
+                            : (u?.displayName || val)
+                        }
+                        color={isFormer ? 'warning' : 'default'}
+                        onDelete={(e) => {
+                          e.stopPropagation();
+                          setEditReviewerIds((prev) => prev.filter((id) => id !== val));
+                        }}
+                        sx={{ height: 24, fontSize: '0.75rem' }}
+                      />
+                    );
                   })}
                 </Box>
               )}

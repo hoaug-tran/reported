@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Chip, Divider, Select, MenuItem, FormControl,
   InputLabel, CircularProgress, Alert, Tooltip, Breadcrumbs, Link as MuiLink,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, OutlinedInput
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, OutlinedInput,
+  IconButton
 } from '@mui/material';
 import {
   Eye, EyeOff, Edit3, Trash2, AlertTriangle, GitPullRequest, GitBranch,
-  FolderGit2, Tag, Check, Plus
+  FolderGit2, Tag, Check, Plus, X
 } from 'lucide-react';
 import { useRoute, useLocation, Link } from 'wouter';
 import { useThemeContext } from '../contexts/ThemeContext';
@@ -317,6 +318,21 @@ export const IssueDetailPage: React.FC = () => {
   const canEdit = user && (user.id === issue.author.id || isLeader);
   const currentProject = projects.find((p) => p.id === issue.projectId);
 
+  const handleRemoveAssignee = async (assigneeUserId: string) => {
+    if (!issue || !canEdit) return;
+    const nextIds = (issue.assignees || []).filter((a) => a.id !== assigneeUserId).map((a) => a.id);
+    try {
+      await apiFetch(`/issues/${issue.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ assigneeIds: nextIds })
+      });
+      toast.success(isVi ? 'Đã xoá người phân công' : 'Assignee removed');
+      fetchIssueData(true);
+    } catch (err) {
+      toast.error(isVi ? 'Không thể xoá người phân công' : 'Failed to remove assignee');
+    }
+  };
+
   return (
     <Box sx={{ width: '100%' }}>
 
@@ -563,12 +579,16 @@ export const IssueDetailPage: React.FC = () => {
             border: `1px solid ${tokens.border}`,
             backgroundColor: tokens.surface,
             position: { xs: 'static', lg: 'sticky' },
-            top: 20,
-            maxHeight: { lg: 'calc(100vh - 40px)' },
+            top: 16,
+            maxHeight: { lg: 'calc(100vh - 100px)' },
             overflowY: { lg: 'auto' },
-            overscrollBehavior: 'contain',
-            '&::-webkit-scrollbar': { width: 4 },
-            '&::-webkit-scrollbar-thumb': { backgroundColor: tokens.border, borderRadius: 2 }
+            overscrollBehavior: 'auto',
+            '&::-webkit-scrollbar': { width: 6 },
+            '&::-webkit-scrollbar-thumb': {
+              backgroundColor: tokens.border,
+              borderRadius: 3,
+              '&:hover': { backgroundColor: tokens.textSecondary }
+            }
           }}
         >
 
@@ -627,11 +647,28 @@ export const IssueDetailPage: React.FC = () => {
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
                 {issue.assignees.map((a: UserSummaryDto) => (
-                  <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <UserAvatar user={a} size={20} />
-                    <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }}>
-                      {a.displayName}
-                    </Typography>
+                  <Box key={a.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                      <UserAvatar user={a} size={20} />
+                      <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8125rem' }} noWrap>
+                        {a.displayName}
+                      </Typography>
+                    </Box>
+                    {canEdit && (
+                      <Tooltip title={isVi ? 'Xoá người phân công' : 'Remove assignee'}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveAssignee(a.id)}
+                          sx={{
+                            p: 0.3,
+                            color: tokens.textSecondary,
+                            '&:hover': { color: tokens.error, backgroundColor: 'rgba(248, 81, 73, 0.1)' }
+                          }}
+                        >
+                          <X size={14} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Box>
                 ))}
               </Box>
@@ -948,8 +985,26 @@ export const IssueDetailPage: React.FC = () => {
               renderValue={(selected) => (
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                   {selected.map((val) => {
-                    const u = usersList.find((usr) => usr.id === val);
-                    return <Chip key={val} size="small" label={u?.displayName || val} sx={{ height: 22 }} />;
+                    const u = usersList.find((usr) => usr.id === val)
+                      || issue?.assignees?.find((a) => a.id === val);
+                    const isFormer = !usersList.some((usr) => usr.id === val);
+                    return (
+                      <Chip
+                        key={val}
+                        size="small"
+                        label={
+                          isFormer
+                            ? `${u?.displayName || val} (${isVi ? 'Đã rời WS' : 'Former'})`
+                            : (u?.displayName || val)
+                        }
+                        color={isFormer ? 'warning' : 'default'}
+                        onDelete={(e) => {
+                          e.stopPropagation();
+                          setEditAssigneeIds((prev) => prev.filter((id) => id !== val));
+                        }}
+                        sx={{ height: 24, fontSize: '0.75rem' }}
+                      />
+                    );
                   })}
                 </Box>
               )}
