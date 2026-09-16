@@ -289,10 +289,20 @@ githubRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
+      const state = req.query.state as string | undefined;
+      const conditions = [eq(pullRequests.repositoryId, id)];
+      if (state && state !== "all") {
+        conditions.push(
+          or(
+            eq(pullRequests.state, state.toLowerCase()),
+            eq(pullRequests.state, state.toUpperCase())
+          )!
+        );
+      }
       const prs = await db
         .select()
         .from(pullRequests)
-        .where(eq(pullRequests.repositoryId, id))
+        .where(and(...conditions))
         .orderBy(pullRequests.prNumber);
 
       return res.json(prs);
@@ -379,7 +389,17 @@ githubRouter.get(
         const localPrs = await db
           .select()
           .from(pullRequests)
-          .where(eq(pullRequests.repositoryId, id))
+          .where(
+            and(
+              eq(pullRequests.repositoryId, id),
+              or(
+                eq(pullRequests.state, "open"),
+                eq(pullRequests.state, "OPEN"),
+                eq(pullRequests.state, "opened"),
+                eq(pullRequests.state, "OPENED")
+              )
+            )
+          )
           .orderBy(desc(pullRequests.prNumber));
 
         if (localPrs.length > 0) {
@@ -439,7 +459,15 @@ githubRouter.get(
       }
 
       const data = (await ghRes.json()) as any[];
-      const pulls = data.map((pr) => ({
+      const openData = Array.isArray(data)
+        ? data.filter(
+            (pr) =>
+              pr.state === "open" ||
+              pr.state === "OPEN" ||
+              pr.state === "opened"
+          )
+        : [];
+      const pulls = openData.map((pr) => ({
         number: pr.number,
         title: pr.title,
         state: pr.state,

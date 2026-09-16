@@ -131,6 +131,7 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
     owner: string,
     repo: string,
     accessToken?: string,
+    state: "open" | "closed" | "all" = "open",
   ): Promise<PullRequestItem[]> {
     try {
       const headers: Record<string, string> = {
@@ -142,7 +143,7 @@ export class GitHubCodeHostProvider implements ICodeHostProvider {
       }
 
       const res = await fetch(
-        `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`,
+        `https://api.github.com/repos/${owner}/${repo}/pulls?state=${state}&per_page=30`,
         { headers },
       );
       if (!res.ok) {

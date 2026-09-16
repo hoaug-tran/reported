@@ -92,12 +92,20 @@ export const RepositoriesPage: React.FC = () => {
       const data = await apiFetch<{ pulls: any[]; error?: string }>(
         `/github/repositories/${repoId}/github-pulls`,
       );
-      setRepoPrs((prev) => ({ ...prev, [repoId]: data.pulls || [] }));
+      const openPulls = (data.pulls || []).filter((p: any) => {
+        const s = (p.state || "").toLowerCase();
+        return s === "open" || s === "opened";
+      });
+      setRepoPrs((prev) => ({ ...prev, [repoId]: openPulls }));
       if (data.error) {
         const dbPrs = await apiFetch<any[]>(
-          `/github/repositories/${repoId}/pull-requests`,
+          `/github/repositories/${repoId}/pull-requests?state=open`,
         );
-        setRepoPrs((prev) => ({ ...prev, [repoId]: dbPrs || [] }));
+        const openDbPrs = (dbPrs || []).filter((p: any) => {
+          const s = (p.state || "").toLowerCase();
+          return s === "open" || s === "opened";
+        });
+        setRepoPrs((prev) => ({ ...prev, [repoId]: openDbPrs }));
       }
     } catch (err: unknown) {
       const errMsg =

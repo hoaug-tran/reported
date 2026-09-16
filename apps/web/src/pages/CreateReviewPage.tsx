@@ -275,7 +275,10 @@ export const CreateReviewPage: React.FC = () => {
           pulls: LivePullRequest[];
           error?: string;
         }>(`/github/repositories/${repositoryId}/github-pulls`);
-        const pulls = data.pulls || [];
+        const pulls = (data.pulls || []).filter((p: LivePullRequest) => {
+          const s = (p.state || "").toLowerCase();
+          return s === "open" || s === "opened";
+        });
         setLivePulls(pulls);
         if (data.error) setLivePullsError(data.error);
         if (initPrNumber && pulls.length > 0) {

@@ -129,6 +129,7 @@ export class GitLabCodeHostProvider implements ICodeHostProvider {
     owner: string,
     repo: string,
     accessToken?: string,
+    state: "open" | "closed" | "all" = "open",
   ): Promise<PullRequestItem[]> {
     try {
       const projectPath = encodeURIComponent(`${owner}/${repo}`);
@@ -137,8 +138,10 @@ export class GitLabCodeHostProvider implements ICodeHostProvider {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
+      const gitlabState =
+        state === "open" ? "opened" : state === "closed" ? "closed" : "all";
       const res = await fetch(
-        `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests?per_page=30`,
+        `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests?state=${gitlabState}&per_page=30`,
         { headers },
       );
       if (!res.ok) {

@@ -43,6 +43,7 @@ export interface ICodeHostProvider {
     owner: string,
     repo: string,
     accessToken?: string,
+    state?: "open" | "closed" | "all",
   ): Promise<PullRequestItem[]>;
   getPullRequest(
     owner: string,
