@@ -43,7 +43,9 @@ import {
   Globe,
   Sparkles,
   Layers,
+  FileCode,
   Table,
+  Check,
   ShieldCheck,
   Zap,
   Wrench,
@@ -441,6 +443,11 @@ flowchart TD
 
   const insertMermaidDiagram = () => {
     const diagram = `\n\`\`\`mermaid\nflowchart TD\n    A[Client / UI] --> B[API Router]\n    B --> C{Xác thực}\n    C -->|Hợp lệ| D[Business Logic]\n    C -->|Lỗi| E[401 Unauthorized]\n\`\`\`\n`;
+    setDescription((prev) => prev + diagram);
+  };
+
+  const insertDrawioDiagram = () => {
+    const diagram = `\n\`\`\`drawio\n<mxfile host="app.diagrams.net">\n  <diagram name="Kiến trúc đề xuất" id="diag-rfc">\n    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169">\n      <root>\n        <mxCell id="0" />\n        <mxCell id="1" parent="0" />\n        <mxCell id="c1" value="Frontend (Client)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">\n          <mxGeometry x="100" y="100" width="140" height="60" as="geometry" />\n        </mxCell>\n        <mxCell id="c2" value="API Gateway" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">\n          <mxGeometry x="320" y="100" width="140" height="60" as="geometry" />\n        </mxCell>\n        <mxCell id="c3" value="Microservice / Core" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">\n          <mxGeometry x="540" y="100" width="140" height="60" as="geometry" />\n        </mxCell>\n        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="c1" target="c2">\n          <mxGeometry relative="1" as="geometry" />\n        </mxCell>\n        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;" edge="1" parent="1" source="c2" target="c3">\n          <mxGeometry relative="1" as="geometry" />\n        </mxCell>\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n\`\`\`\n`;
     setDescription((prev) => prev + diagram);
   };
 
@@ -854,6 +861,27 @@ flowchart TD
                 }}
               >
                 {isVi ? "Sơ đồ kiến trúc (Mermaid)" : "Architecture Diagram"}
+              </Button>
+
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<FileCode size={14} />}
+                onClick={insertDrawioDiagram}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  color: "#f97316",
+                  borderColor: "#f9731640",
+                  "&:hover": {
+                    borderColor: "#f97316",
+                    backgroundColor: "#f9731610",
+                  },
+                }}
+              >
+                {isVi ? "Sơ đồ Draw.io" : "Draw.io Diagram"}
               </Button>
 
               <Button

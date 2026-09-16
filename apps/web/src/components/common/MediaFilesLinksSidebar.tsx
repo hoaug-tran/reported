@@ -9,6 +9,7 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Dialog,
 } from "@mui/material";
 import {
   ChevronDown,
@@ -24,12 +25,14 @@ import {
   Archive,
   File,
   Mic,
+  Eye,
 } from "lucide-react";
 import { useThemeContext } from "../../contexts/ThemeContext";
 import { apiFetch } from "../../api/client";
 import { MediaLightbox } from "./MediaLightbox";
 import { uploadFileWithChunking } from "../../utils/chunkedUpload";
 import { CommentDto } from "@reported/contracts";
+import { DrawioViewer } from "../markdown/DrawioViewer";
 
 interface AttachmentItem {
   id: string;
@@ -77,6 +80,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState("");
   const [lightboxAlt, setLightboxAlt] = useState("");
+  const [previewDrawio, setPreviewDrawio] = useState<{ url: string; filename: string } | null>(null);
 
   const fetchAttachments = useCallback(async () => {
     if (!targetId) return;
@@ -210,7 +214,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         title.toLowerCase().includes("voice");
       const isAttachmentUrl = url.includes("/api/v1/attachments/");
       const hasFileExt =
-        /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|webm|mp3|wav|m4a|log|sql)(\?.*)?$/i.test(
+        /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|webm|mp3|wav|m4a|log|sql|drawio)(\?.*)?$/i.test(
           url,
         );
 
@@ -363,6 +367,25 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
           }}
         >
           PDF
+        </Box>
+      );
+    }
+    if (ext === "drawio") {
+      return (
+        <Box
+          sx={{
+            width: 36,
+            height: 36,
+            borderRadius: "6px",
+            backgroundColor: "#f97316",
+            color: "#fff",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
+          <FileCode size={18} />
         </Box>
       );
     }
@@ -788,6 +811,26 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         </Box>
                       </Box>
 
+                      {f.originalName?.toLowerCase().endsWith(".drawio") && (
+                        <Tooltip title={isVi ? "Xem sơ đồ Draw.io" : "Preview Draw.io diagram"}>
+                          <IconButton
+                            size="small"
+                            onClick={() =>
+                              setPreviewDrawio({
+                                url: f.url,
+                                filename: f.originalName,
+                              })
+                            }
+                            sx={{
+                              color: tokens.textSecondary,
+                              "&:hover": { color: tokens.primary },
+                            }}
+                          >
+                            <Eye size={16} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+
                       <Tooltip
                         title={
                           f.isVoiceNote || f.mimeType.startsWith("audio/")
@@ -961,6 +1004,27 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         alt={lightboxAlt}
         onClose={() => setLightboxOpen(false)}
       />
+
+      {previewDrawio && (
+        <Dialog
+          fullScreen
+          open={Boolean(previewDrawio)}
+          onClose={() => setPreviewDrawio(null)}
+          sx={{
+            zIndex: 1300,
+            "& .MuiDialog-paper": {
+              backgroundColor: tokens.surface,
+            },
+          }}
+        >
+          <DrawioViewer
+            url={previewDrawio.url}
+            filename={previewDrawio.filename}
+            height="100%"
+            onClose={() => setPreviewDrawio(null)}
+          />
+        </Dialog>
+      )}
     </Box>
   );
 };

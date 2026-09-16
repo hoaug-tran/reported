@@ -45,6 +45,7 @@ import {
   ChevronDown,
   Layers,
   FileText,
+  Upload,
 } from "lucide-react";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { UserAvatar } from "../common/UserAvatar";
@@ -118,6 +119,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const drawioInputRef = useRef<HTMLInputElement | null>(null);
 
   const insertAtCursor = (insertStr: string) => {
     const currentVal = localValueRef.current || "";
@@ -234,6 +236,21 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       const file = e.dataTransfer.files[0];
       handleUploadFile(file, file.type.startsWith("image/"));
     }
+  };
+
+  const handleUploadDrawioFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        insertBlock(`\`\`\`drawio\n${content.trim()}\n\`\`\``);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+    setInsertAnchorEl(null);
   };
 
   useEffect(() => {
@@ -495,6 +512,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           backgroundColor: resolvedMode === "dark" ? "#161b22" : "#f6f8fa",
           borderTopLeftRadius: "7px",
           borderTopRightRadius: "7px",
+          overflowX: "auto",
+          scrollbarWidth: "none",
+          "&::-webkit-scrollbar": { display: "none" },
+          gap: 1,
         }}
       >
         <Tabs
@@ -502,10 +523,11 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           onChange={handleTabChange}
           sx={{
             minHeight: 36,
+            flexShrink: 0,
             "& .MuiTab-root": {
               minHeight: 36,
               py: 0.5,
-              px: 1.5,
+              px: { xs: 1, sm: 1.5 },
               fontSize: "0.8125rem",
               fontWeight: 600,
             },
@@ -513,7 +535,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         >
           <Tab value="write" label="Write" />
           <Tab value="preview" label="Preview" />
-          <Tab value="split" label="Split View" />
+          <Tab value="split" label="Split View" sx={{ display: { xs: "none", md: "inline-flex" } }} />
         </Tabs>
 
         {(tabIndex === "write" || tabIndex === "split") && (
@@ -521,10 +543,16 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 0.2,
-              overflowX: "auto",
-              maxWidth: "100%",
+              gap: 0.25,
+              flexShrink: 0,
               py: 0.2,
+              "& .MuiIconButton-root": {
+                p: 0.6,
+                flexShrink: 0,
+              },
+              "& .MuiButton-root": {
+                flexShrink: 0,
+              },
             }}
           >
             <Tooltip title="Undo (Ctrl+Z)">
@@ -552,7 +580,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               </span>
             </Tooltip>
 
-            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.border, mx: 0.3 }} />
+            <Box sx={{ width: "1px", minWidth: "1px", maxWidth: "1px", height: 16, backgroundColor: tokens.border, mx: 0.5, flexShrink: 0 }} />
 
             <Tooltip title="Chèn Sơ đồ, Bảng, Alerts & Công thức toán">
               <Button
@@ -589,7 +617,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.border, mx: 0.3 }} />
+            <Box sx={{ width: "1px", minWidth: "1px", maxWidth: "1px", height: 16, backgroundColor: tokens.border, mx: 0.5, flexShrink: 0 }} />
 
             <Tooltip title="Tiêu đề (Heading)">
               <IconButton
@@ -664,7 +692,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.divider, mx: 0.5 }} />
+            <Box sx={{ width: "1px", minWidth: "1px", maxWidth: "1px", height: 16, backgroundColor: tokens.border, mx: 0.5, flexShrink: 0 }} />
 
             <Tooltip title="Chèn ảnh">
               <IconButton
@@ -721,6 +749,13 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 e.target.value = "";
               }}
             />
+            <input
+              ref={drawioInputRef}
+              type="file"
+              accept=".drawio,.xml"
+              style={{ display: "none" }}
+              onChange={handleUploadDrawioFile}
+            />
           </Box>
         )}
       </Box>
@@ -740,8 +775,68 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         }}
       >
         <ListSubheader
+          disableSticky
           sx={{
-            backgroundColor: "transparent",
+            backgroundColor: tokens.surface,
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: "#f97316",
+            lineHeight: "28px",
+          }}
+        >
+          SƠ ĐỒ DRAW.IO (DIAGRAMS.NET)
+        </ListSubheader>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```drawio\n<mxfile host=\"app.diagrams.net\">\n  <diagram name=\"Trang 1\" id=\"p1\">\n    <mxGraphModel dx=\"1422\" dy=\"794\" grid=\"1\" gridSize=\"10\" guides=\"1\" tooltips=\"1\" connect=\"1\" arrows=\"1\" fold=\"1\" page=\"1\" pageScale=\"1\" pageWidth=\"827\" pageHeight=\"1169\">\n      <root>\n        <mxCell id=\"0\" />\n        <mxCell id=\"1\" parent=\"0\" />\n        <mxCell id=\"2\" value=\"Frontend Client\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"120\" y=\"120\" width=\"140\" height=\"60\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"3\" value=\"Reported Backend API\" style=\"rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"340\" y=\"120\" width=\"160\" height=\"60\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"4\" value=\"Database\" style=\"shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ffe6cc;strokeColor=#d79b00;\" vertex=\"1\" parent=\"1\">\n          <mxGeometry x=\"580\" y=\"110\" width=\"100\" height=\"80\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"5\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;\" edge=\"1\" parent=\"1\" source=\"2\" target=\"3\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n        <mxCell id=\"6\" style=\"edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;\" edge=\"1\" parent=\"1\" source=\"3\" target=\"4\">\n          <mxGeometry relative=\"1\" as=\"geometry\" />\n        </mxCell>\n      </root>\n    </mxGraphModel>\n  </diagram>\n</mxfile>\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: "#f97316" }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Khối mã Draw.io (XML Template)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "[Sơ đồ Kiến trúc Hệ thống (Draw.io)](https://example.com/diagram.drawio)",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: "#f97316" }}>
+            <LinkIcon size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Liên kết tệp Draw.io (.drawio)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() => drawioInputRef.current?.click()}
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: "#f97316" }}>
+            <Upload size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Nạp tệp .drawio từ máy..."
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <ListSubheader
+          disableSticky
+          sx={{
+            backgroundColor: tokens.surface,
             fontWeight: 700,
             fontSize: "0.75rem",
             color: tokens.primary,
@@ -914,8 +1009,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         <Divider />
 
         <ListSubheader
+          disableSticky
           sx={{
-            backgroundColor: "transparent",
+            backgroundColor: tokens.surface,
             fontWeight: 700,
             fontSize: "0.75rem",
             color: tokens.primary,
@@ -954,8 +1050,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         <Divider />
 
         <ListSubheader
+          disableSticky
           sx={{
-            backgroundColor: "transparent",
+            backgroundColor: tokens.surface,
             fontWeight: 700,
             fontSize: "0.75rem",
             color: tokens.primary,
@@ -999,8 +1096,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         <Divider />
 
         <ListSubheader
+          disableSticky
           sx={{
-            backgroundColor: "transparent",
+            backgroundColor: tokens.surface,
             fontWeight: 700,
             fontSize: "0.75rem",
             color: tokens.primary,
@@ -1052,6 +1150,101 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         <MenuItem onClick={() => insertBlock("<mark>văn bản nổi bật</mark>")}>
           <ListItemText
             primary="Đánh dấu nổi bật (<mark>)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <ListSubheader
+          disableSticky
+          sx={{
+            backgroundColor: tokens.surface,
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: tokens.primary,
+            lineHeight: "28px",
+          }}
+        >
+          MÃ NGUỒN CÓ HIGHLIGHT (CODE BLOCKS)
+        </ListSubheader>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```typescript\ninterface UserProfile {\n  id: string;\n  name: string;\n  role: \"ADMIN\" | \"USER\";\n}\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="TypeScript / JavaScript"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```python\ndef calculate_metrics(data: list[float]) -> dict[str, float]:\n    return {\"mean\": sum(data) / len(data)}\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Python"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```sql\nSELECT u.id, u.username, COUNT(i.id) AS total_issues\nFROM users u\nLEFT JOIN issues i ON i.author_id = u.id\nGROUP BY u.id;\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="SQL Query"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```json\n{\n  \"status\": \"success\",\n  \"data\": {\n    \"id\": \"issue-123\",\n    \"priority\": \"HIGH\"\n  }\n}\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="JSON Payload"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```bash\npnpm install\npnpm dev\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileCode size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Bash / Shell"
             primaryTypographyProps={{ fontSize: "0.8125rem" }}
           />
         </MenuItem>
@@ -1316,7 +1509,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       <Box
         sx={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           alignItems: "center",
           px: 1.5,
           py: 0.5,
@@ -1325,9 +1518,6 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           color: tokens.textSecondary,
         }}
       >
-        <span>
-          Markdown & Sơ đồ Mermaid supported · Nhập <code>@</code> để nhắc tên
-        </span>
         <span>
           <code>Ctrl+Z</code> hoàn tác · <code>Ctrl+Enter</code> gửi bài
         </span>

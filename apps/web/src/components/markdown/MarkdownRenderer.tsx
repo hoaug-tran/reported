@@ -15,6 +15,7 @@ import { MediaLightbox } from "../common/MediaLightbox";
 import { AudioPlayer } from "../common/AudioPlayer";
 import { MermaidViewer } from "./MermaidViewer";
 import { GitHubAlert } from "./GitHubAlert";
+import { DrawioViewer } from "./DrawioViewer";
 import {
   cleanMarkdownContent,
   parseGitHubAlert,
@@ -87,6 +88,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         return <>{children}</>;
       },
 
+      p({ children, ...props }) {
+        return (
+          <div className="markdown-paragraph" {...props}>
+            {children}
+          </div>
+        );
+      },
+
       code({ className, children, ...props }) {
         const match = /language-(\w+)/.exec(className || "");
         const lang = match ? match[1].toLowerCase() : "";
@@ -95,6 +104,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 
         if (lang === "mermaid") {
           return <MermaidViewer code={rawCode} />;
+        }
+
+        if (lang === "drawio" || (lang === "xml" && rawCode.includes("<mxfile"))) {
+          return (
+            <Box sx={{ my: 2 }}>
+              <DrawioViewer xml={rawCode} filename="diagram.drawio" />
+            </Box>
+          );
         }
 
         if (lang === "json") {
@@ -241,6 +258,22 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
           );
         }
 
+        const isDrawio =
+          /\.drawio(\?.*)?$/i.test(href) ||
+          /\.drawio$/i.test(textContent);
+
+        if (isDrawio) {
+          const drawioName =
+            textContent.replace(/^[\uD83D\uDCCE\s]+/, "").replace(/^File:\s*/, "") ||
+            href.split("/").pop()?.split("?")[0] ||
+            "diagram.drawio";
+          return (
+            <Box sx={{ my: 2 }}>
+              <DrawioViewer url={href} filename={drawioName} />
+            </Box>
+          );
+        }
+
         const isFile =
           textContent.includes("\uD83D\uDCCE") ||
           textContent.startsWith("File:") ||
@@ -279,6 +312,14 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
       },
 
       img({ src = "", alt = "", ...props }) {
+        if (/\.drawio(\?.*)?$/i.test(src)) {
+          return (
+            <Box sx={{ my: 2 }}>
+              <DrawioViewer url={src} filename={alt || "diagram.drawio"} />
+            </Box>
+          );
+        }
+
         return (
           <img
             src={src}
@@ -337,7 +378,7 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
         color: tokens.textPrimary,
         fontSize: "0.875rem",
         fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        "& p": { m: 0, mb: 1.5, "&:last-child": { mb: 0 } },
+        "& p, & .markdown-paragraph": { m: 0, mb: 1.5, "&:last-child": { mb: 0 } },
         "& h1": {
           fontSize: "1.5rem",
           fontWeight: 700,
