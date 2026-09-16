@@ -105,6 +105,57 @@ export function createAppTheme(mode: "light" | "dark") {
             letterSpacing: "normal !important",
             fontVariantLigatures: "none",
           },
+          ".hljs": {
+            color: mode === "dark" ? "#e6edf3" : "#24292f",
+            backgroundColor: "transparent",
+          },
+          ".hljs-keyword, .hljs-selector-tag": {
+            color: mode === "dark" ? "#ff7b72" : "#cf222e",
+            fontWeight: 500,
+          },
+          ".hljs-title, .hljs-title.function_, .hljs-function": {
+            color: mode === "dark" ? "#d2a8ff" : "#8250df",
+          },
+          ".hljs-title.class_, .hljs-class": {
+            color: mode === "dark" ? "#ffa657" : "#953800",
+          },
+          ".hljs-string, .hljs-regexp": {
+            color: mode === "dark" ? "#a5d6ff" : "#0a3069",
+          },
+          ".hljs-number, .hljs-literal": {
+            color: mode === "dark" ? "#79c0ff" : "#0550ae",
+          },
+          ".hljs-type, .hljs-built_in": {
+            color: mode === "dark" ? "#ffa657" : "#953800",
+          },
+          ".hljs-comment, .hljs-doctag, .hljs-quote": {
+            color: mode === "dark" ? "#8b949e" : "#6e7781",
+            fontStyle: "italic",
+          },
+          ".hljs-variable, .hljs-template-variable, .hljs-params": {
+            color: mode === "dark" ? "#e6edf3" : "#24292f",
+          },
+          ".hljs-tag, .hljs-name": {
+            color: mode === "dark" ? "#7ee787" : "#116329",
+          },
+          ".hljs-attr": {
+            color: mode === "dark" ? "#79c0ff" : "#0550ae",
+          },
+          ".hljs-meta, .hljs-subst": {
+            color: mode === "dark" ? "#ff7b72" : "#cf222e",
+          },
+          ".hljs-section": {
+            color: mode === "dark" ? "#58a6ff" : "#0969da",
+            fontWeight: 600,
+          },
+          ".hljs-addition": {
+            color: mode === "dark" ? "#7ee787" : "#1a7f37",
+            backgroundColor: mode === "dark" ? "rgba(46, 160, 67, 0.15)" : "rgba(34, 134, 58, 0.12)",
+          },
+          ".hljs-deletion": {
+            color: mode === "dark" ? "#ff7b72" : "#cf222e",
+            backgroundColor: mode === "dark" ? "rgba(248, 81, 73, 0.15)" : "rgba(207, 34, 46, 0.12)",
+          },
         },
       },
       MuiButton: {
