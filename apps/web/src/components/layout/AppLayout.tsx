@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box,
   IconButton,
@@ -110,11 +110,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
     return localStorage.getItem("reported_sidebar_collapsed") === "true";
   });
 
-  const toggleSidebar = () => {
-    const next = !sidebarCollapsed;
-    localStorage.setItem("reported_sidebar_collapsed", String(next));
-    setSidebarCollapsed(next);
-  };
+  const toggleSidebar = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("reported_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const [cmdOpen, setCmdOpen] = useState(false);
   const [linkRepoOpen, setLinkRepoOpen] = useState(false);
@@ -333,18 +337,23 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput =
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement)?.isContentEditable;
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setCmdOpen((prev) => !prev);
       }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b" && !isInput) {
         e.preventDefault();
         toggleSidebar();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [toggleSidebar]);
 
   const navItems = [
     { label: t("inbox"), path: "/", icon: <Inbox size={18} /> },

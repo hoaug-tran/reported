@@ -266,6 +266,13 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
             py: 0.6,
             borderBottom: `1px solid ${tokens.codeBorder}`,
             backgroundColor: resolvedMode === "dark" ? "#161b22" : "#f6f8fa",
+            overflowX: "auto",
+            scrollbarWidth: "none",
+            "&::-webkit-scrollbar": { display: "none" },
+            gap: 1,
+            "& .MuiIconButton-root, & .MuiButton-root": {
+              flexShrink: 0,
+            },
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -330,7 +337,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
               </span>
             </Tooltip>
 
-            <Box sx={{ width: 1, height: 14, backgroundColor: tokens.divider, mx: 0.5 }} />
+            <Box sx={{ width: "1px", minWidth: "1px", maxWidth: "1px", height: 14, backgroundColor: tokens.divider, mx: 0.5, flexShrink: 0 }} />
 
             <Tooltip title={showSource ? "Xem sơ đồ" : "Xem mã Mermaid"}>
               <IconButton
