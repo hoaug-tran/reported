@@ -112,26 +112,48 @@ export function useWeatherAndClock(isVi = true) {
       }
     } catch {}
 
-    if (typeof navigator !== "undefined" && "geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          fetchWeather(pos.coords.latitude, pos.coords.longitude);
-        },
-        () => {
-          fetchWeather(
-            21.0285,
-            105.8542,
-            isVi ? "Hà Nội, Việt Nam" : "Hanoi, Vietnam",
-          );
-        },
-        { timeout: 8000 },
-      );
+    const defaultLat = 21.0285;
+    const defaultLon = 105.8542;
+    const defaultCity = isVi ? "Hà Nội, Việt Nam" : "Hanoi, Vietnam";
+
+    let storedCoords: { lat: number; lon: number; name?: string } | null = null;
+    try {
+      const stored = localStorage.getItem("reported_user_coords");
+      if (stored) {
+        storedCoords = JSON.parse(stored);
+      }
+    } catch {}
+
+    if (storedCoords && storedCoords.lat && storedCoords.lon) {
+      fetchWeather(storedCoords.lat, storedCoords.lon, storedCoords.name);
+      return () => {
+        isCancelled = true;
+      };
+    }
+
+    if (typeof navigator !== "undefined" && "permissions" in navigator && navigator.permissions?.query) {
+      navigator.permissions
+        .query({ name: "geolocation" as PermissionName })
+        .then((permissionStatus) => {
+          if (permissionStatus.state === "granted" && "geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                fetchWeather(pos.coords.latitude, pos.coords.longitude);
+              },
+              () => {
+                fetchWeather(defaultLat, defaultLon, defaultCity);
+              },
+              { timeout: 8000 }
+            );
+          } else {
+            fetchWeather(defaultLat, defaultLon, defaultCity);
+          }
+        })
+        .catch(() => {
+          fetchWeather(defaultLat, defaultLon, defaultCity);
+        });
     } else {
-      fetchWeather(
-        21.0285,
-        105.8542,
-        isVi ? "Hà Nội, Việt Nam" : "Hanoi, Vietnam",
-      );
+      fetchWeather(defaultLat, defaultLon, defaultCity);
     }
 
     return () => {

@@ -636,10 +636,8 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         paddingTop: "100%",
                         borderRadius: "6px",
                         overflow: "hidden",
-                        cursor: "pointer",
                         border: `1px solid ${tokens.border}`,
                         backgroundColor: tokens.surfaceSecondary,
-                        "&:hover img": { transform: "scale(1.08)" },
                       }}
                     >
                       <Box

@@ -412,6 +412,43 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   }, [language]);
 
   const getBreadcrumbs = () => {
+    const searchParams =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search)
+        : new URLSearchParams();
+    const currentIntent = searchParams.get("intent");
+    const isPostIntent =
+      location === "/issues/new" &&
+      (currentIntent === "idea" ||
+        currentIntent === "discussion" ||
+        currentIntent === "question" ||
+        currentIntent === "help" ||
+        searchParams.get("from") === "posts");
+
+    if (isPostIntent) {
+      const intentLabel =
+        currentIntent === "idea"
+          ? language === "vi"
+            ? "Tạo đề xuất"
+            : "Create Proposal"
+          : currentIntent === "discussion"
+            ? language === "vi"
+              ? "Thảo luận kiến trúc"
+              : "Architecture Talk"
+            : currentIntent === "question"
+              ? language === "vi"
+                ? "Hỏi kỹ thuật"
+                : "Ask Question"
+              : language === "vi"
+                ? "Cần hỗ trợ gấp"
+                : "Urgent Help";
+      return [
+        { label: t("inbox"), path: "/" },
+        { label: t("posts"), path: "/posts" },
+        { label: intentLabel, path: location },
+      ];
+    }
+
     const parts = location.split("?")[0].split("/").filter(Boolean);
     if (parts.length === 0) {
       return [{ label: t("inbox"), path: "/" }];
@@ -656,9 +693,23 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
           )}
 
           {navItems.map((item) => {
-            const isActive =
-              location === item.path ||
-              (item.path !== "/" && location.startsWith(item.path));
+            const searchParams =
+              typeof window !== "undefined"
+                ? new URLSearchParams(window.location.search)
+                : new URLSearchParams();
+            const currentIntent = searchParams.get("intent");
+            const isPostIntent =
+              location === "/issues/new" &&
+              (currentIntent === "idea" ||
+                currentIntent === "discussion" ||
+                currentIntent === "question" ||
+                currentIntent === "help" ||
+                searchParams.get("from") === "posts");
+
+            const isActive = isPostIntent
+              ? item.path === "/posts"
+              : location === item.path ||
+                (item.path !== "/" && location.startsWith(item.path));
             return (
               <Tooltip
                 key={item.path}
