@@ -54,6 +54,7 @@ import { ActivityTimeline } from "../components/timeline/ActivityTimeline";
 import { CommentThread } from "../components/discussion/CommentThread";
 import { DetailSkeleton } from "../components/common/Skeletons";
 import { useSmoothLoading } from "../hooks/useSmoothLoading";
+import { useAutoScrollToBottomOnLoad } from "../hooks/useAutoScrollToBottomOnLoad";
 import { MediaFilesLinksSidebar } from "../components/common/MediaFilesLinksSidebar";
 import { getLabelColor } from "../utils/labels";
 import { toast } from "../contexts/ToastContext";
@@ -103,6 +104,11 @@ export const IssueDetailPage: React.FC = () => {
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [activities, setActivities] = useState<ActivityTimelineDto[]>([]);
   const [isWatching, setIsWatching] = useState(false);
+
+  useAutoScrollToBottomOnLoad({
+    isReady: !loading && Boolean(issue),
+    key: params?.number,
+  });
 
   const [usersList, setUsersList] = useState<UserSummaryDto[]>([]);
   const [repositoriesList, setRepositoriesList] = useState<RepositoryDto[]>([]);

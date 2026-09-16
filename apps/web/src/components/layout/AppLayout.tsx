@@ -71,6 +71,8 @@ import { showDesktopNotification } from "../../utils/desktopNotification";
 import { apiFetch } from "../../api/client";
 import { NotificationDto, RepositoryDto } from "@reported/contracts";
 import { toast } from "../../contexts/ToastContext";
+import { ScrollProvider } from "../../contexts/ScrollContext";
+import { ScrollNavigator } from "../common/ScrollNavigator";
 
 interface SavedViewItem {
   id: string;
@@ -96,6 +98,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
     createWorkspace,
   } = useWorkspace();
   const [location, setLocation] = useLocation();
+  const mainContentRef = useRef<HTMLElement>(null);
 
   const muiTheme = useTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down("md"));
@@ -1291,15 +1294,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const breadcrumbs = getBreadcrumbs();
 
   return (
-    <Box
-      sx={{
-        display: "flex",
-        width: "100vw",
-        height: "100vh",
-        overflow: "hidden",
-        backgroundColor: tokens.background,
-      }}
-    >
+    <ScrollProvider scrollContainerRef={mainContentRef}>
+      <Box
+        sx={{
+          display: "flex",
+          width: "100vw",
+          height: "100vh",
+          overflow: "hidden",
+          backgroundColor: tokens.background,
+        }}
+      >
       {!isMobile && renderSidebarContent(false)}
 
       {isMobile && (
@@ -1658,6 +1662,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
 
         <Box
           component="main"
+          ref={mainContentRef}
           sx={{
             flex: 1,
             p: { xs: 1.5, sm: 2.5, md: 3 },
@@ -1855,6 +1860,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
       </Dialog>
 
       <OnboardingTour />
+      <ScrollNavigator />
     </Box>
+  </ScrollProvider>
   );
 };

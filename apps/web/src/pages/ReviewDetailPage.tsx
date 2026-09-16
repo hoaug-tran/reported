@@ -49,6 +49,7 @@ import { PullRequestPreview } from "../components/github/PullRequestPreview";
 import { CommentThread } from "../components/discussion/CommentThread";
 import { DetailSkeleton } from "../components/common/Skeletons";
 import { useSmoothLoading } from "../hooks/useSmoothLoading";
+import { useAutoScrollToBottomOnLoad } from "../hooks/useAutoScrollToBottomOnLoad";
 import { MediaFilesLinksSidebar } from "../components/common/MediaFilesLinksSidebar";
 import { ReviewDecisionDialog } from "../components/reviews/ReviewDecisionDialog";
 import { AcknowledgementBadge } from "../components/reviews/AcknowledgementBadge";
@@ -139,6 +140,11 @@ export const ReviewDetailPage: React.FC = () => {
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [activities, setActivities] = useState<ActivityTimelineDto[]>([]);
   const [decisionModalOpen, setDecisionModalOpen] = useState(false);
+
+  useAutoScrollToBottomOnLoad({
+    isReady: !loading && Boolean(review),
+    key: params?.number,
+  });
 
   const [usersList, setUsersList] = useState<UserSummaryDto[]>([]);
   const [repositoriesList, setRepositoriesList] = useState<RepositoryDto[]>([]);
