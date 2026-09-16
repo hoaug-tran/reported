@@ -1,467 +1,228 @@
-import React, { useState } from "react";
-import { Box, Typography, Link, Checkbox } from "@mui/material";
-import DOMPurify from "dompurify";
+import React, { useState, useMemo } from "react";
+import { Box } from "@mui/material";
+import ReactMarkdown, { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { Paperclip } from "lucide-react";
+import "katex/dist/katex.min.css";
+
 import { CodeBlock } from "../code/CodeBlock";
 import { JsonViewer } from "../json/JsonViewer";
-import { useThemeContext } from "../../contexts/ThemeContext";
 import { MediaLightbox } from "../common/MediaLightbox";
 import { AudioPlayer } from "../common/AudioPlayer";
+import { MermaidViewer } from "./MermaidViewer";
+import { GitHubAlert } from "./GitHubAlert";
+import {
+  cleanMarkdownContent,
+  parseGitHubAlert,
+  GitHubAlertType,
+} from "../../utils/markdownUtils";
+import { useThemeContext } from "../../contexts/ThemeContext";
 
 interface MarkdownRendererProps {
   content: string;
 }
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
-  content,
-}) => {
-  const { tokens } = useThemeContext();
+const customSanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [
+    ...(defaultSchema.tagNames || []),
+    "details",
+    "summary",
+    "kbd",
+    "mark",
+    "sub",
+    "sup",
+    "abbr",
+    "span",
+    "div",
+    "section",
+    "math",
+    "semantics",
+    "mrow",
+    "mi",
+    "mo",
+    "mn",
+    "msup",
+    "msub",
+    "mfrac",
+    "munder",
+    "mover",
+    "msubsup",
+    "mtable",
+    "mtr",
+    "mtd",
+    "annotation",
+  ],
+  attributes: {
+    ...defaultSchema.attributes,
+    "*": ["className", "class", "style", "id"],
+    a: ["href", "target", "rel", "title", "className", "class"],
+    img: ["src", "alt", "title", "className", "class", "loading"],
+    input: ["type", "checked", "disabled", "className", "class"],
+    details: ["open", "className", "class"],
+    th: ["align", "style", "className", "class"],
+    td: ["align", "style", "className", "class"],
+    code: ["className", "class"],
+    span: ["className", "class", "style", "aria-hidden"],
+  },
+};
+
+export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
+  const { tokens, resolvedMode } = useThemeContext();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState("");
   const [lightboxAlt, setLightboxAlt] = useState("");
 
-  const handleContainerClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (
-      target &&
-      target.tagName === "IMG" &&
-      target.classList.contains("markdown-img")
-    ) {
-      const img = target as HTMLImageElement;
-      setLightboxSrc(img.src);
-      setLightboxAlt(img.alt || "Image Preview");
-      setLightboxOpen(true);
-    }
-  };
-
-  const segments = React.useMemo(() => {
-    const raw = content || "";
-    const blockRegex =
-      /(?:```([a-zA-Z0-9_-]*)\n([\s\S]*?)```)|(?:\[(?:🎙️|Voice|Audio|Tin nhắn thoại)[^\]]*\]\(([^)]+)\))|(?:\[(?:🎬|Video|Clip|[^\]]*\.(?:mp4|mov|webm|mkv|avi))[^\]]*\]\(([^)]+)\))|(?:\[[^\]]*\]\(([^)]+\.(?:mp4|mov|webm|mkv|avi)(?:\?[^)]*)?)\))/gi;
-    const parts: Array<{
-      type: "text" | "code" | "json" | "audio" | "video";
-      language?: string;
-      content: string;
-    }> = [];
-    let lastIndex = 0;
-    let match: RegExpExecArray | null;
-
-    while ((match = blockRegex.exec(raw)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({
-          type: "text",
-          content: raw.substring(lastIndex, match.index),
-        });
-      }
-
-      if (match[2] !== undefined) {
-        const lang = match[1] || "text";
-        const code = match[2];
-        if (lang.toLowerCase() === "json") {
-          parts.push({ type: "json", language: "json", content: code });
-        } else {
-          parts.push({ type: "code", language: lang, content: code });
-        }
-      } else if (match[3] !== undefined) {
-        parts.push({ type: "audio", content: match[3] });
-      } else if (match[4] !== undefined) {
-        parts.push({ type: "video", content: match[4] });
-      } else if (match[5] !== undefined) {
-        parts.push({ type: "video", content: match[5] });
-      }
-
-      lastIndex = blockRegex.lastIndex;
-    }
-
-    if (lastIndex < raw.length) {
-      parts.push({
-        type: "text",
-        content: raw.substring(lastIndex),
-      });
-    }
-
-    return parts;
+  const normalizedContent = useMemo(() => {
+    return cleanMarkdownContent(content || "");
   }, [content]);
 
-  const renderTextSegment = (text: string) => {
-    let formatted = text;
-
-    formatted = formatted.replace(
-      /(?:^|\n)> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*\n((?:>.*(?:\n|$))*)/gi,
-      (_, alertType, alertBody) => {
-        const type = alertType.toUpperCase();
-        const content = alertBody
-          .split("\n")
-          .map((l: string) => l.replace(/^>[ \t]?/, ""))
-          .join("\n")
-          .trim();
-        return `\n<div class="github-alert github-alert-${type.toLowerCase()}"><div class="alert-title">${type}</div><div class="alert-content">${content}</div></div>\n`;
+  const components: Components = useMemo(() => {
+    return {
+      pre({ children }) {
+        return <>{children}</>;
       },
-    );
 
-    formatted = formatted.replace(
-      /(?:(?:^|\n)\|[^\n]+\|\r?\n\|(?:[ \t]*:?-+:?[ \t]*\|)+\r?\n(?:\|[^\n]+\|\r?\n?)+)/g,
-      (tableBlock) => {
-        const rows = tableBlock
-          .trim()
-          .split(/\r?\n/)
-          .map((r) => r.trim());
-        if (rows.length < 3) return tableBlock;
-        const headerCols = rows[0]
-          .replace(/^\||\|$/g, "")
-          .split("|")
-          .map((c) => c.trim());
-        const bodyRows = rows.slice(2).map((row) =>
-          row
-            .replace(/^\||\|$/g, "")
-            .split("|")
-            .map((c) => c.trim()),
+      code({ className, children, ...props }) {
+        const match = /language-(\w+)/.exec(className || "");
+        const lang = match ? match[1].toLowerCase() : "";
+        const rawCode = String(children).replace(/\n$/, "");
+        const isInline = !match && !rawCode.includes("\n");
+
+        if (lang === "mermaid") {
+          return <MermaidViewer code={rawCode} />;
+        }
+
+        if (lang === "json") {
+          return <JsonViewer data={rawCode} title="JSON Payload" />;
+        }
+
+        if (!isInline || lang) {
+          return <CodeBlock code={rawCode} language={lang || ""} />;
+        }
+
+        return (
+          <code className="inline-code" {...props}>
+            {children}
+          </code>
         );
+      },
 
-        let tableHtml =
-          '<div class="table-wrapper"><table class="markdown-table"><thead><tr>';
-        headerCols.forEach((h) => {
-          tableHtml += `<th>${h}</th>`;
-        });
-        tableHtml += "</tr></thead><tbody>";
-        bodyRows.forEach((cols) => {
-          tableHtml += "<tr>";
-          cols.forEach((cell) => {
-            tableHtml += `<td>${cell}</td>`;
+      blockquote({ children }) {
+        const extractText = (nodes: React.ReactNode): string => {
+          if (typeof nodes === "string") return nodes;
+          if (Array.isArray(nodes)) return nodes.map(extractText).join("");
+          if (React.isValidElement(nodes) && (nodes.props as { children?: React.ReactNode }).children) {
+            return extractText((nodes.props as { children?: React.ReactNode }).children);
+          }
+          return "";
+        };
+
+        const rawText = extractText(children);
+        const alertInfo = parseGitHubAlert(rawText);
+
+        if (alertInfo.isAlert && alertInfo.type) {
+          const cleanedChildren = React.Children.map(children, (child) => {
+            if (React.isValidElement(child) && child.type === "p") {
+              const pChildren = (child.props as { children?: React.ReactNode }).children;
+              if (typeof pChildren === "string") {
+                const stripped = pChildren.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*/i, "");
+                return <p>{stripped}</p>;
+              }
+              if (Array.isArray(pChildren) && typeof pChildren[0] === "string") {
+                const first = pChildren[0].replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*/i, "");
+                return <p>{[first, ...pChildren.slice(1)]}</p>;
+              }
+            }
+            return child;
           });
-          tableHtml += "</tr>";
-        });
-        tableHtml += "</tbody></table></div>";
-        return `\n${tableHtml}\n`;
-      },
-    );
 
-    formatted = formatted.replace(
-      /@([a-zA-Z0-9_-]+)/g,
-      '<a href="/users/$1" class="mention-tag">@$1</a>',
-    );
-
-    formatted = formatted.replace(
-      /!\[([^\]]*)\]\(([^)]+)\)/g,
-      '<img src="$2" alt="$1" class="markdown-img" />',
-    );
-    formatted = formatted.replace(
-      /\[([^\]]+)\]\(([^)]+)\)/g,
-      (_all, title, url) => {
-        const isFile =
-          title.includes("📎") ||
-          /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|log|sql)(\?.*)?$/i.test(
-            title,
-          );
-        const cls = isFile ? "file-link" : "markdown-link";
-        return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="${cls}">${title}</a>`;
-      },
-    );
-
-    formatted = formatted.replace(
-      /(^|[^"'>=([])(https?:\/\/[^\s<>"'()]+)/gi,
-      '$1<a href="$2" target="_blank" rel="noopener noreferrer" class="markdown-link">$2</a>',
-    );
-
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-    formatted = formatted.replace(/\*(.*?)\*/g, "<em>$1</em>");
-    formatted = formatted.replace(/~~(.*?)~~/g, "<del>$1</del>");
-    formatted = formatted.replace(/^---$/gm, '<hr class="markdown-hr" />');
-
-    formatted = formatted.replace(
-      /`([^`]+)`/g,
-      '<code class="inline-code">$1</code>',
-    );
-
-    formatted = formatted.replace(/^### (.*$)/gim, "<h3>$1</h3>");
-    formatted = formatted.replace(/^## (.*$)/gim, "<h2>$1</h2>");
-    formatted = formatted.replace(/^# (.*$)/gim, "<h1>$1</h1>");
-
-    formatted = formatted.replace(
-      /(?:^[ \t]*>[ \t]?(?:.*(?:\r?\n|$)))+/gm,
-      (match) => {
-        if (match.includes("github-alert")) return match;
-        const inner = match
-          .split(/\r?\n/)
-          .map((line) => line.replace(/^[ \t]*>[ \t]?/, "").trim())
-          .filter((line) => line.length > 0)
-          .join("<br/>");
-        return `<blockquote>${inner}</blockquote>\n`;
-      },
-    );
-
-    formatted = formatted.replace(
-      /^- \[x\] (.*$)/gim,
-      '<div class="checklist-item checked"><input type="checkbox" checked disabled /> <span>$1</span></div>',
-    );
-    formatted = formatted.replace(
-      /^- \[ \] (.*$)/gim,
-      '<div class="checklist-item"><input type="checkbox" disabled /> <span>$1</span></div>',
-    );
-
-    formatted = formatted.replace(/^- (.*$)/gim, "<li>$1</li>");
-
-    const paragraphs = formatted.split(/\n{2,}/);
-    formatted = paragraphs
-      .map((p) => {
-        const trimmed = p.trim();
-        if (!trimmed) return "";
-        if (/^<(h[1-6]|div|table|blockquote|hr|ul|ol|li)/i.test(trimmed)) {
-          return trimmed;
-        }
-        return `<p>${trimmed.replace(/\n/g, "<br/>")}</p>`;
-      })
-      .join("\n");
-
-    const cleanHtml = DOMPurify.sanitize(formatted, {
-      ALLOWED_TAGS: [
-        "h1",
-        "h2",
-        "h3",
-        "strong",
-        "em",
-        "del",
-        "code",
-        "blockquote",
-        "li",
-        "ul",
-        "ol",
-        "p",
-        "br",
-        "a",
-        "div",
-        "span",
-        "input",
-        "table",
-        "thead",
-        "tbody",
-        "tr",
-        "th",
-        "td",
-        "img",
-        "hr",
-        "audio",
-        "video",
-        "source",
-      ],
-      ALLOWED_ATTR: [
-        "href",
-        "class",
-        "type",
-        "checked",
-        "disabled",
-        "src",
-        "alt",
-        "target",
-        "rel",
-        "controls",
-        "autoplay",
-        "loop",
-        "muted",
-        "poster",
-      ],
-    });
-
-    return (
-      <Box
-        sx={{
-          lineHeight: 1.6,
-          color: tokens.textPrimary,
-          fontSize: "0.875rem",
-          "& p": { m: 0, mb: 1.25, "&:last-child": { mb: 0 } },
-          "& h1": {
-            fontSize: "1.4rem",
-            fontWeight: 600,
-            my: 1.5,
-            pb: 0.5,
-            borderBottom: `1px solid ${tokens.border}`,
-          },
-          "& h2": {
-            fontSize: "1.2rem",
-            fontWeight: 600,
-            my: 1.25,
-            pb: 0.5,
-            borderBottom: `1px solid ${tokens.border}`,
-          },
-          "& h3": { fontSize: "1.05rem", fontWeight: 600, my: 1 },
-          "& blockquote": {
-            m: 0,
-            mt: 0.5,
-            mb: 0.75,
-            py: 0.25,
-            pl: 1.5,
-            borderLeft: `3px solid ${tokens.border}`,
-            color: tokens.textSecondary,
-            fontStyle: "normal",
-          },
-          "& .inline-code": {
-            px: 0.6,
-            py: 0.15,
-            borderRadius: "4px",
-            backgroundColor: tokens.surfaceSecondary,
-            color: tokens.textPrimary,
-            fontFamily: '"JetBrains Mono", monospace',
-            fontSize: "0.8125rem",
-          },
-          "& .mention-tag": {
-            color: tokens.primary,
-            backgroundColor: tokens.selected,
-            borderRadius: "3px",
-            px: 0.5,
-            py: 0.1,
-            fontWeight: 600,
-            textDecoration: "none",
-            fontSize: "0.8125rem",
-            "&:hover": { textDecoration: "underline" },
-          },
-          "& .markdown-link": {
-            color: tokens.primary,
-            textDecoration: "none",
-            fontWeight: 500,
-            wordBreak: "break-all",
-            "&:hover": { textDecoration: "underline" },
-          },
-          "& .file-link": {
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "6px",
-            px: 1.2,
-            py: 0.5,
-            my: 0.5,
-            borderRadius: "6px",
-            backgroundColor: tokens.surfaceSecondary,
-            border: `1px solid ${tokens.border}`,
-            color: tokens.primary,
-            textDecoration: "none",
-            fontWeight: 600,
-            fontSize: "0.8125rem",
-            transition: "background-color 0.15s, border-color 0.15s",
-            "&:hover": {
-              backgroundColor: tokens.hover,
-              borderColor: tokens.primary,
-              textDecoration: "none",
-            },
-          },
-          "& .markdown-img": {
-            maxWidth: "100%",
-            height: "auto",
-            borderRadius: "6px",
-            border: `1px solid ${tokens.border}`,
-            my: 1,
-            cursor: "zoom-in",
-            transition: "transform 0.15s ease, box-shadow 0.15s ease",
-            "&:hover": {
-              transform: "scale(1.015)",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            },
-          },
-          "& .markdown-hr": {
-            border: "none",
-            borderTop: `1px solid ${tokens.border}`,
-            my: 2,
-          },
-          "& .table-wrapper": {
-            overflowX: "auto",
-            my: 1.5,
-            borderRadius: "6px",
-            border: `1px solid ${tokens.border}`,
-          },
-          "& .markdown-table": {
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.8125rem",
-            "& th": {
-              backgroundColor: tokens.surfaceSecondary,
-              padding: "8px 12px",
-              textAlign: "left",
-              fontWeight: 600,
-              borderBottom: `1px solid ${tokens.border}`,
-            },
-            "& td": {
-              padding: "8px 12px",
-              borderBottom: `1px solid ${tokens.border}`,
-            },
-            "& tr:last-child td": {
-              borderBottom: "none",
-            },
-          },
-          "& .github-alert": {
-            p: 1.5,
-            my: 1.5,
-            borderRadius: "6px",
-            borderLeft: "4px solid",
-            backgroundColor: tokens.surfaceSecondary,
-            "& .alert-title": {
-              fontWeight: 700,
-              fontSize: "0.8125rem",
-              mb: 0.5,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-            },
-          },
-          "& .github-alert-note": {
-            borderColor: "#58a6ff",
-            "& .alert-title": { color: "#58a6ff" },
-          },
-          "& .github-alert-tip": {
-            borderColor: "#3fb950",
-            "& .alert-title": { color: "#3fb950" },
-          },
-          "& .github-alert-important": {
-            borderColor: "#bc8cff",
-            "& .alert-title": { color: "#bc8cff" },
-          },
-          "& .github-alert-warning": {
-            borderColor: "#d29922",
-            "& .alert-title": { color: "#d29922" },
-          },
-          "& .github-alert-caution": {
-            borderColor: "#f85149",
-            "& .alert-title": { color: "#f85149" },
-          },
-          "& .checklist-item": {
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            my: "4px",
-          },
-          "& li": {
-            ml: 2,
-            my: 0.25,
-          },
-        }}
-        dangerouslySetInnerHTML={{ __html: cleanHtml }}
-      />
-    );
-  };
-
-  return (
-    <Box sx={{ width: "100%" }} onClick={handleContainerClick}>
-      {segments.map((seg, idx) => {
-        if (seg.type === "code") {
           return (
-            <CodeBlock key={idx} code={seg.content} language={seg.language} />
+            <GitHubAlert type={alertInfo.type as GitHubAlertType} title={alertInfo.title}>
+              {cleanedChildren}
+            </GitHubAlert>
           );
         }
-        if (seg.type === "json") {
+
+        return <blockquote>{children}</blockquote>;
+      },
+
+      table({ children }) {
+        return (
+          <div className="table-wrapper">
+            <table className="markdown-table">{children}</table>
+          </div>
+        );
+      },
+
+      th({ children, style, ...props }) {
+        return (
+          <th style={style} {...props}>
+            {children}
+          </th>
+        );
+      },
+
+      td({ children, style, ...props }) {
+        return (
+          <td style={style} {...props}>
+            {children}
+          </td>
+        );
+      },
+
+      input({ type, checked, ...props }) {
+        if (type === "checkbox") {
           return (
-            <JsonViewer key={idx} data={seg.content} title="JSON Payload" />
+            <input
+              type="checkbox"
+              checked={checked}
+              disabled
+              className={`task-checkbox ${checked ? "checked" : ""}`}
+              {...props}
+            />
           );
         }
-        if (seg.type === "audio") {
+        return <input type={type} {...props} />;
+      },
+
+      a({ href = "", children, ...props }) {
+        const textContent = String(children);
+
+        const isAudio =
+          textContent.includes("\uD83C\uDF99") ||
+          textContent.includes("Voice") ||
+          textContent.includes("Audio") ||
+          textContent.includes("Tin nhắn thoại") ||
+          /\.(mp3|wav|ogg|m4a)(\?.*)?$/i.test(href);
+
+        if (isAudio) {
           return (
-            <Box key={idx} sx={{ my: 1.5, maxWidth: 420 }}>
-              <AudioPlayer src={seg.content} />
+            <Box sx={{ my: 1.5, maxWidth: 420 }}>
+              <AudioPlayer src={href} />
             </Box>
           );
         }
-        if (seg.type === "video") {
-          const videoSrc = seg.content.includes("?")
-            ? seg.content.includes("inline=true")
-              ? seg.content
-              : `${seg.content}&inline=true`
-            : `${seg.content}?inline=true`;
+
+        const isVideo =
+          textContent.includes("\uD83C\uDFAC") ||
+          textContent.includes("Video") ||
+          textContent.includes("Clip") ||
+          /\.(mp4|mov|webm|mkv|avi)(\?.*)?$/i.test(href);
+
+        if (isVideo) {
+          const videoSrc = href.includes("?")
+            ? href.includes("inline=true")
+              ? href
+              : `${href}&inline=true`
+            : `${href}?inline=true`;
+
           return (
-            <Box key={idx} sx={{ my: 1.5, maxWidth: 640 }}>
+            <Box sx={{ my: 1.5, maxWidth: 640 }}>
               <video
                 src={videoSrc}
                 controls
@@ -479,12 +240,341 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
             </Box>
           );
         }
+
+        const isFile =
+          textContent.includes("\uD83D\uDCCE") ||
+          textContent.startsWith("File:") ||
+          /\.(pdf|docx?|xlsx?|pptx?|zip|tar|gz|txt|csv|json|log|sql)(\?.*)?$/i.test(textContent);
+
+        if (isFile) {
+          const label = textContent.replace(/^[\uD83D\uDCCE\s]+/, "").replace(/^File:\s*/, "");
+          return (
+            <a href={href} target="_blank" rel="noopener noreferrer" className="file-link" {...props}>
+              <Paperclip size={14} style={{ flexShrink: 0 }} />
+              <span>{label || textContent}</span>
+            </a>
+          );
+        }
+
+        if (textContent.startsWith("@") && !textContent.includes(" ")) {
+          const username = textContent.substring(1);
+          return (
+            <a href={`/users/${username}`} className="mention-tag" {...props}>
+              {children}
+            </a>
+          );
+        }
+
         return (
-          <React.Fragment key={idx}>
-            {renderTextSegment(seg.content)}
-          </React.Fragment>
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="markdown-link"
+            {...props}
+          >
+            {children}
+          </a>
         );
-      })}
+      },
+
+      img({ src = "", alt = "", ...props }) {
+        return (
+          <img
+            src={src}
+            alt={alt}
+            className="markdown-img"
+            loading="lazy"
+            onClick={() => {
+              setLightboxSrc(src);
+              setLightboxAlt(alt || "Image Preview");
+              setLightboxOpen(true);
+            }}
+            {...props}
+          />
+        );
+      },
+
+      details({ children, ...props }) {
+        return (
+          <details className="markdown-details" {...props}>
+            {children}
+          </details>
+        );
+      },
+
+      summary({ children, ...props }) {
+        return (
+          <summary className="markdown-summary" {...props}>
+            {children}
+          </summary>
+        );
+      },
+
+      kbd({ children, ...props }) {
+        return (
+          <kbd className="markdown-kbd" {...props}>
+            {children}
+          </kbd>
+        );
+      },
+
+      mark({ children, ...props }) {
+        return (
+          <mark className="markdown-mark" {...props}>
+            {children}
+          </mark>
+        );
+      },
+    };
+  }, [tokens, setLightboxSrc, setLightboxAlt, setLightboxOpen]);
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        lineHeight: 1.65,
+        color: tokens.textPrimary,
+        fontSize: "0.875rem",
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        "& p": { m: 0, mb: 1.5, "&:last-child": { mb: 0 } },
+        "& h1": {
+          fontSize: "1.5rem",
+          fontWeight: 700,
+          mt: 3,
+          mb: 1.5,
+          pb: 0.6,
+          borderBottom: `1px solid ${tokens.border}`,
+          lineHeight: 1.3,
+          "&:first-of-type": { mt: 0.5 },
+        },
+        "& h2": {
+          fontSize: "1.3rem",
+          fontWeight: 600,
+          mt: 2.5,
+          mb: 1.25,
+          pb: 0.5,
+          borderBottom: `1px solid ${tokens.border}`,
+          lineHeight: 1.35,
+        },
+        "& h3": { fontSize: "1.125rem", fontWeight: 600, mt: 2, mb: 1, lineHeight: 1.4 },
+        "& h4": { fontSize: "1rem", fontWeight: 600, mt: 1.75, mb: 0.75 },
+        "& h5": { fontSize: "0.925rem", fontWeight: 600, mt: 1.5, mb: 0.5 },
+        "& h6": { fontSize: "0.875rem", fontWeight: 600, color: tokens.textSecondary, mt: 1.25, mb: 0.5 },
+
+        "& ul, & ol": {
+          pl: 3,
+          my: 1.25,
+          "& li": {
+            my: 0.35,
+            lineHeight: 1.6,
+          },
+          "& ul, & ol": {
+            my: 0.35,
+            pl: 2.5,
+          },
+        },
+        "& li": {
+          "&.task-list-item": {
+            listStyleType: "none",
+            ml: -2.5,
+          },
+        },
+
+        "& .task-checkbox": {
+          mr: 1,
+          verticalAlign: "middle",
+          cursor: "default",
+          accentColor: tokens.primary,
+          width: 14,
+          height: 14,
+        },
+
+        "& blockquote": {
+          m: 0,
+          my: 1.5,
+          py: 0.5,
+          pl: 2,
+          borderLeft: `3px solid ${tokens.border}`,
+          color: tokens.textSecondary,
+          fontStyle: "normal",
+          "& p": { mb: 0.75, "&:last-child": { mb: 0 } },
+        },
+
+        "& .inline-code": {
+          px: "0.45em",
+          py: "0.2em",
+          borderRadius: "4px",
+          backgroundColor:
+            resolvedMode === "dark"
+              ? "rgba(255, 255, 255, 0.08)"
+              : "rgba(135, 131, 120, 0.15)",
+          color: resolvedMode === "dark" ? "#ff7b72" : "#eb5757",
+          fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
+          fontSize: "0.85em",
+          fontWeight: 500,
+          border: `1px solid ${
+            resolvedMode === "dark"
+              ? "rgba(255, 255, 255, 0.08)"
+              : "rgba(0, 0, 0, 0.05)"
+          }`,
+          boxDecorationBreak: "clone",
+          WebkitBoxDecorationBreak: "clone",
+          whiteSpace: "break-spaces",
+          wordBreak: "break-word",
+        },
+
+        "& .mention-tag": {
+          color: tokens.primary,
+          backgroundColor: tokens.selected,
+          borderRadius: "4px",
+          px: 0.6,
+          py: 0.15,
+          fontWeight: 600,
+          textDecoration: "none",
+          fontSize: "0.8125rem",
+          transition: "background-color 0.15s",
+          "&:hover": { textDecoration: "underline", backgroundColor: tokens.hover },
+        },
+
+        "& .markdown-link": {
+          color: tokens.primary,
+          textDecoration: "none",
+          fontWeight: 500,
+          wordBreak: "break-word",
+          "&:hover": { textDecoration: "underline" },
+        },
+
+        "& .file-link": {
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "6px",
+          px: 1.25,
+          py: 0.5,
+          my: 0.5,
+          borderRadius: "6px",
+          backgroundColor: tokens.surfaceSecondary,
+          border: `1px solid ${tokens.border}`,
+          color: tokens.primary,
+          textDecoration: "none",
+          fontWeight: 600,
+          fontSize: "0.8125rem",
+          transition: "background-color 0.15s, border-color 0.15s",
+          "&:hover": {
+            backgroundColor: tokens.hover,
+            borderColor: tokens.primary,
+            textDecoration: "none",
+          },
+        },
+
+        "& .markdown-img": {
+          maxWidth: "100%",
+          height: "auto",
+          borderRadius: "8px",
+          border: `1px solid ${tokens.border}`,
+          my: 1.5,
+          cursor: "zoom-in",
+          transition: "box-shadow 0.15s ease",
+          "&:hover": {
+            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+          },
+        },
+
+        "& hr": {
+          border: "none",
+          borderTop: `1px solid ${tokens.border}`,
+          my: 2.5,
+        },
+
+        "& .table-wrapper": {
+          overflowX: "auto",
+          my: 2,
+          borderRadius: "8px",
+          border: `1px solid ${tokens.border}`,
+        },
+        "& .markdown-table": {
+          width: "100%",
+          borderCollapse: "collapse",
+          fontSize: "0.8125rem",
+          "& th": {
+            backgroundColor: tokens.surfaceSecondary,
+            padding: "10px 14px",
+            fontWeight: 600,
+            borderBottom: `1px solid ${tokens.border}`,
+          },
+          "& td": {
+            padding: "8px 14px",
+            borderBottom: `1px solid ${tokens.border}`,
+          },
+          "& tr:last-child td": {
+            borderBottom: "none",
+          },
+          "& tr:nth-of-type(even)": {
+            backgroundColor: resolvedMode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+          },
+        },
+
+        "& .markdown-details": {
+          my: 1.5,
+          p: 1.5,
+          borderRadius: "8px",
+          border: `1px solid ${tokens.border}`,
+          backgroundColor: resolvedMode === "dark" ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.015)",
+          "&[open]": {
+            backgroundColor: "transparent",
+          },
+        },
+        "& .markdown-summary": {
+          fontWeight: 600,
+          cursor: "pointer",
+          userSelect: "none",
+          color: tokens.textPrimary,
+          fontSize: "0.875rem",
+          "&:hover": {
+            color: tokens.primary,
+          },
+        },
+
+        "& .markdown-kbd": {
+          display: "inline-block",
+          padding: "2px 6px",
+          fontSize: "0.75rem",
+          fontWeight: 600,
+          lineHeight: "1",
+          color: tokens.textPrimary,
+          verticalAlign: "middle",
+          backgroundColor: tokens.surfaceSecondary,
+          border: `1px solid ${tokens.border}`,
+          borderRadius: "4px",
+          boxShadow: resolvedMode === "dark" ? "inset 0 -1px 0 rgba(255,255,255,0.1)" : "inset 0 -1px 0 rgba(0,0,0,0.2)",
+          fontFamily: '"JetBrains Mono", monospace',
+        },
+
+        "& .markdown-mark": {
+          backgroundColor: resolvedMode === "dark" ? "rgba(234, 179, 8, 0.25)" : "rgba(250, 204, 21, 0.4)",
+          color: tokens.textPrimary,
+          padding: "0.1em 0.3em",
+          borderRadius: "3px",
+        },
+
+        "& .katex-display": {
+          my: 2,
+          overflowX: "auto",
+          overflowY: "hidden",
+          py: 1,
+        },
+        "& .katex": {
+          fontSize: "1.05em",
+        },
+      }}
+    >
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, customSanitizeSchema], rehypeKatex]}
+        components={components}
+      >
+        {normalizedContent}
+      </ReactMarkdown>
 
       <MediaLightbox
         open={lightboxOpen}
