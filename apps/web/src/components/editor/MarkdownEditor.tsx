@@ -14,6 +14,12 @@ import {
   Typography,
   LinearProgress,
   CircularProgress,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListSubheader,
+  Divider,
+  Button,
 } from "@mui/material";
 import {
   Heading,
@@ -30,6 +36,15 @@ import {
   Paperclip,
   Mic,
   X,
+  Plus,
+  Wand2,
+  Table as TableIcon,
+  Sigma,
+  GitBranch,
+  Sparkles,
+  ChevronDown,
+  Layers,
+  FileText,
 } from "lucide-react";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { UserAvatar } from "../common/UserAvatar";
@@ -38,6 +53,7 @@ import { useThemeContext } from "../../contexts/ThemeContext";
 import { apiFetch } from "../../api/client";
 import { uploadFileWithChunking } from "../../utils/chunkedUpload";
 import { VoiceRecorder } from "../common/VoiceRecorder";
+import { cleanMarkdownContent } from "../../utils/markdownUtils";
 
 interface HistoryEntry {
   value: string;
@@ -56,7 +72,6 @@ interface MarkdownEditorProps {
 }
 
 const MAX_HISTORY = 100;
-const HISTORY_DEBOUNCE_MS = 400;
 
 const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   value,
@@ -68,14 +83,12 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   targetId,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
-  const [tabIndex, setTabIndex] = useState<"write" | "preview">("write");
+  const [tabIndex, setTabIndex] = useState<"write" | "preview" | "split">("write");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState<number>(-1);
   const [suggestedUsers, setSuggestedUsers] = useState<UserSummaryDto[]>([]);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
-  const [editorHeight, setEditorHeight] = useState<number | undefined>(
-    undefined,
-  );
+  const [editorHeight, setEditorHeight] = useState<number | undefined>(undefined);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [localValue, setLocalValue] = useState(value);
@@ -85,14 +98,21 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   }, [localValue]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  const [debouncedPreviewValue, setDebouncedPreviewValue] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPreviewValue(localValue);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [localValue]);
+
+  const [insertAnchorEl, setInsertAnchorEl] = useState<null | HTMLElement>(null);
+  const isInsertMenuOpen = Boolean(insertAnchorEl);
+
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(
-    null,
-  );
-  const [uploadingFileSize, setUploadingFileSize] = useState<string | null>(
-    null,
-  );
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
+  const [uploadingFileSize, setUploadingFileSize] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
@@ -123,6 +143,29 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
     );
   };
 
+  const insertBlock = (template: string) => {
+    const current = localValueRef.current || "";
+    const prefix =
+      current.length === 0
+        ? ""
+        : current.endsWith("\n\n")
+          ? ""
+          : current.endsWith("\n")
+            ? "\n"
+            : "\n\n";
+    insertAtCursor(`${prefix}${template}\n`);
+    setInsertAnchorEl(null);
+  };
+
+  const handleCleanContent = () => {
+    const current = localValueRef.current || "";
+    const cleaned = cleanMarkdownContent(current);
+    setLocalValue(cleaned);
+    localValueRef.current = cleaned;
+    onChange(cleaned);
+    pushHistory(cleaned, 0, 0);
+  };
+
   const handleUploadFile = async (file: File, isImg: boolean) => {
     setIsUploading(true);
     setUploadProgress(0);
@@ -148,9 +191,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       if (isImage) {
         insertAtCursor(`\n![${file.name}](${res.inlineUrl})\n`);
       } else if (isVideo) {
-        insertAtCursor(`\n[🎬 Video: ${file.name}](${res.inlineUrl})\n`);
+        insertAtCursor(`\n[Video: ${file.name}](${res.inlineUrl})\n`);
       } else {
-        insertAtCursor(`\n[📎 ${file.name}](${res.url})\n`);
+        insertAtCursor(`\n[File: ${file.name}](${res.url})\n`);
       }
     } catch (err: unknown) {
       console.error(err);
@@ -205,7 +248,6 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   ]);
   const historyIndexRef = useRef<number>(0);
   const isSuppressingHistoryRef = useRef(false);
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isComposingRef = useRef(false);
 
   const pushHistory = useCallback(
@@ -286,10 +328,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selected = value.substring(start, end);
+    const selected = localValue.substring(start, end);
     const replacement = prefix + (selected || "text") + suffix;
     const newValue =
-      value.substring(0, start) + replacement + value.substring(end);
+      localValue.substring(0, start) + replacement + localValue.substring(end);
 
     setLocalValue(newValue);
     onChange(newValue);
@@ -349,51 +391,60 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         return;
       }
       if (e.key === "Escape") {
+        e.preventDefault();
         setMentionQuery(null);
         return;
       }
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+      e.preventDefault();
+      insertText("**", "**");
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === "i") {
+      e.preventDefault();
+      insertText("*", "*");
+      return;
     }
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value;
-    const cursor = e.target.selectionStart;
     setLocalValue(text);
-
-    if (isComposingRef.current) return;
-
     onChange(text);
 
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => {
-      const textarea = textareaRef.current;
-      const sel = textarea ? textarea.selectionStart : cursor;
-      pushHistory(text, sel, sel);
-    }, HISTORY_DEBOUNCE_MS);
+    const cursorPos = e.target.selectionStart;
+    pushHistory(text, cursorPos, cursorPos);
 
-    const textBeforeCursor = text.substring(0, cursor);
-    const match = textBeforeCursor.match(/@([a-zA-Z0-9_-]*)$/);
-    if (match) {
-      setMentionQuery(match[1]);
-      setMentionIndex(cursor - match[0].length);
-    } else {
-      setMentionQuery(null);
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const lastAtPos = textBeforeCursor.lastIndexOf("@");
+
+    if (lastAtPos !== -1) {
+      const query = textBeforeCursor.substring(lastAtPos + 1);
+      if (!query.includes(" ") && !query.includes("\n")) {
+        setMentionQuery(query);
+        setMentionIndex(lastAtPos);
+        return;
+      }
     }
+    setMentionQuery(null);
   };
 
   const insertMention = (user: UserSummaryDto) => {
-    if (mentionIndex === -1) return;
     const textarea = textareaRef.current;
-    const cursor = textarea ? textarea.selectionStart : value.length;
+    if (!textarea) return;
 
-    const textBeforeMention = value.substring(0, mentionIndex);
-    const textAfterCursor = value.substring(cursor);
+    const currentVal = localValue;
+    const textBeforeMention = currentVal.substring(0, mentionIndex);
+    const textAfterCursor = currentVal.substring(textarea.selectionStart);
     const mentionTag = `@${user.username} `;
-    const nextValue = textBeforeMention + mentionTag + textAfterCursor;
 
-    onChange(nextValue);
+    const newValue = textBeforeMention + mentionTag + textAfterCursor;
+    setLocalValue(newValue);
+    onChange(newValue);
     pushHistory(
-      nextValue,
+      newValue,
       textBeforeMention.length + mentionTag.length,
       textBeforeMention.length + mentionTag.length,
     );
@@ -413,9 +464,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
   const handleTabChange = (
     _: React.SyntheticEvent,
-    newTab: "write" | "preview",
+    newTab: "write" | "preview" | "split",
   ) => {
-    if (newTab === "preview") {
+    if (newTab === "preview" || newTab === "split") {
       const h =
         textareaRef.current?.offsetHeight || containerRef.current?.offsetHeight;
       if (h && h > 120) {
@@ -429,7 +480,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
     <Box
       sx={{
         border: `1px solid ${tokens.border}`,
-        borderRadius: "6px",
+        borderRadius: "8px",
         backgroundColor: resolvedMode === "dark" ? tokens.surface : "#ffffff",
         position: "relative",
       }}
@@ -442,8 +493,8 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           borderBottom: `1px solid ${tokens.border}`,
           px: 1,
           backgroundColor: resolvedMode === "dark" ? "#161b22" : "#f6f8fa",
-          borderTopLeftRadius: "5px",
-          borderTopRightRadius: "5px",
+          borderTopLeftRadius: "7px",
+          borderTopRightRadius: "7px",
         }}
       >
         <Tabs
@@ -456,14 +507,16 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               py: 0.5,
               px: 1.5,
               fontSize: "0.8125rem",
+              fontWeight: 600,
             },
           }}
         >
           <Tab value="write" label="Write" />
           <Tab value="preview" label="Preview" />
+          <Tab value="split" label="Split View" />
         </Tabs>
 
-        {tabIndex === "write" && (
+        {(tabIndex === "write" || tabIndex === "split") && (
           <Box
             sx={{
               display: "flex",
@@ -498,15 +551,47 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 </IconButton>
               </span>
             </Tooltip>
-            <Box
-              sx={{
-                width: 1,
-                height: 16,
-                backgroundColor: tokens.border,
-                mx: 0.3,
-              }}
-            />
-            <Tooltip title="Heading">
+
+            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.border, mx: 0.3 }} />
+
+            <Tooltip title="Chèn Sơ đồ, Bảng, Alerts & Công thức toán">
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={(e) => setInsertAnchorEl(e.currentTarget)}
+                startIcon={<Plus size={14} />}
+                endIcon={<ChevronDown size={12} />}
+                sx={{
+                  py: 0.2,
+                  px: 1,
+                  fontSize: "0.75rem",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  borderColor: tokens.border,
+                  color: tokens.textPrimary,
+                  "&:hover": {
+                    borderColor: tokens.primary,
+                    backgroundColor: tokens.hover,
+                  },
+                }}
+              >
+                Chèn
+              </Button>
+            </Tooltip>
+
+            <Tooltip title="Dọn dẹp dòng trống thừa & Chuẩn hóa khoảng cách">
+              <IconButton
+                size="small"
+                onClick={handleCleanContent}
+                sx={{ color: tokens.textSecondary }}
+              >
+                <Wand2 size={15} />
+              </IconButton>
+            </Tooltip>
+
+            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.border, mx: 0.3 }} />
+
+            <Tooltip title="Tiêu đề (Heading)">
               <IconButton
                 size="small"
                 onClick={() => insertText("### ")}
@@ -515,7 +600,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <Heading size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Bold (Ctrl+B)">
+            <Tooltip title="In đậm (Ctrl+B)">
               <IconButton
                 size="small"
                 onClick={() => insertText("**", "**")}
@@ -524,7 +609,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <Bold size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Italic (Ctrl+I)">
+            <Tooltip title="In nghiêng (Ctrl+I)">
               <IconButton
                 size="small"
                 onClick={() => insertText("*", "*")}
@@ -533,7 +618,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <Italic size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Inline Code">
+            <Tooltip title="Mã nội dòng (Inline Code)">
               <IconButton
                 size="small"
                 onClick={() => insertText("`", "`")}
@@ -542,7 +627,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <Code size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Quote">
+            <Tooltip title="Trích dẫn (Quote)">
               <IconButton
                 size="small"
                 onClick={() => insertText("> ")}
@@ -551,7 +636,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <Quote size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Checklist">
+            <Tooltip title="Danh sách công việc (Checklist)">
               <IconButton
                 size="small"
                 onClick={() => insertText("- [ ] ")}
@@ -560,7 +645,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <CheckSquare size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Code Block">
+            <Tooltip title="Khối code (Code Block)">
               <IconButton
                 size="small"
                 onClick={() => insertText("```ts\n", "\n```")}
@@ -569,7 +654,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 <FileCode size={15} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Link">
+            <Tooltip title="Đường dẫn (Link)">
               <IconButton
                 size="small"
                 onClick={() => insertText("[", "](url)")}
@@ -579,16 +664,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               </IconButton>
             </Tooltip>
 
-            <Box
-              sx={{
-                width: 1,
-                height: 16,
-                backgroundColor: tokens.divider,
-                mx: 0.5,
-              }}
-            />
+            <Box sx={{ width: 1, height: 16, backgroundColor: tokens.divider, mx: 0.5 }} />
 
-            <Tooltip title="Chèn ảnh (hoặc dán Ctrl+V)">
+            <Tooltip title="Chèn ảnh">
               <IconButton
                 size="small"
                 onClick={() => imageInputRef.current?.click()}
@@ -647,6 +725,338 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         )}
       </Box>
 
+      <Menu
+        anchorEl={insertAnchorEl}
+        open={isInsertMenuOpen}
+        onClose={() => setInsertAnchorEl(null)}
+        PaperProps={{
+          sx: {
+            maxHeight: 460,
+            width: 290,
+            backgroundColor: tokens.surface,
+            border: `1px solid ${tokens.border}`,
+            boxShadow: "0 8px 30px rgba(0,0,0,0.15)",
+          },
+        }}
+      >
+        <ListSubheader
+          sx={{
+            backgroundColor: "transparent",
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: tokens.primary,
+            lineHeight: "28px",
+          }}
+        >
+          SƠ ĐỒ ĐỒ HỌA (MERMAID)
+        </ListSubheader>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nflowchart TD\n    A[Bắt đầu] --> B{Điều kiện}\n    B -->|Đúng| C[Xử lý thành công]\n    B -->|Sai| D[Thử lại]\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Flowchart (Lưu đồ quy trình)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nsequenceDiagram\n    actor User\n    participant Web as Frontend\n    participant API as Backend\n    participant DB as Database\n    User->>Web: Bấm nút hành động\n    Web->>API: POST /api/v1/resource\n    API->>DB: Ghi dữ liệu\n    DB-->>API: Phản hồi 200 OK\n    API-->>Web: Dữ liệu JSON\n    Web-->>User: Hiển thị kết quả\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Sequence (Luồng tương tác API)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nclassDiagram\n    class Issue {\n        +string id\n        +string title\n        +string status\n        +assign(user)\n        +close()\n    }\n    class User {\n        +string id\n        +string username\n        +string email\n    }\n    Issue --> User : người thực hiện\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Class Diagram (Sơ đồ lớp OOP)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nstateDiagram-v2\n    [*] --> KhởiTạo\n    KhởiTạo --> ĐangXửLý : Bắt đầu\n    ĐangXửLý --> ChờDuyệt : Tạo Pull Request\n    ChờDuyệt --> HoànThành : Phê duyệt\n    HoànThành --> [*]\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="State Machine (Vòng đời trạng thái)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nerDiagram\n    USERS ||--o{ ISSUES : creates\n    USERS {\n        string id PK\n        string username\n        string email\n    }\n    ISSUES {\n        string id PK\n        string title\n        string author_id FK\n    }\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="ERD (Cơ sở dữ liệu quan hệ)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              '```mermaid\ngitGraph\n    commit id: "Initial"\n    branch feature/diagrams\n    checkout feature/diagrams\n    commit id: "Add Mermaid"\n    commit id: "Add KaTeX"\n    checkout main\n    merge feature/diagrams id: "Merge PR #42"\n    commit id: "Release v1.2"\n```',
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <GitBranch size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Git Graph (Mô hình nhánh Git)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\ngantt\n    title Kế hoạch Sprint\n    dateFormat YYYY-MM-DD\n    section Thiết kế\n        Nghiên cứu kiến trúc :des1, 2026-09-01, 7d\n    section Phát triển\n        Triển khai Components :dev1, after des1, 10d\n        Tích hợp API :dev2, after des1, 8d\n    section Kiểm thử\n        Kiểm thử chức năng :test1, after dev1, 5d\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Gantt Chart (Lộ trình Roadmap)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\nmindmap\n  root((Hệ thống))\n    Tính năng\n      Quản lý lỗi\n      Review mã nguồn\n      Thảo luận nhóm\n    Đồ họa\n      Mermaid Suite\n      KaTeX Math\n    Bảo mật\n      Strict Sanitization\n      RBAC\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Sparkles size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Mindmap (Sơ đồ tư duy)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              '```mermaid\npie title Phân bổ trạng thái công việc\n    "Đã hoàn thành" : 65\n    "Đang xử lý" : 25\n    "Chờ giải quyết" : 10\n```',
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Pie Chart (Biểu đồ tròn tỷ lệ)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "```mermaid\ntimeline\n    title Dòng thời gian dự án\n    2026 Q1 : Khởi tạo kiến trúc : Thiết kế Monorepo\n    2026 Q2 : Tính năng cộng tác : Thảo luận thời gian thực : Tin nhắn thoại\n    2026 Q3 : Full Markdown & Diagrams : Mermaid Suite : KaTeX Math\n```",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Layers size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Timeline (Dòng thời gian mốc)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <ListSubheader
+          sx={{
+            backgroundColor: "transparent",
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: tokens.primary,
+            lineHeight: "28px",
+          }}
+        >
+          TOÁN HỌC & CÔNG THỨC (KATEX)
+        </ListSubheader>
+
+        <MenuItem onClick={() => insertBlock("$E = mc^2$")}>
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Sigma size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Công thức nội dòng ($...$)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "$$\nf(x) = \\int_{-\\infty}^{\\infty} \\hat{f}(\\xi)\\,e^{2 \\pi i \\xi x}\\,d\\xi\n$$",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <Sigma size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Khối công thức toán ($$...$$)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <ListSubheader
+          sx={{
+            backgroundColor: "transparent",
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: tokens.primary,
+            lineHeight: "28px",
+          }}
+        >
+          HỘP CHÚ THÍCH (GITHUB ALERTS)
+        </ListSubheader>
+
+        <MenuItem onClick={() => insertBlock("> [!NOTE]\n> Thông tin cần lưu ý ở đây...")}>
+          <ListItemText
+            primary="[!NOTE] - Chú ý thông tin"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+        <MenuItem onClick={() => insertBlock("> [!TIP]\n> Mẹo hay giúp tối ưu hiệu năng...")}>
+          <ListItemText
+            primary="[!TIP] - Gợi ý / Mẹo hay"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+        <MenuItem onClick={() => insertBlock("> [!IMPORTANT]\n> Yêu cầu kiến trúc quan trọng...")}>
+          <ListItemText
+            primary="[!IMPORTANT] - Quan trọng"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+        <MenuItem onClick={() => insertBlock("> [!WARNING]\n> Cảnh báo thay đổi phá vỡ tương thích...")}>
+          <ListItemText
+            primary="[!WARNING] - Cảnh báo"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+        <MenuItem onClick={() => insertBlock("> [!CAUTION]\n> Thao tác nguy hiểm có thể mất dữ liệu...")}>
+          <ListItemText
+            primary="[!CAUTION] - Rủi ro cao"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <Divider />
+
+        <ListSubheader
+          sx={{
+            backgroundColor: "transparent",
+            fontWeight: 700,
+            fontSize: "0.75rem",
+            color: tokens.primary,
+            lineHeight: "28px",
+          }}
+        >
+          CẤU TRÚC & BẢNG BIỂU
+        </ListSubheader>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "| Tiêu đề 1 | Tiêu đề 2 (giữa) | Tiêu đề 3 (phải) |\n| :--- | :---: | ---: |\n| Dữ liệu A | Trung tâm | 100,000 đ |\n| Dữ liệu B | Hoàn thành | 250,000 đ |",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <TableIcon size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Bảng 3x3 kèm căn lề"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem
+          onClick={() =>
+            insertBlock(
+              "<details>\n<summary>Bấm để xem chi tiết</summary>\n\nNội dung mở rộng nằm ở đây...\n\n</details>",
+            )
+          }
+        >
+          <ListItemIcon sx={{ minWidth: 28, color: tokens.textSecondary }}>
+            <FileText size={15} />
+          </ListItemIcon>
+          <ListItemText
+            primary="Khối thu gọn (Details/Summary)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={() => insertBlock("<kbd>Ctrl</kbd> + <kbd>C</kbd>")}>
+          <ListItemText
+            primary="Phím tắt bàn phím (<kbd>)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+
+        <MenuItem onClick={() => insertBlock("<mark>văn bản nổi bật</mark>")}>
+          <ListItemText
+            primary="Đánh dấu nổi bật (<mark>)"
+            primaryTypographyProps={{ fontSize: "0.8125rem" }}
+          />
+        </MenuItem>
+      </Menu>
+
       {isUploading && (
         <Box
           sx={{
@@ -659,63 +1069,23 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             gap: 0.8,
           }}
         >
-          <Box
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                minWidth: 0,
-              }}
-            >
-              <CircularProgress
-                size={14}
-                thickness={5}
-                sx={{ color: tokens.primary, flexShrink: 0 }}
-              />
-              <Typography
-                variant="body2"
-                sx={{
-                  fontWeight: 600,
-                  color: tokens.textPrimary,
-                  fontSize: "0.8125rem",
-                }}
-                noWrap
-              >
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+              <CircularProgress size={14} thickness={5} sx={{ color: tokens.primary, flexShrink: 0 }} />
+              <Typography variant="body2" sx={{ fontWeight: 600, color: tokens.textPrimary, fontSize: "0.8125rem" }} noWrap>
                 Đang tải lên: {uploadingFileName || "tệp tin"}
               </Typography>
               {uploadingFileSize && (
-                <Typography
-                  variant="caption"
-                  sx={{ color: tokens.textSecondary, flexShrink: 0 }}
-                >
+                <Typography variant="caption" sx={{ color: tokens.textSecondary, flexShrink: 0 }}>
                   ({uploadingFileSize})
                 </Typography>
               )}
             </Box>
-            <Typography
-              variant="caption"
-              sx={{
-                fontWeight: 700,
-                color: tokens.primary,
-                ml: 1,
-                flexShrink: 0,
-              }}
-            >
+            <Typography variant="caption" sx={{ fontWeight: 700, color: tokens.primary, ml: 1, flexShrink: 0 }}>
               {uploadProgress}%
             </Typography>
           </Box>
-          <LinearProgress
-            variant="determinate"
-            value={uploadProgress}
-            sx={{ height: 4, borderRadius: 2 }}
-          />
+          <LinearProgress variant="determinate" value={uploadProgress} sx={{ height: 4, borderRadius: 2 }} />
         </Box>
       )}
 
@@ -735,11 +1105,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           <Typography variant="caption" sx={{ fontWeight: 600 }}>
             {uploadError}
           </Typography>
-          <IconButton
-            size="small"
-            onClick={() => setUploadError(null)}
-            sx={{ p: 0.2, color: tokens.error }}
-          >
+          <IconButton size="small" onClick={() => setUploadError(null)} sx={{ p: 0.2, color: tokens.error }}>
             <X size={14} />
           </IconButton>
         </Box>
@@ -751,7 +1117,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             targetType={targetType}
             targetId={targetId}
             onRecorded={(res) => {
-              insertAtCursor(`\n[🎙️ Tin nhắn thoại](${res.url})\n`);
+              insertAtCursor(`\n[Audio: Tin nhắn thoại](${res.url})\n`);
               setIsRecordingVoice(false);
             }}
             onCancel={() => setIsRecordingVoice(false)}
@@ -759,7 +1125,92 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         </Box>
       )}
 
-      {tabIndex === "write" ? (
+      {tabIndex === "split" ? (
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: { xs: "column", md: "row" },
+            minHeight: editorHeight || 320,
+          }}
+        >
+          <Box
+            ref={containerRef}
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            sx={{
+              flex: 1,
+              p: 1.5,
+              position: "relative",
+              borderRight: { md: `1px solid ${tokens.border}` },
+              borderBottom: { xs: `1px solid ${tokens.border}`, md: "none" },
+            }}
+          >
+            <TextField
+              inputRef={textareaRef}
+              multiline
+              minRows={minRows}
+              fullWidth
+              value={localValue}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={(e) => {
+                isComposingRef.current = false;
+                const target = e.target as HTMLTextAreaElement;
+                const text = target.value;
+                setLocalValue(text);
+                onChange(text);
+                pushHistory(text, target.selectionStart, target.selectionEnd);
+              }}
+              placeholder={placeholder}
+              variant="standard"
+              InputProps={{
+                disableUnderline: true,
+                sx: {
+                  fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                  fontSize: "0.875rem",
+                  lineHeight: 1.65,
+                },
+              }}
+            />
+          </Box>
+
+          <Box
+            sx={{
+              flex: 1,
+              p: 2,
+              overflowY: "auto",
+              maxHeight: editorHeight ? Math.max(editorHeight, 460) : 560,
+              backgroundColor: resolvedMode === "dark" ? "rgba(0,0,0,0.15)" : "rgba(0,0,0,0.015)",
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                display: "block",
+                mb: 1,
+                color: tokens.textSecondary,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                fontSize: "0.6875rem",
+                letterSpacing: "0.05em",
+              }}
+            >
+              Xem trước trực tiếp (Live Preview)
+            </Typography>
+            {debouncedPreviewValue ? (
+              <MarkdownRenderer content={debouncedPreviewValue} />
+            ) : (
+              <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: "italic", fontSize: "0.8125rem" }}>
+                Nhập nội dung ở khung bên trái để xem trước sơ đồ và định dạng...
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      ) : tabIndex === "write" ? (
         <Box
           ref={containerRef}
           onDrop={handleDrop}
@@ -791,8 +1242,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             InputProps={{
               disableUnderline: true,
               sx: {
-                fontFamily:
-                  'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 fontSize: "0.875rem",
                 lineHeight: 1.65,
                 letterSpacing: "normal",
@@ -800,8 +1250,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                   letterSpacing: "normal !important",
                 },
                 "& code": {
-                  fontFamily:
-                    '"JetBrains Mono", "Fira Code", Consolas, monospace',
+                  fontFamily: '"JetBrains Mono", "Fira Code", Consolas, monospace',
                 },
               },
             }}
@@ -853,17 +1302,12 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
           )}
         </Box>
       ) : (
-        <Box
-          sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: "border-box" }}
-        >
-          {value ? (
-            <MarkdownRenderer content={value} />
+        <Box sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: "border-box" }}>
+          {localValue ? (
+            <MarkdownRenderer content={localValue} />
           ) : (
-            <Typography
-              variant="body2"
-              sx={{ color: tokens.textSecondary, fontStyle: "italic" }}
-            >
-              Nothing to preview.
+            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: "italic" }}>
+              Chưa có nội dung để xem trước.
             </Typography>
           )}
         </Box>
@@ -882,10 +1326,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         }}
       >
         <span>
-          Markdown supported · Type <code>@</code> to mention
+          Markdown & Sơ đồ Mermaid supported · Nhập <code>@</code> để nhắc tên
         </span>
         <span>
-          <code>Ctrl+Z</code> undo · <code>Ctrl+Enter</code> submit
+          <code>Ctrl+Z</code> hoàn tác · <code>Ctrl+Enter</code> gửi bài
         </span>
       </Box>
     </Box>

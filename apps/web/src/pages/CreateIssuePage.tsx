@@ -41,6 +41,14 @@ import {
   GitBranch,
   Lock,
   Globe,
+  Sparkles,
+  Layers,
+  Table,
+  ShieldCheck,
+  Zap,
+  Wrench,
+  Compass,
+  FileText,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../contexts/ThemeContext";
@@ -62,13 +70,24 @@ import {
 interface LivePullRequest {
   number: number;
   title: string;
+  state?: string;
   headBranch: string;
   baseBranch: string;
   headSha?: string;
   authorLogin?: string;
+  authorAvatar?: string;
   htmlUrl: string;
   isDraft?: boolean;
 }
+
+const PROPOSAL_CATEGORIES = [
+  { id: "architecture", labelVi: "Kiến trúc", labelEn: "Architecture", icon: Layers, color: "#6366f1" },
+  { id: "feature", labelVi: "Tính năng", labelEn: "Feature", icon: Sparkles, color: "#10b981" },
+  { id: "performance", labelVi: "Hiệu năng", labelEn: "Performance", icon: Zap, color: "#f59e0b" },
+  { id: "refactoring", labelVi: "Tái cấu trúc", labelEn: "Refactoring", icon: Wrench, color: "#8b5cf6" },
+  { id: "security", labelVi: "Bảo mật", labelEn: "Security", icon: ShieldCheck, color: "#ef4444" },
+  { id: "tooling", labelVi: "Quy trình / DX", labelEn: "Tooling / DX", icon: Compass, color: "#06b6d4" },
+];
 
 export const CreateIssuePage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -79,9 +98,22 @@ export const CreateIssuePage: React.FC = () => {
 
   const searchParams = new URLSearchParams(window.location.search);
   const intentParam = searchParams.get("intent") || "bug";
+  const isProposal = intentParam === "idea" || intentParam === "discussion";
+  const isFromPosts =
+    isProposal ||
+    intentParam === "question" ||
+    intentParam === "help" ||
+    searchParams.get("from") === "posts";
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [proposalCategory, setProposalCategory] = useState<string>("architecture");
+  const [problemStatement, setProblemStatement] = useState<string>("");
+  const [proposalScope, setProposalScope] = useState<string>("system");
+  const [alternativesText, setAlternativesText] = useState<string>("");
+  const [risksText, setRisksText] = useState<string>("");
+  const [showAlternatives, setShowAlternatives] = useState<boolean>(false);
+
   const [type, setType] = useState<IssueType>(
     intentParam === "question"
       ? IssueType.TASK
@@ -124,11 +156,11 @@ export const CreateIssuePage: React.FC = () => {
     intentParam === "question"
       ? ["question"]
       : intentParam === "idea"
-        ? ["proposal"]
+        ? ["proposal", "architecture"]
         : intentParam === "help"
           ? ["urgent", "blocker"]
           : intentParam === "discussion"
-            ? ["discussion"]
+            ? ["discussion", "architecture"]
             : ["bug"],
   );
 
@@ -158,6 +190,17 @@ export const CreateIssuePage: React.FC = () => {
         if (parsed.type) setType(parsed.type);
         if (parsed.priority) setPriority(parsed.priority);
         if (parsed.severity) setSeverity(parsed.severity);
+        if (parsed.proposalCategory) setProposalCategory(parsed.proposalCategory);
+        if (parsed.problemStatement) setProblemStatement(parsed.problemStatement);
+        if (parsed.proposalScope) setProposalScope(parsed.proposalScope);
+        if (parsed.alternativesText) {
+          setAlternativesText(parsed.alternativesText);
+          setShowAlternatives(true);
+        }
+        if (parsed.risksText) {
+          setRisksText(parsed.risksText);
+          setShowAlternatives(true);
+        }
         if (parsed.environment) {
           setEnvironment(parsed.environment);
           setShowEnvDetails(true);
@@ -180,7 +223,7 @@ export const CreateIssuePage: React.FC = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (title || description || stepsToReproduce) {
+      if (title || description || stepsToReproduce || problemStatement) {
         const payload = {
           title,
           description,
@@ -193,6 +236,11 @@ export const CreateIssuePage: React.FC = () => {
           expectedResult,
           prUrl,
           selectedLabels,
+          proposalCategory,
+          problemStatement,
+          proposalScope,
+          alternativesText,
+          risksText,
           savedAt: new Date().toLocaleTimeString(),
         };
         localStorage.setItem("reported_issue_draft", JSON.stringify(payload));
@@ -212,6 +260,11 @@ export const CreateIssuePage: React.FC = () => {
     expectedResult,
     prUrl,
     selectedLabels,
+    proposalCategory,
+    problemStatement,
+    proposalScope,
+    alternativesText,
+    risksText,
   ]);
 
   useEffect(() => {
@@ -271,7 +324,11 @@ export const CreateIssuePage: React.FC = () => {
           pulls: LivePullRequest[];
           error?: string;
         }>(`/github/repositories/${repositoryId}/github-pulls`);
-        setLivePulls(data.pulls || []);
+        const openPulls = (data.pulls || []).filter((p: LivePullRequest) => {
+          const s = (p.state || "").toLowerCase();
+          return s === "open" || s === "opened";
+        });
+        setLivePulls(openPulls);
         if (data.error) setLivePullsError(data.error);
       } catch {
         setLivePulls([]);
@@ -326,10 +383,79 @@ export const CreateIssuePage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [prUrl, repositoriesList]);
 
+  const handleSelectProposalCategory = (catId: string) => {
+    setProposalCategory(catId);
+    setSelectedLabels((prev) => {
+      const filtered = prev.filter(
+        (l) =>
+          l !== "architecture" &&
+          l !== "feature" &&
+          l !== "performance" &&
+          l !== "refactoring" &&
+          l !== "security" &&
+          l !== "tooling",
+      );
+      return Array.from(new Set([...filtered, "proposal", catId]));
+    });
+  };
+
+  const loadRfcTemplate = () => {
+    const template = `## 1. Bối cảnh & Động lực (Context & Motivation)
+Mô tả rõ ràng vấn đề hoặc điểm nghẽn hiện tại:
+${problemStatement ? `> ${problemStatement}\n\n` : ""}- Hiện tại hệ thống đang gặp hạn chế...
+- Mục tiêu chính: giải quyết triệt để vấn đề trên.
+
+## 2. Giải pháp Kiến trúc Đề xuất (Proposed Solution)
+Trình bày chi tiết giải pháp kỹ thuật, luồng dữ liệu hoặc cấu trúc mới:
+
+\`\`\`mermaid
+flowchart TD
+    Client[Client / Web UI] --> API[API Gateway / Router]
+    API --> Service[Core Service Module]
+    Service --> Cache[(Redis Cache)]
+    Service --> DB[(PostgreSQL)]
+\`\`\`
+
+### Các thay đổi chính:
+1. **Component A**: Tách rời logic xử lý và tối ưu truy vấn.
+2. **Component B**: Bổ sung bộ đệm (cache) tự động invalidate.
+
+## 3. Lợi ích & Giá trị Dự kiến (Expected Impact)
+| Tiêu chí | Trước khi áp dụng | Sau khi áp dụng |
+| :--- | :--- | :--- |
+| **Hiệu năng / Tốc độ** | Chậm khi tải nhiều bản ghi | Nhanh hơn 70%, phản hồi < 200ms |
+| **Khả năng mở rộng** | Khó mở rộng module | Module hóa độc lập, dễ test |
+
+## 4. Các Phương án Thay thế & Đánh đổi (Alternatives & Trade-offs)
+- **Phương án A**: Giữ nguyên giải pháp cũ và tăng cấu hình phần cứng (Chi phí cao, không triệt để).
+- **Phương án B (Được chọn)**: Tái cấu trúc theo thiết kế mới (Bền vững, tối ưu tài nguyên).
+
+## 5. Rủi ro & Kế hoạch Triển khai (Risks & Rollout Plan)
+- [ ] Giai đoạn 1: Thiết kế schema & contracts
+- [ ] Giai đoạn 2: Triển khai kiểm thử nội bộ (dogfooding)
+- [ ] Giai đoạn 3: Ra mắt toàn bộ hệ thống
+`;
+    setDescription(template);
+    toast.success(isVi ? "Đã nạp mẫu RFC chuẩn" : "Standard RFC template loaded");
+  };
+
+  const insertMermaidDiagram = () => {
+    const diagram = `\n\`\`\`mermaid\nflowchart TD\n    A[Client / UI] --> B[API Router]\n    B --> C{Xác thực}\n    C -->|Hợp lệ| D[Business Logic]\n    C -->|Lỗi| E[401 Unauthorized]\n\`\`\`\n`;
+    setDescription((prev) => prev + diagram);
+  };
+
+  const insertImpactTable = () => {
+    const table = `\n| Tiêu chí | Hiện tại | Đề xuất mới |\n| :--- | :--- | :--- |\n| Hiệu năng | Trung bình | Tối ưu |\n| Độ phức tạp | Cao | Thấp |\n`;
+    setDescription((prev) => prev + table);
+  };
+
   const handleClearDraft = () => {
     localStorage.removeItem("reported_issue_draft");
     setTitle("");
     setDescription("");
+    setProblemStatement("");
+    setAlternativesText("");
+    setRisksText("");
     setEnvironment("");
     setPrecondition("");
     setStepsToReproduce("");
@@ -360,7 +486,31 @@ export const CreateIssuePage: React.FC = () => {
     let finalDesc = description.trim();
     let bugDetailsPayload = null;
 
-    if (
+    if (isProposal) {
+      if (
+        problemStatement.trim() &&
+        !finalDesc.toLowerCase().includes("bối cảnh") &&
+        !finalDesc.toLowerCase().includes("context")
+      ) {
+        finalDesc =
+          `> **${isVi ? "Vấn đề cốt lõi" : "Core Problem"}**: ${problemStatement.trim()}\n\n` +
+          finalDesc;
+      }
+      if (
+        alternativesText.trim() &&
+        !finalDesc.toLowerCase().includes("phương án thay thế") &&
+        !finalDesc.toLowerCase().includes("alternatives")
+      ) {
+        finalDesc += `\n\n### ${isVi ? "Phương án thay thế đã xem xét" : "Alternatives Considered"}\n${alternativesText.trim()}`;
+      }
+      if (
+        risksText.trim() &&
+        !finalDesc.toLowerCase().includes("rủi ro") &&
+        !finalDesc.toLowerCase().includes("risks")
+      ) {
+        finalDesc += `\n\n### ${isVi ? "Rủi ro & Biện pháp giảm thiểu" : "Risks & Mitigations"}\n${risksText.trim()}`;
+      }
+    } else if (
       stepsToReproduce.trim() ||
       actualResult.trim() ||
       expectedResult.trim()
@@ -456,13 +606,13 @@ export const CreateIssuePage: React.FC = () => {
     },
     idea: {
       icon: <Lightbulb size={24} color="#10b981" />,
-      title: isVi ? "Đề xuất" : "Proposal",
+      title: isVi ? "Tạo đề xuất / Cải tiến (RFC)" : "New Proposal / RFC",
       placeholder: isVi
-        ? "Ví dụ: Cache danh sách workspace để giảm thời gian mở dashboard"
-        : "e.g., Cache workspace list to speed up dashboard load",
+        ? "Ví dụ: RFC - Tách notification worker và bổ sung Redis cache phân tán"
+        : "e.g., RFC - Decouple notification worker and add distributed Redis cache",
       body: isVi
-        ? "Mô tả vấn đề, đề xuất thay đổi và lợi ích. Nếu liên quan repo/project, chọn ngay bên dưới."
-        : "Describe problem, proposed change, and value. Pick project/repo below when relevant.",
+        ? "Mô tả bối cảnh, kiến trúc đề xuất và giá trị mang lại. Sử dụng mẫu RFC chuẩn bên dưới để có cấu trúc tối ưu."
+        : "Describe context, proposed architecture, and expected impact. Use the standard RFC template below.",
     },
     help: {
       icon: <AlertTriangle size={24} color="#f59e0b" />,
@@ -476,7 +626,7 @@ export const CreateIssuePage: React.FC = () => {
     },
     discussion: {
       icon: <MessageSquare size={24} color="#06b6d4" />,
-      title: isVi ? "Bàn kiến trúc" : "Architecture Talk",
+      title: isVi ? "Thảo luận kiến trúc hệ thống" : "Architecture Discussion",
       placeholder: isVi
         ? "Ví dụ: Tách notification worker ra service riêng hay giữ trong API?"
         : "e.g., Split notification worker into its own service or keep it in API?",
@@ -507,7 +657,7 @@ export const CreateIssuePage: React.FC = () => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Tooltip title={isVi ? "Quay lại" : "Back"}>
             <IconButton
-              onClick={() => setLocation("/issues")}
+              onClick={() => setLocation(isFromPosts ? "/posts" : "/issues")}
               sx={{ border: `1px solid ${tokens.border}` }}
             >
               <ArrowLeft size={18} />
@@ -552,21 +702,68 @@ export const CreateIssuePage: React.FC = () => {
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2.5, md: 3.5 },
+            p: { xs: 2, sm: 3, md: 3.5 },
             borderRadius: "8px",
             border: `1px solid ${tokens.border}`,
             backgroundColor: tokens.surface,
             mb: 3,
           }}
         >
+          {isProposal && (
+            <Box sx={{ mb: 2.5 }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  color: tokens.textSecondary,
+                  display: "block",
+                  mb: 1,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {isVi ? "Phân loại đề xuất:" : "Proposal Category:"}
+              </Typography>
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                {PROPOSAL_CATEGORIES.map((cat) => {
+                  const isSelected = proposalCategory === cat.id;
+                  const IconComp = cat.icon;
+                  return (
+                    <Chip
+                      key={cat.id}
+                      icon={<IconComp size={15} color={isSelected ? "#fff" : cat.color} />}
+                      label={isVi ? cat.labelVi : cat.labelEn}
+                      clickable
+                      onClick={() => handleSelectProposalCategory(cat.id)}
+                      sx={{
+                        backgroundColor: isSelected ? cat.color : tokens.surfaceSecondary,
+                        color: isSelected ? "#fff" : tokens.textPrimary,
+                        border: `1px solid ${isSelected ? cat.color : tokens.border}`,
+                        fontWeight: isSelected ? 700 : 500,
+                        px: 0.5,
+                        py: 1.8,
+                        borderRadius: "8px",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        "&:hover": {
+                          backgroundColor: isSelected ? cat.color : tokens.surface,
+                          borderColor: cat.color,
+                        },
+                        "& .MuiChip-icon": {
+                          color: isSelected ? "#fff" : cat.color,
+                        },
+                      }}
+                    />
+                  );
+                })}
+              </Box>
+            </Box>
+          )}
+
           <TextField
             fullWidth
             label={isVi ? "Tiêu đề bài viết" : "Issue Title"}
-            placeholder={
-              isVi
-                ? "Tóm tắt ngắn gọn lỗi hoặc tác vụ..."
-                : "Concise summary of the bug or task..."
-            }
+            placeholder={titlePlaceholder}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             variant="outlined"
@@ -588,6 +785,176 @@ export const CreateIssuePage: React.FC = () => {
               },
             }}
           />
+
+          {isProposal && (
+            <TextField
+              fullWidth
+              label={isVi ? "Vấn đề cốt lõi / Động lực đề xuất" : "Core Problem / Motivation"}
+              placeholder={
+                isVi
+                  ? "Tóm tắt ngắn gọn khó khăn, điểm nghẽn hoặc lý do cần thực hiện đề xuất này..."
+                  : "Briefly explain the bottleneck, friction, or motivation behind this proposal..."
+              }
+              value={problemStatement}
+              onChange={(e) => setProblemStatement(e.target.value)}
+              variant="outlined"
+              size="small"
+              multiline
+              rows={2}
+              InputLabelProps={{ shrink: true }}
+              sx={{
+                mb: 2.5,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: "8px",
+                },
+              }}
+            />
+          )}
+
+          {isProposal && (
+            <Box
+              sx={{
+                display: "flex",
+                flexWrap: "wrap",
+                alignItems: "center",
+                gap: 1,
+                mb: 1.5,
+              }}
+            >
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<FileText size={14} />}
+                onClick={loadRfcTemplate}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                  color: tokens.primary,
+                  borderColor: tokens.primary,
+                  "&:hover": {
+                    backgroundColor: tokens.surfaceSecondary,
+                  },
+                }}
+              >
+                {isVi ? "Nạp mẫu RFC chuẩn" : "Load RFC Template"}
+              </Button>
+
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Layers size={14} />}
+                onClick={insertMermaidDiagram}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {isVi ? "Sơ đồ kiến trúc (Mermaid)" : "Architecture Diagram"}
+              </Button>
+
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Table size={14} />}
+                onClick={insertImpactTable}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {isVi ? "Bảng so sánh tác động" : "Impact Table"}
+              </Button>
+
+              <Button
+                size="small"
+                variant={showAlternatives ? "contained" : "outlined"}
+                startIcon={<Sliders size={14} />}
+                onClick={() => setShowAlternatives((prev) => !prev)}
+                sx={{
+                  borderRadius: "8px",
+                  textTransform: "none",
+                  fontSize: "0.8rem",
+                  fontWeight: 600,
+                }}
+              >
+                {showAlternatives
+                  ? isVi
+                    ? "Đang mở: Phương án phụ & Rủi ro"
+                    : "Alternatives & Risks open"
+                  : isVi
+                    ? "Phương án phụ & Rủi ro"
+                    : "Alternatives & Risks"}
+              </Button>
+            </Box>
+          )}
+
+          <Collapse in={isProposal && showAlternatives}>
+            <Box
+              sx={{
+                p: 2.5,
+                mb: 2.5,
+                borderRadius: "8px",
+                backgroundColor: tokens.surfaceSecondary,
+                border: `1px solid ${tokens.border}`,
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+              }}
+            >
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 700, color: tokens.textPrimary }}
+              >
+                {isVi
+                  ? "Phương án phụ & Đánh giá rủi ro (Tùy chọn)"
+                  : "Alternatives & Risks (Optional)"}
+              </Typography>
+              <TextField
+                fullWidth
+                label={
+                  isVi
+                    ? "Các phương án thay thế đã xem xét"
+                    : "Alternatives Considered"
+                }
+                placeholder={
+                  isVi
+                    ? "Tại sao chọn phương án này thay vì các giải pháp khác?"
+                    : "Why choose this approach over other alternatives?"
+                }
+                value={alternativesText}
+                onChange={(e) => setAlternativesText(e.target.value)}
+                multiline
+                rows={2}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+              <TextField
+                fullWidth
+                label={
+                  isVi
+                    ? "Rủi ro tiềm ẩn & Biện pháp giảm thiểu"
+                    : "Potential Risks & Mitigations"
+                }
+                placeholder={
+                  isVi
+                    ? "Có rủi ro breaking change hay downtime không? Biện pháp kiểm soát?"
+                    : "Any breaking changes or risks? How to mitigate them?"
+                }
+                value={risksText}
+                onChange={(e) => setRisksText(e.target.value)}
+                multiline
+                rows={2}
+                size="small"
+                InputLabelProps={{ shrink: true }}
+              />
+            </Box>
+          </Collapse>
 
           <Box sx={{ mb: 2 }}>
             <MarkdownEditor
@@ -624,69 +991,73 @@ export const CreateIssuePage: React.FC = () => {
             >
               {showPrLink
                 ? isVi
-                  ? "Đã liên kết PR"
-                  : "PR linked"
+                  ? "Đã liên kết Repo/PR"
+                  : "Repo/PR linked"
                 : isVi
-                  ? "Liên kết PR GitHub"
-                  : "Link GitHub PR"}
+                  ? "Liên kết Repo/PR"
+                  : "Link Repo/PR"}
             </Button>
 
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<Code size={15} />}
-              onClick={handleInsertLogSnippet}
-              sx={{
-                borderRadius: "8px",
-                textTransform: "none",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-              }}
-            >
-              {isVi ? "Chèn log / trace" : "Paste logs"}
-            </Button>
+            {!isProposal && (
+              <>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Code size={15} />}
+                  onClick={handleInsertLogSnippet}
+                  sx={{
+                    borderRadius: "8px",
+                    textTransform: "none",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {isVi ? "Chèn log / trace" : "Paste logs"}
+                </Button>
 
-            <Button
-              size="small"
-              variant={showBugDetails ? "contained" : "outlined"}
-              startIcon={<ListOrdered size={15} />}
-              onClick={() => setShowBugDetails((prev) => !prev)}
-              sx={{
-                borderRadius: "8px",
-                textTransform: "none",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-              }}
-            >
-              {showBugDetails
-                ? isVi
-                  ? "Các bước tái hiện"
-                  : "Repro steps added"
-                : isVi
-                  ? "Thêm bước tái hiện"
-                  : "Add repro steps"}
-            </Button>
+                <Button
+                  size="small"
+                  variant={showBugDetails ? "contained" : "outlined"}
+                  startIcon={<ListOrdered size={15} />}
+                  onClick={() => setShowBugDetails((prev) => !prev)}
+                  sx={{
+                    borderRadius: "8px",
+                    textTransform: "none",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {showBugDetails
+                    ? isVi
+                      ? "Các bước tái hiện"
+                      : "Repro steps added"
+                    : isVi
+                      ? "Thêm bước tái hiện"
+                      : "Add repro steps"}
+                </Button>
 
-            <Button
-              size="small"
-              variant={showEnvDetails ? "contained" : "outlined"}
-              startIcon={<Sliders size={15} />}
-              onClick={() => setShowEnvDetails((prev) => !prev)}
-              sx={{
-                borderRadius: "8px",
-                textTransform: "none",
-                fontSize: "0.8rem",
-                fontWeight: 600,
-              }}
-            >
-              {showEnvDetails
-                ? isVi
-                  ? "Môi trường đã thêm"
-                  : "Environment added"
-                : isVi
-                  ? "Thêm môi trường"
-                  : "Add environment"}
-            </Button>
+                <Button
+                  size="small"
+                  variant={showEnvDetails ? "contained" : "outlined"}
+                  startIcon={<Sliders size={15} />}
+                  onClick={() => setShowEnvDetails((prev) => !prev)}
+                  sx={{
+                    borderRadius: "8px",
+                    textTransform: "none",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {showEnvDetails
+                    ? isVi
+                      ? "Môi trường đã thêm"
+                      : "Environment added"
+                    : isVi
+                      ? "Thêm môi trường"
+                      : "Add environment"}
+                </Button>
+              </>
+            )}
 
             <Button
               size="small"
@@ -715,9 +1086,13 @@ export const CreateIssuePage: React.FC = () => {
                 ? isVi
                   ? "Ẩn phân loại"
                   : "Hide metadata"
-                : isVi
-                  ? "Người nhận & Phân loại"
-                  : "Assignees & Metadata"}
+                : isProposal
+                  ? isVi
+                    ? "Phạm vi & Người review"
+                    : "Scope & Reviewers"
+                  : isVi
+                    ? "Người nhận & Phân loại"
+                    : "Assignees & Metadata"}
             </Button>
           </Box>
 
@@ -927,7 +1302,7 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          <Collapse in={showBugDetails}>
+          <Collapse in={!isProposal && showBugDetails}>
             <Box
               sx={{
                 p: 2.5,
@@ -994,7 +1369,7 @@ export const CreateIssuePage: React.FC = () => {
             </Box>
           </Collapse>
 
-          <Collapse in={showEnvDetails}>
+          <Collapse in={!isProposal && showEnvDetails}>
             <Box
               sx={{
                 p: 2.5,
@@ -1070,32 +1445,129 @@ export const CreateIssuePage: React.FC = () => {
                 variant="subtitle2"
                 sx={{ fontWeight: 700, mb: 2, color: tokens.textPrimary }}
               >
-                {isVi ? "Người nhận & Phân loại" : "Assignees & Metadata"}
+                {isProposal
+                  ? isVi
+                    ? "Phạm vi tác động & Người review"
+                    : "Scope & Reviewers"
+                  : isVi
+                    ? "Người nhận & Phân loại"
+                    : "Assignees & Metadata"}
               </Typography>
 
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>
-                      {isVi ? "Mức độ ưu tiên" : "Priority"}
-                    </InputLabel>
-                    <Select
-                      value={priority}
-                      label={isVi ? "Mức độ ưu tiên" : "Priority"}
-                      onChange={(e) =>
-                        setPriority(e.target.value as IssuePriority)
-                      }
-                    >
-                      <MenuItem value={IssuePriority.P0}>P0 - Blocker</MenuItem>
-                      <MenuItem value={IssuePriority.P1}>
-                        P1 - Critical
-                      </MenuItem>
-                      <MenuItem value={IssuePriority.P2}>P2 - Major</MenuItem>
-                      <MenuItem value={IssuePriority.P3}>P3 - Minor</MenuItem>
-                      <MenuItem value={IssuePriority.P4}>P4 - Trivial</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
+                {isProposal ? (
+                  <>
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>
+                          {isVi ? "Phạm vi tác động" : "Impact Scope"}
+                        </InputLabel>
+                        <Select
+                          value={proposalScope}
+                          label={isVi ? "Phạm vi tác động" : "Impact Scope"}
+                          onChange={(e) => setProposalScope(e.target.value)}
+                        >
+                          <MenuItem value="system">
+                            {isVi
+                              ? "Toàn hệ thống (System-wide)"
+                              : "System-wide"}
+                          </MenuItem>
+                          <MenuItem value="backend">
+                            {isVi ? "Core API / Backend" : "Core API / Backend"}
+                          </MenuItem>
+                          <MenuItem value="frontend">
+                            {isVi ? "Web UI / Frontend" : "Web UI / Frontend"}
+                          </MenuItem>
+                          <MenuItem value="database">
+                            {isVi
+                              ? "Cơ sở dữ liệu / Schema"
+                              : "Database / Schema"}
+                          </MenuItem>
+                          <MenuItem value="devops">
+                            {isVi
+                              ? "DevOps / Hạ tầng & CI/CD"
+                              : "DevOps / Infra"}
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>
+                          {isVi ? "Mức độ ưu tiên" : "Priority"}
+                        </InputLabel>
+                        <Select
+                          value={priority}
+                          label={isVi ? "Mức độ ưu tiên" : "Priority"}
+                          onChange={(e) =>
+                            setPriority(e.target.value as IssuePriority)
+                          }
+                        >
+                          <MenuItem value={IssuePriority.P1}>
+                            {isVi ? "P1 - Cần thảo luận sớm" : "P1 - High Urgency"}
+                          </MenuItem>
+                          <MenuItem value={IssuePriority.P2}>
+                            {isVi ? "P2 - Bình thường" : "P2 - Normal"}
+                          </MenuItem>
+                          <MenuItem value={IssuePriority.P3}>
+                            {isVi ? "P3 - Cải tiến dài hạn" : "P3 - Low"}
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </>
+                ) : (
+                  <>
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>
+                          {isVi ? "Mức độ ưu tiên" : "Priority"}
+                        </InputLabel>
+                        <Select
+                          value={priority}
+                          label={isVi ? "Mức độ ưu tiên" : "Priority"}
+                          onChange={(e) =>
+                            setPriority(e.target.value as IssuePriority)
+                          }
+                        >
+                          <MenuItem value={IssuePriority.P0}>P0 - Blocker</MenuItem>
+                          <MenuItem value={IssuePriority.P1}>
+                            P1 - Critical
+                          </MenuItem>
+                          <MenuItem value={IssuePriority.P2}>P2 - Major</MenuItem>
+                          <MenuItem value={IssuePriority.P3}>P3 - Minor</MenuItem>
+                          <MenuItem value={IssuePriority.P4}>P4 - Trivial</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+
+                    <Grid item xs={12} sm={4}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>
+                          {isVi ? "Mức độ nghiêm trọng" : "Severity"}
+                        </InputLabel>
+                        <Select
+                          value={severity}
+                          label={isVi ? "Mức độ nghiêm trọng" : "Severity"}
+                          onChange={(e) =>
+                            setSeverity(e.target.value as IssueSeverity)
+                          }
+                        >
+                          <MenuItem value={IssueSeverity.BLOCKER}>Blocker</MenuItem>
+                          <MenuItem value={IssueSeverity.CRITICAL}>
+                            Critical
+                          </MenuItem>
+                          <MenuItem value={IssueSeverity.MAJOR}>Major</MenuItem>
+                          <MenuItem value={IssueSeverity.MINOR}>Minor</MenuItem>
+                          <MenuItem value={IssueSeverity.TRIVIAL}>
+                            Trivial
+                          </MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                  </>
+                )}
 
                 <Grid item xs={12} sm={4}>
                   <FormControl fullWidth size="small">
@@ -1114,15 +1586,29 @@ export const CreateIssuePage: React.FC = () => {
                   </FormControl>
                 </Grid>
 
-                <Grid item xs={12} sm={4}>
+                <Grid item xs={12} sm={isProposal ? 12 : 4}>
                   <FormControl fullWidth size="small">
                     <InputLabel>
-                      {isVi ? "Người thực hiện" : "Assignee"}
+                      {isProposal
+                        ? isVi
+                          ? "Mời người thảo luận & Review đề xuất"
+                          : "Invite Reviewers / Collaborators"
+                        : isVi
+                          ? "Người thực hiện"
+                          : "Assignee"}
                     </InputLabel>
                     <Select
                       multiple
                       value={assigneeIds}
-                      label={isVi ? "Người thực hiện" : "Assignee"}
+                      label={
+                        isProposal
+                          ? isVi
+                            ? "Mời người thảo luận & Review đề xuất"
+                            : "Invite Reviewers / Collaborators"
+                          : isVi
+                            ? "Người thực hiện"
+                            : "Assignee"
+                      }
                       onChange={(e) =>
                         setAssigneeIds(
                           typeof e.target.value === "string"
@@ -1169,17 +1655,31 @@ export const CreateIssuePage: React.FC = () => {
                     {isVi ? "Nhãn phân loại:" : "Labels:"}
                   </Typography>
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
-                    {[
-                      "bug",
-                      "frontend",
-                      "backend",
-                      "auth",
-                      "database",
-                      "api",
-                      "ui/ux",
-                      "performance",
-                      "security",
-                    ].map((lbl) => {
+                    {(isProposal
+                      ? [
+                          "proposal",
+                          "rfc",
+                          "architecture",
+                          "enhancement",
+                          "frontend",
+                          "backend",
+                          "performance",
+                          "security",
+                          "database",
+                          "tooling",
+                        ]
+                      : [
+                          "bug",
+                          "frontend",
+                          "backend",
+                          "auth",
+                          "database",
+                          "api",
+                          "ui/ux",
+                          "performance",
+                          "security",
+                        ]
+                    ).map((lbl) => {
                       const isSelected = selectedLabels.includes(lbl);
                       const style = getLabelColor(lbl, undefined, isSelected);
                       return (
@@ -1212,21 +1712,31 @@ export const CreateIssuePage: React.FC = () => {
 
           <Box
             sx={{
+              position: { xs: "sticky", md: "static" },
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              bgcolor: tokens.surface,
+              borderTop: `1px solid ${tokens.border}`,
+              backdropFilter: "blur(12px)",
+              pt: 2,
+              pb: { xs: 2, md: 0 },
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              pt: 2,
-              borderTop: `1px solid ${tokens.border}`,
+              mt: 3,
             }}
           >
             <Button
               variant="outlined"
-              onClick={() => setLocation("/issues")}
+              onClick={() => setLocation(isFromPosts ? "/posts" : "/issues")}
               sx={{
                 borderRadius: "8px",
                 textTransform: "none",
                 color: tokens.textSecondary,
                 borderColor: tokens.border,
+                px: { xs: 2, sm: 3 },
               }}
             >
               {isVi ? "Hủy bỏ" : "Cancel"}
@@ -1246,7 +1756,7 @@ export const CreateIssuePage: React.FC = () => {
               sx={{
                 backgroundColor: tokens.primary,
                 borderRadius: "8px",
-                px: 3,
+                px: { xs: 2.5, sm: 3.5 },
                 py: 1,
                 fontWeight: 700,
                 textTransform: "none",
@@ -1256,7 +1766,13 @@ export const CreateIssuePage: React.FC = () => {
                 },
               }}
             >
-              {isVi ? "Đăng bài" : "Post"}
+              {isProposal
+                ? isVi
+                  ? "Đăng đề xuất"
+                  : "Post Proposal"
+                : isVi
+                  ? "Đăng bài"
+                  : "Post"}
             </Button>
           </Box>
         </Paper>
