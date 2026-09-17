@@ -276,11 +276,18 @@ export const ConnectedAccountsPage: React.FC = () => {
   const handleStartPasskeyRegistration = () => {
     if (!window.PublicKeyCredential) {
       setActionError(
-        "Trình duyệt hoặc hệ điều hành hiện tại không hỗ trợ WebAuthn / Passkeys.",
+        "Trình duyệt hoặc thiết bị này không hỗ trợ Passkeys.",
       );
       return;
     }
-    setPasskeyName("Windows Hello / Máy tính cá nhân");
+    const ua = navigator.userAgent;
+    let defaultName = "Khóa bảo mật cá nhân";
+    if (/iPhone/i.test(ua)) defaultName = "iPhone (Face ID / Touch ID)";
+    else if (/iPad/i.test(ua)) defaultName = "iPad (Touch ID / Face ID)";
+    else if (/Android/i.test(ua)) defaultName = "Điện thoại Android";
+    else if (/Macintosh|Mac OS X/i.test(ua)) defaultName = "Mac (Touch ID)";
+    else if (/Windows/i.test(ua)) defaultName = "Windows Hello";
+    setPasskeyName(defaultName);
     setPasskeyModalOpen(true);
   };
 
@@ -451,10 +458,10 @@ export const ConnectedAccountsPage: React.FC = () => {
   ];
 
   return (
-    <Box sx={{ width: "100%", pb: 6 }}>
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 0.5 }}>
-          <Typography variant="h3" sx={{ fontWeight: 700, fontSize: "1.5rem" }}>
+    <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box", pb: 6 }}>
+      <Box sx={{ mb: 3.5 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", mb: 0.75 }}>
+          <Typography variant="h3" sx={{ fontWeight: 700, fontSize: { xs: "1.25rem", sm: "1.5rem" } }}>
             Tài khoản đã liên kết &amp; Bảo mật
           </Typography>
           <Chip
@@ -463,9 +470,9 @@ export const ConnectedAccountsPage: React.FC = () => {
             sx={{ height: 22, fontWeight: 600, fontSize: "0.75rem" }}
           />
         </Box>
-        <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-          Quản lý tài khoản bên ngoài (GitHub, GitLab, Google), khóa bảo mật
-          sinh trắc học Passkeys và xác thực hai yếu tố (2FA).
+        <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: "0.85rem" }}>
+          Quản lý tài khoản liên kết (GitHub, GitLab, Google), khóa bảo mật
+          Passkeys và xác thực hai yếu tố (2FA).
         </Typography>
       </Box>
 
@@ -477,12 +484,26 @@ export const ConnectedAccountsPage: React.FC = () => {
             mb: 3.5,
             backgroundColor: `${tokens.warning}15`,
             border: `1px solid ${tokens.warning}40`,
+            display: "flex",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
+            gap: 1.5,
+            "& .MuiAlert-message": { width: "100%", minWidth: 0 },
+            "& .MuiAlert-action": {
+              p: 0,
+              m: 0,
+              mt: { xs: 1, sm: 0 },
+              width: { xs: "100%", sm: "auto" },
+              alignSelf: { xs: "stretch", sm: "center" },
+            },
           }}
           action={
             <Button
               size="small"
               color="inherit"
+              fullWidth
               onClick={() => setPasswordDialogOpen(true)}
+              sx={{ fontWeight: 600 }}
             >
               Thiết lập mật khẩu
             </Button>
@@ -516,24 +537,34 @@ export const ConnectedAccountsPage: React.FC = () => {
                 key={prov.id}
                 elevation={0}
                 sx={{
-                  p: { xs: 2.5, sm: 3 },
+                  p: { xs: 2, sm: 2.5 },
                   borderRadius: "8px",
                   border: `1px solid ${tokens.border}`,
                   backgroundColor: tokens.surface,
                   display: "flex",
                   flexDirection: { xs: "column", sm: "row" },
-                  alignItems: { xs: "flex-start", sm: "center" },
+                  alignItems: { xs: "stretch", sm: "center" },
                   justifyContent: "space-between",
-                  gap: 2.5,
+                  gap: 2,
+                  width: "100%",
+                  maxWidth: "100%",
+                  minWidth: 0,
+                  boxSizing: "border-box",
                 }}
               >
                 <Box
-                  sx={{ display: "flex", alignItems: "flex-start", gap: 2.5 }}
+                  sx={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: { xs: 1.5, sm: 2 },
+                    minWidth: 0,
+                    flex: 1,
+                  }}
                 >
                   <Box
                     sx={{
-                      width: 44,
-                      height: 44,
+                      width: { xs: 40, sm: 44 },
+                      height: { xs: 40, sm: 44 },
                       borderRadius: "8px",
                       display: "flex",
                       alignItems: "center",
@@ -546,31 +577,32 @@ export const ConnectedAccountsPage: React.FC = () => {
                     {prov.icon}
                   </Box>
 
-                  <Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
                     <Box
                       sx={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 1.5,
+                        gap: 1,
+                        flexWrap: "wrap",
                         mb: 0.5,
                       }}
                     >
                       <Typography
                         variant="h5"
-                        sx={{ fontWeight: 700, fontSize: "1.05rem" }}
+                        sx={{ fontWeight: 700, fontSize: { xs: "0.95rem", sm: "1.05rem" } }}
                       >
                         {prov.name}
                       </Typography>
 
                       {connected ? (
                         <Chip
-                          icon={<CheckCircle2 size={14} />}
+                          icon={<CheckCircle2 size={13} />}
                           label="Đã liên kết"
                           size="small"
                           color="success"
                           sx={{
                             height: 22,
-                            fontSize: "0.75rem",
+                            fontSize: "0.72rem",
                             fontWeight: 600,
                           }}
                         />
@@ -580,7 +612,7 @@ export const ConnectedAccountsPage: React.FC = () => {
                           size="small"
                           sx={{
                             height: 22,
-                            fontSize: "0.75rem",
+                            fontSize: "0.72rem",
                             backgroundColor: tokens.hover,
                             color: tokens.textSecondary,
                           }}
@@ -590,7 +622,7 @@ export const ConnectedAccountsPage: React.FC = () => {
 
                     <Typography
                       variant="body2"
-                      sx={{ color: tokens.textSecondary, mb: 1, maxWidth: 480 }}
+                      sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", mb: 1, maxWidth: 480 }}
                     >
                       {prov.description}
                     </Typography>
@@ -600,15 +632,15 @@ export const ConnectedAccountsPage: React.FC = () => {
                         sx={{
                           display: "flex",
                           alignItems: "center",
-                          gap: 2,
+                          gap: 1.5,
                           flexWrap: "wrap",
-                          mt: 1,
+                          mt: 0.8,
                         }}
                       >
                         {connected.avatarUrl && (
                           <Avatar
                             src={connected.avatarUrl}
-                            sx={{ width: 22, height: 22 }}
+                            sx={{ width: 20, height: 20 }}
                           />
                         )}
                         <Typography
@@ -651,7 +683,10 @@ export const ConnectedAccountsPage: React.FC = () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 1,
-                    alignSelf: { xs: "stretch", sm: "center" },
+                    width: { xs: "100%", sm: "auto" },
+                    flexShrink: 0,
+                    pt: { xs: 1.5, sm: 0 },
+                    borderTop: { xs: `1px solid ${tokens.divider}`, sm: "none" },
                   }}
                 >
                   {connected ? (
@@ -660,10 +695,14 @@ export const ConnectedAccountsPage: React.FC = () => {
                         <Button
                           size="small"
                           variant="outlined"
-                          startIcon={<RefreshCw size={15} />}
+                          startIcon={<RefreshCw size={14} />}
                           onClick={() => handleReconnect(connected)}
                           disabled={isOperating}
-                          sx={{ fontSize: "0.8125rem" }}
+                          sx={{
+                            fontSize: "0.8125rem",
+                            flex: { xs: 1, sm: "none" },
+                            height: 34,
+                          }}
                         >
                           Làm mới
                         </Button>
@@ -673,10 +712,14 @@ export const ConnectedAccountsPage: React.FC = () => {
                         size="small"
                         variant="outlined"
                         color="error"
-                        startIcon={<Unlink size={15} />}
+                        startIcon={<Unlink size={14} />}
                         onClick={() => setUnlinkConfirmTarget(connected)}
                         disabled={isOperating}
-                        sx={{ fontSize: "0.8125rem" }}
+                        sx={{
+                          fontSize: "0.8125rem",
+                          flex: { xs: 1, sm: "none" },
+                          height: 34,
+                        }}
                       >
                         Hủy liên kết
                       </Button>
@@ -685,12 +728,14 @@ export const ConnectedAccountsPage: React.FC = () => {
                     <Button
                       size="small"
                       variant="contained"
-                      startIcon={<LinkIcon size={15} />}
+                      startIcon={<LinkIcon size={14} />}
                       onClick={() => handleConnect(prov.id)}
                       sx={{
                         fontSize: "0.8125rem",
                         fontWeight: 600,
                         minWidth: 120,
+                        width: { xs: "100%", sm: "auto" },
+                        height: 34,
                       }}
                     >
                       Liên kết {prov.name}
@@ -707,39 +752,44 @@ export const ConnectedAccountsPage: React.FC = () => {
         variant="h5"
         sx={{ fontWeight: 700, fontSize: "1.1rem", mb: 2 }}
       >
-        Khóa bảo mật sinh trắc học (Passkeys / Windows Hello)
+        Khóa bảo mật (Passkeys)
       </Typography>
 
       <Paper
         elevation={0}
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 2.5 },
           borderRadius: "8px",
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
           mb: 4,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
             justifyContent: "space-between",
+            gap: 1.5,
             mb: 2,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Fingerprint size={24} color="#0969da" />
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
+            <Fingerprint size={24} color="#0969da" style={{ flexShrink: 0, marginTop: 2 }} />
             <Box>
               <Typography
                 variant="h6"
-                sx={{ fontWeight: 700, fontSize: "1.05rem" }}
+                sx={{ fontWeight: 700, fontSize: { xs: "0.95rem", sm: "1.05rem" } }}
               >
-                Đăng nhập 1 chạm không cần mật khẩu
+                Đăng nhập bằng Passkey
               </Typography>
-              <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-                Sử dụng vân tay, khuôn mặt (Windows Hello, Touch ID) hoặc khóa
-                USB FIDO2 để xác thực tức thì.
+              <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", mt: 0.3 }}>
+                Xác thực nhanh bằng vân tay, khuôn mặt hoặc khóa bảo mật thiết bị.
               </Typography>
             </Box>
           </Box>
@@ -749,9 +799,14 @@ export const ConnectedAccountsPage: React.FC = () => {
             variant="contained"
             startIcon={<Plus size={16} />}
             onClick={handleStartPasskeyRegistration}
-            sx={{ fontWeight: 600, fontSize: "0.8125rem" }}
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.8125rem",
+              width: { xs: "100%", sm: "auto" },
+              flexShrink: 0,
+            }}
           >
-            Đăng ký Passkey mới
+            Thêm Passkey
           </Button>
         </Box>
 
@@ -774,9 +829,8 @@ export const ConnectedAccountsPage: React.FC = () => {
               border: `1px dashed ${tokens.border}`,
             }}
           >
-            <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-              Bạn chưa đăng ký khóa Passkey nào. Bấm "Đăng ký Passkey mới" để
-              liên kết vân tay hoặc Windows Hello.
+            <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
+              Chưa có khóa Passkey nào được liên kết. Bấm "Thêm Passkey" để bắt đầu.
             </Typography>
           </Box>
         ) : (
@@ -785,24 +839,26 @@ export const ConnectedAccountsPage: React.FC = () => {
               <Box
                 key={pk.id}
                 sx={{
-                  p: 2,
+                  p: { xs: 1.5, sm: 2 },
                   borderRadius: "6px",
                   border: `1px solid ${tokens.border}`,
                   backgroundColor: tokens.surfaceSecondary,
                   display: "flex",
-                  alignItems: "center",
+                  flexDirection: { xs: "column", sm: "row" },
+                  alignItems: { xs: "flex-start", sm: "center" },
                   justifyContent: "space-between",
+                  gap: 1.5,
                 }}
               >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Fingerprint size={20} color={tokens.primary} />
-                  <Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}>
+                  <Fingerprint size={20} color={tokens.primary} style={{ flexShrink: 0 }} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
                       {pk.name}
                     </Typography>
                     <Typography
                       variant="caption"
-                      sx={{ color: tokens.textSecondary }}
+                      sx={{ color: tokens.textSecondary, display: "block" }}
                     >
                       Tạo lúc: {new Date(pk.createdAt).toLocaleDateString()}
                       {pk.lastUsedAt &&
@@ -817,7 +873,10 @@ export const ConnectedAccountsPage: React.FC = () => {
                   variant="outlined"
                   startIcon={<Trash2 size={14} />}
                   onClick={() => handleDeletePasskey(pk.id, pk.name)}
-                  sx={{ fontSize: "0.75rem" }}
+                  sx={{
+                    fontSize: "0.75rem",
+                    alignSelf: { xs: "stretch", sm: "center" },
+                  }}
                 >
                   Xóa khóa
                 </Button>
@@ -837,30 +896,37 @@ export const ConnectedAccountsPage: React.FC = () => {
       <Paper
         elevation={0}
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 2.5 },
           borderRadius: "8px",
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
           mb: 4,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
             justifyContent: "space-between",
+            gap: 2,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5 }}>
             <ShieldCheck
               size={24}
               color={user?.twoFactorEnabled ? tokens.success : tokens.primary}
+              style={{ flexShrink: 0, marginTop: 2 }}
             />
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                 <Typography
                   variant="h6"
-                  sx={{ fontWeight: 700, fontSize: "1.05rem" }}
+                  sx={{ fontWeight: 700, fontSize: { xs: "0.95rem", sm: "1.05rem" } }}
                 >
                   Ứng dụng xác thực (Google Authenticator, Authy)
                 </Typography>
@@ -881,7 +947,7 @@ export const ConnectedAccountsPage: React.FC = () => {
               </Box>
               <Typography
                 variant="body2"
-                sx={{ color: tokens.textSecondary, mt: 0.5 }}
+                sx={{ color: tokens.textSecondary, mt: 0.5, fontSize: "0.8125rem" }}
               >
                 Yêu cầu mã 6 số từ ứng dụng trên điện thoại mỗi khi đăng nhập
                 bằng mật khẩu.
@@ -895,7 +961,12 @@ export const ConnectedAccountsPage: React.FC = () => {
               variant="outlined"
               color="error"
               onClick={handleDisableMfa}
-              sx={{ fontWeight: 600, fontSize: "0.8125rem" }}
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.8125rem",
+                width: { xs: "100%", sm: "auto" },
+                flexShrink: 0,
+              }}
             >
               Vô hiệu hóa 2FA
             </Button>
@@ -905,7 +976,12 @@ export const ConnectedAccountsPage: React.FC = () => {
               variant="contained"
               startIcon={<ShieldCheck size={16} />}
               onClick={handleStartMfaSetup}
-              sx={{ fontWeight: 600, fontSize: "0.8125rem" }}
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.8125rem",
+                width: { xs: "100%", sm: "auto" },
+                flexShrink: 0,
+              }}
             >
               Kích hoạt 2FA
             </Button>
@@ -923,25 +999,31 @@ export const ConnectedAccountsPage: React.FC = () => {
       <Paper
         elevation={0}
         sx={{
-          p: 3,
+          p: { xs: 2, sm: 2.5 },
           borderRadius: "8px",
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
         <Box
           sx={{
             display: "flex",
-            alignItems: "center",
+            flexDirection: { xs: "column", sm: "row" },
+            alignItems: { xs: "flex-start", sm: "center" },
             justifyContent: "space-between",
+            gap: 1.5,
             mb: 1,
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Shield size={20} color={tokens.primary} />
+            <Shield size={20} color={tokens.primary} style={{ flexShrink: 0 }} />
             <Typography
               variant="h6"
-              sx={{ fontWeight: 700, fontSize: "1.05rem" }}
+              sx={{ fontWeight: 700, fontSize: { xs: "0.95rem", sm: "1.05rem" } }}
             >
               Mật khẩu đăng nhập
             </Typography>
@@ -955,12 +1037,16 @@ export const ConnectedAccountsPage: React.FC = () => {
               setPasswordError(null);
               setPasswordDialogOpen(true);
             }}
+            sx={{
+              width: { xs: "100%", sm: "auto" },
+              flexShrink: 0,
+            }}
           >
             {user?.hasPassword ? "Đổi mật khẩu" : "Thiết lập mật khẩu"}
           </Button>
         </Box>
 
-        <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
+        <Typography variant="body2" sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
           {user?.hasPassword
             ? "Bạn đã có mật khẩu đăng nhập email/password. Bạn có thể sử dụng email hoặc bất kỳ tài khoản nào đã liên kết để đăng nhập."
             : "Tài khoản này được đăng ký qua OAuth và chưa có mật khẩu ứng dụng. Hãy tạo mật khẩu để có thể đăng nhập bằng email."}
@@ -976,22 +1062,20 @@ export const ConnectedAccountsPage: React.FC = () => {
         <Box component="form" onSubmit={handleRegisterPasskey}>
           <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Fingerprint size={22} color="#0969da" />
-            <span>Thêm khóa bảo mật (Passkey)</span>
+            <span>Thêm khóa Passkey</span>
           </DialogTitle>
           <DialogContent
             sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}
           >
             <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-              Đặt tên nhận diện cho thiết bị của bạn (ví dụ: Windows Hello PC,
-              MacBook Touch ID). Khi bấm "Tiếp tục", hệ thống sẽ kích hoạt trình
-              đọc vân tay hoặc camera của bạn.
+              Đặt tên nhận diện cho thiết bị này. Sau khi bấm Tiếp tục, thiết bị sẽ mở màn hình xác thực vân tay hoặc khuôn mặt.
             </Typography>
 
             <TextField
               autoFocus
               fullWidth
               size="small"
-              label="Tên khóa bảo mật"
+              label="Tên thiết bị / khóa"
               value={passkeyName}
               onChange={(e) => setPasskeyName(e.target.value)}
               required
@@ -1006,7 +1090,7 @@ export const ConnectedAccountsPage: React.FC = () => {
               variant="contained"
               disabled={passkeySubmitting || !passkeyName.trim()}
             >
-              {passkeySubmitting ? "Đang chạm vân tay..." : "Bắt đầu quét"}
+              {passkeySubmitting ? "Đang xác thực..." : "Tiếp tục"}
             </Button>
           </DialogActions>
         </Box>

@@ -323,10 +323,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
     const handleStatsChanged = () => {
       fetchSidebarStats();
     };
+    const handleCommentPosted = () => {
+      fetchNotifications(true);
+      fetchSidebarStats();
+    };
     window.addEventListener("saved-views-updated", handleSavedViewsUpdated);
     window.addEventListener("reported:repo-changed", handleStatsChanged);
     window.addEventListener("reported:issue-changed", handleStatsChanged);
     window.addEventListener("reported:review-changed", handleStatsChanged);
+    window.addEventListener("reported:comment-posted", handleCommentPosted);
     return () => {
       window.removeEventListener(
         "saved-views-updated",
@@ -335,6 +340,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
       window.removeEventListener("reported:repo-changed", handleStatsChanged);
       window.removeEventListener("reported:issue-changed", handleStatsChanged);
       window.removeEventListener("reported:review-changed", handleStatsChanged);
+      window.removeEventListener("reported:comment-posted", handleCommentPosted);
     };
   }, [user, activeWorkspace?.id]);
 
@@ -501,6 +507,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
           flexDirection: "column",
           backgroundColor: tokens.surface,
           borderRight: `1px solid ${tokens.border}`,
+          borderRadius: 0,
           transition: "width 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
         }}
       >
@@ -1081,25 +1088,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                   ? "Ngôn ngữ: English"
                   : "Language: Tiếng Việt"}
               </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                fullWidth
-                startIcon={<HelpCircle size={16} color={tokens.primary} />}
-                onClick={() => {
-                  setMobileDrawerOpen(false);
-                  window.dispatchEvent(new CustomEvent("reported-start-tour"));
-                }}
-                sx={{
-                  justifyContent: "flex-start",
-                  borderColor: tokens.border,
-                  color: tokens.textPrimary,
-                  textTransform: "none",
-                  fontSize: "0.8125rem",
-                }}
-              >
-                {language === "vi" ? "Hướng dẫn sử dụng" : "Product Tour"}
-              </Button>
             </Box>
           )}
         </Box>
@@ -1298,7 +1286,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
       <Box
         sx={{
           display: "flex",
-          width: "100vw",
+          width: "100%",
+          maxWidth: "100%",
           height: "100vh",
           overflow: "hidden",
           backgroundColor: tokens.background,
@@ -1316,6 +1305,14 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
               width: 280,
               backgroundColor: tokens.surface,
               borderRight: `1px solid ${tokens.border}`,
+              borderRadius: 0,
+              borderTopRightRadius: 0,
+              borderBottomRightRadius: 0,
+              "&.MuiPaper-root": {
+                borderRadius: 0,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+              },
             },
           }}
         >
@@ -1669,6 +1666,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
             overflowY: "auto",
             overflowX: "hidden",
             width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
             height: "calc(100vh - 60px)",
           }}
         >
