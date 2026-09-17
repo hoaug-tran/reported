@@ -246,6 +246,9 @@ commentsRouter.post(
       }
 
       await recordOutboxEvent("COMMENT_CREATED", {
+        targetType: input.targetType,
+        targetId: input.targetId,
+        parentId: input.parentId || null,
         targetAuthorId,
         actorId: user.id,
         title: targetTitle,

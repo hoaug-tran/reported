@@ -6,6 +6,10 @@ import {
   notificationPreferences,
   users,
   activities,
+  comments,
+  issueAssignees,
+  reviewReviewers,
+  watchers,
   eq,
   and,
   sql,
@@ -37,6 +41,7 @@ interface OutboxPayload {
   toStatus?: string;
   authorId?: string;
   snippet?: string;
+  parentId?: string | null;
   [key: string]: unknown;
 }
 
@@ -288,51 +293,102 @@ export async function processOutboxEvents() {
           }
 
           case "COMMENT_CREATED": {
-            const { targetAuthorId, actorId, title, snippet, link } = payload;
-            if (targetAuthorId && targetAuthorId !== actorId) {
-              const actor = actorId
-                ? await db.query.users.findFirst({
-                    where: eq(users.id, actorId),
-                  })
-                : null;
+            const {
+              targetAuthorId,
+              actorId,
+              title,
+              snippet,
+              link,
+              targetType,
+              targetId,
+              parentId,
+            } = payload;
+
+            const recipientSet = new Set<string>();
+            if (targetAuthorId) {
+              recipientSet.add(targetAuthorId);
+            }
+
+            if (parentId) {
+              const parentComment = await db.query.comments.findFirst({
+                where: eq(comments.id, parentId),
+              });
+              if (parentComment?.authorId) {
+                recipientSet.add(parentComment.authorId);
+              }
+            }
+
+            if (targetType === TargetType.ISSUE && targetId) {
+              const assignees = await db
+                .select({ userId: issueAssignees.userId })
+                .from(issueAssignees)
+                .where(eq(issueAssignees.issueId, targetId));
+              assignees.forEach((a) => recipientSet.add(a.userId));
+            } else if (targetType === TargetType.REVIEW && targetId) {
+              const reviewers = await db
+                .select({ userId: reviewReviewers.userId })
+                .from(reviewReviewers)
+                .where(eq(reviewReviewers.reviewId, targetId));
+              reviewers.forEach((r) => recipientSet.add(r.userId));
+            }
+
+            if (targetType && targetId) {
+              const postWatchers = await db
+                .select({ userId: watchers.userId })
+                .from(watchers)
+                .where(
+                  and(
+                    eq(watchers.targetType, targetType),
+                    eq(watchers.targetId, targetId),
+                  ),
+                );
+              postWatchers.forEach((w) => recipientSet.add(w.userId));
+            }
+
+            if (actorId) {
+              recipientSet.delete(actorId);
+            }
+
+            const actor = actorId
+              ? await db.query.users.findFirst({
+                  where: eq(users.id, actorId),
+                })
+              : null;
+
+            for (const userId of recipientSet) {
               const targetUser = await db.query.users.findFirst({
-                where: eq(users.id, targetAuthorId),
+                where: eq(users.id, userId),
               });
 
-              if (targetUser) {
-                await db.insert(notifications).values({
-                  userId: targetAuthorId,
-                  actorId,
-                  type: NotificationType.COMMENTED,
-                  title: `New comment on "${title}"`,
-                  message: `${actor?.displayName}: ${snippet}`,
-                  link: link || "/",
-                });
+              if (!targetUser) continue;
 
-                if (
-                  await shouldSendEmail(
-                    targetAuthorId,
-                    NotificationType.COMMENTED,
-                  )
-                ) {
-                  await dispatchEmailJob({
-                    outboxEventId: evt.id,
-                    recipientEmail: targetUser.email,
-                    recipientName: targetUser.displayName,
-                    subject: `[Reported] New comment on ${title}`,
-                    template: "new-comment",
-                    htmlBody: `
-                      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
-                        <p><strong>${actor?.displayName}</strong> commented on <strong>${title}</strong>:</p>
-                        <blockquote style="border-left: 3px solid #d0d7de; margin: 12px 0; padding-left: 12px; color: #57606a;">
-                          ${snippet}
-                        </blockquote>
-                        <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Comment</a></p>
-                      </div>
-                    `,
-                    textBody: `${actor?.displayName} commented on ${title}:\n\n${snippet}\n\nLink: ${config.clientUrl}${link}`,
-                  });
-                }
+              await db.insert(notifications).values({
+                userId,
+                actorId,
+                type: NotificationType.COMMENTED,
+                title: `New comment on "${title}"`,
+                message: `${actor?.displayName || "Someone"}: ${snippet}`,
+                link: link || "/",
+              });
+
+              if (await shouldSendEmail(userId, NotificationType.COMMENTED)) {
+                await dispatchEmailJob({
+                  outboxEventId: evt.id,
+                  recipientEmail: targetUser.email,
+                  recipientName: targetUser.displayName,
+                  subject: `[Reported] New comment on ${title}`,
+                  template: "new-comment",
+                  htmlBody: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
+                      <p><strong>${actor?.displayName || "Someone"}</strong> commented on <strong>${title}</strong>:</p>
+                      <blockquote style="border-left: 3px solid #d0d7de; margin: 12px 0; padding-left: 12px; color: #57606a;">
+                        ${snippet}
+                      </blockquote>
+                      <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Comment</a></p>
+                    </div>
+                  `,
+                  textBody: `${actor?.displayName || "Someone"} commented on ${title}:\n\n${snippet}\n\nLink: ${config.clientUrl}${link}`,
+                });
               }
             }
             break;

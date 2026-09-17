@@ -28,6 +28,7 @@ import {
   TargetType,
   IssueStatus,
   BugFrequency,
+  IssueType,
 } from "@reported/contracts";
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/error.js";
@@ -345,7 +346,13 @@ issuesRouter.get(
       }
 
       const bugDetails =
-        issue.environment || issue.stepsToReproduce
+        issue.type === IssueType.BUG &&
+        (issue.environment ||
+          issue.stepsToReproduce ||
+          issue.actualResult ||
+          issue.expectedResult ||
+          issue.precondition ||
+          issue.evidenceJsonOrLogs)
           ? {
               environment: issue.environment || "",
               precondition: issue.precondition || "",
@@ -481,13 +488,34 @@ issuesRouter.post(
           status: input.status,
           priority: input.priority,
           severity: input.severity,
-          environment: input.bugDetails?.environment,
-          precondition: input.bugDetails?.precondition,
-          stepsToReproduce: input.bugDetails?.stepsToReproduce,
-          actualResult: input.bugDetails?.actualResult,
-          expectedResult: input.bugDetails?.expectedResult,
-          frequency: input.bugDetails?.frequency,
-          evidenceJsonOrLogs: input.bugDetails?.evidenceJsonOrLogs,
+          environment:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.environment ?? null)
+              : null,
+          precondition:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.precondition ?? null)
+              : null,
+          stepsToReproduce:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.stepsToReproduce ?? null)
+              : null,
+          actualResult:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.actualResult ?? null)
+              : null,
+          expectedResult:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.expectedResult ?? null)
+              : null,
+          frequency:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.frequency ?? null)
+              : null,
+          evidenceJsonOrLogs:
+            input.type === IssueType.BUG
+              ? (input.bugDetails?.evidenceJsonOrLogs ?? null)
+              : null,
           authorId: user.id,
           repositoryId: input.repositoryId,
           pullRequestId,
@@ -604,7 +632,18 @@ issuesRouter.patch(
         }
       }
 
-      if (input.bugDetails) {
+      const targetType = input.type || issue.type;
+      const isTargetBug = targetType === IssueType.BUG;
+
+      if (!isTargetBug || input.bugDetails === null) {
+        updates.environment = null;
+        updates.precondition = null;
+        updates.stepsToReproduce = null;
+        updates.actualResult = null;
+        updates.expectedResult = null;
+        updates.frequency = null;
+        updates.evidenceJsonOrLogs = null;
+      } else if (input.bugDetails) {
         if (input.bugDetails.environment !== undefined)
           updates.environment = input.bugDetails.environment;
         if (input.bugDetails.precondition !== undefined)

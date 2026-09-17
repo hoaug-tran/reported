@@ -147,7 +147,7 @@ notificationsRouter.get(
         [NotificationType.MENTIONED]: NotificationChannel.BOTH,
         [NotificationType.ASSIGNED]: NotificationChannel.BOTH,
         [NotificationType.REVIEW_REQUESTED]: NotificationChannel.BOTH,
-        [NotificationType.COMMENTED]: NotificationChannel.IN_APP,
+        [NotificationType.COMMENTED]: NotificationChannel.BOTH,
         [NotificationType.ISSUE_STATUS_CHANGED]: NotificationChannel.IN_APP,
         [NotificationType.REVIEW_STATUS_CHANGED]: NotificationChannel.IN_APP,
       };
