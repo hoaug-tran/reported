@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, IconButton, Tooltip, Zoom } from "@mui/material";
-import { ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronUp } from "lucide-react";
 import { useScrollContext } from "../../contexts/ScrollContext";
 import { useThemeContext } from "../../contexts/ThemeContext";
 import { useI18n } from "../../contexts/I18nContext";
@@ -16,12 +16,24 @@ export const ScrollNavigator: React.FC = () => {
     if (!el) return;
 
     const handleScroll = () => {
-      const maxScroll = el.scrollHeight - el.clientHeight;
+      let maxScroll = el.scrollHeight - el.clientHeight;
+      const discussionBottom = el.querySelector("#discussion-bottom") as HTMLElement | null;
+      const isMobileStacked = window.innerWidth < 1200;
+      if (discussionBottom && isMobileStacked) {
+        const elRect = el.getBoundingClientRect();
+        const targetRect = discussionBottom.getBoundingClientRect();
+        const currentScrollTop = el.scrollTop;
+        const targetOffsetTop = targetRect.top - elRect.top + currentScrollTop;
+        const postTarget = Math.max(0, targetOffsetTop - el.clientHeight + 48);
+        if (postTarget > 0) {
+          maxScroll = postTarget;
+        }
+      }
       if (maxScroll <= 0) return;
       const ratio = el.scrollTop / maxScroll;
-      if (ratio > 0.5) {
+      if (ratio > 0.45) {
         setDirection("up");
-      } else if (ratio < 0.35) {
+      } else if (ratio < 0.25) {
         setDirection("down");
       }
     };
@@ -84,10 +96,11 @@ export const ScrollNavigator: React.FC = () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                transition: "transform 0.25s ease, opacity 0.2s ease",
+                transform: isUp ? "rotate(0deg)" : "rotate(180deg)",
+                transition: "transform 0.35s cubic-bezier(0.4, 0, 0.2, 1)",
               }}
             >
-              {isUp ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+              <ChevronUp size={20} />
             </Box>
           </IconButton>
         </Tooltip>

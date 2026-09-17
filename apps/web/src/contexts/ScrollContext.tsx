@@ -26,7 +26,19 @@ export const ScrollProvider: React.FC<{
     const scrollable = scrollHeight > clientHeight + 40;
     setCanScroll(scrollable);
     setIsAtTop(scrollTop <= 20);
-    setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 20);
+
+    const discussionBottom = el.querySelector("#discussion-bottom") as HTMLElement | null;
+    const isMobileStacked = window.innerWidth < 1200;
+    if (discussionBottom && isMobileStacked) {
+      const elRect = el.getBoundingClientRect();
+      const targetRect = discussionBottom.getBoundingClientRect();
+      const currentScrollTop = el.scrollTop;
+      const targetOffsetTop = targetRect.top - elRect.top + currentScrollTop;
+      const targetScrollTop = Math.max(0, targetOffsetTop - el.clientHeight + 48);
+      setIsAtBottom(scrollTop >= targetScrollTop - 25);
+    } else {
+      setIsAtBottom(scrollTop + clientHeight >= scrollHeight - 20);
+    }
   }, [scrollContainerRef]);
 
   useEffect(() => {
@@ -63,7 +75,19 @@ export const ScrollProvider: React.FC<{
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = "smooth") => {
       const el = scrollContainerRef.current;
-      if (el) {
+      if (!el) return;
+
+      const discussionBottom = el.querySelector("#discussion-bottom") as HTMLElement | null;
+      const isMobileStacked = window.innerWidth < 1200;
+
+      if (discussionBottom && isMobileStacked) {
+        const elRect = el.getBoundingClientRect();
+        const targetRect = discussionBottom.getBoundingClientRect();
+        const currentScrollTop = el.scrollTop;
+        const targetOffsetTop = targetRect.top - elRect.top + currentScrollTop;
+        const targetScrollTop = Math.max(0, targetOffsetTop - el.clientHeight + 48);
+        el.scrollTo({ top: targetScrollTop, behavior });
+      } else {
         el.scrollTo({ top: el.scrollHeight, behavior });
       }
     },

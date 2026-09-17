@@ -43,45 +43,13 @@ export const useAutoScrollToBottomOnLoad = ({
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    let rafId: number | null = null;
-    let timeoutId: number | null = null;
-    let observer: ResizeObserver | null = null;
-    let previousHeight = container.scrollHeight;
-
-    const performScroll = () => {
+    const timerId = window.setTimeout(() => {
       if (isUserInteractingRef.current) return;
-      scrollToBottom("auto");
-    };
-
-    rafId = requestAnimationFrame(() => {
-      rafId = requestAnimationFrame(() => {
-        performScroll();
-      });
-    });
-
-    observer = new ResizeObserver(() => {
-      if (isUserInteractingRef.current) return;
-      if (container.scrollHeight > previousHeight) {
-        previousHeight = container.scrollHeight;
-        performScroll();
-      }
-    });
-
-    observer.observe(container);
-    if (container.firstElementChild) {
-      observer.observe(container.firstElementChild);
-    }
-
-    timeoutId = window.setTimeout(() => {
-      if (observer) {
-        observer.disconnect();
-      }
-    }, 2000);
+      scrollToBottom("smooth");
+    }, 180);
 
     return () => {
-      if (rafId !== null) cancelAnimationFrame(rafId);
-      if (timeoutId !== null) clearTimeout(timeoutId);
-      if (observer) observer.disconnect();
+      clearTimeout(timerId);
     };
   }, [isReady, key, scrollContainerRef, scrollToBottom]);
 };
