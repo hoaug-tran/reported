@@ -144,8 +144,12 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     <Box
       sx={{
         my: 1.5,
-        ml: isNested ? { xs: 2, sm: 3.5 } : 0,
+        ml: isNested ? { xs: 1.5, sm: 3.5 } : 0,
         position: "relative",
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
       }}
     >
       <Box
@@ -154,6 +158,10 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           border: `1px solid ${tokens.border}`,
           backgroundColor: tokens.surface,
           overflow: "hidden",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
           transition: "border-color 0.15s ease",
           "&:hover": {
             borderColor: tokens.primary,
@@ -267,7 +275,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           )}
         </Box>
 
-        <Box sx={{ p: 2 }}>
+        <Box sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0, maxWidth: "100%", overflow: "hidden", boxSizing: "border-box" }}>
           {comment.isDeleted ? (
             <Typography
               variant="body2"

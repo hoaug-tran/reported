@@ -329,98 +329,141 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
     const el = containerRef.current;
     if (!el) return;
 
-    let isDown = false;
-    let startClientX = 0;
-    let startClientY = 0;
-    let initialTranslateX = 0;
-    let initialTranslateY = 0;
-    let initialScale = 1;
-    let activePointerId: number | null = null;
+    const activePointers = new Map<number, { x: number; y: number }>();
+    let mode: "idle" | "pan" | "pinch" = "idle";
+    let panStartX = 0;
+    let panStartY = 0;
+    let panInitTx = 0;
+    let panInitTy = 0;
+    let panInitScale = 1;
+
+    let pinchInitDist = 0;
+    let pinchInitScale = 1;
+    let pinchInitMidX = 0;
+    let pinchInitMidY = 0;
+    let pinchInitTx = 0;
+    let pinchInitTy = 0;
+
     let rafId: number | null = null;
     let hasMoved = false;
 
     const handlePointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
       if (!viewerRef.current?.graph?.view) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      const graph = viewerRef.current.graph;
-      isDown = true;
-      hasMoved = false;
-      startClientX = e.clientX;
-      startClientY = e.clientY;
-
-      initialTranslateX = graph.view.translate?.x || 0;
-      initialTranslateY = graph.view.translate?.y || 0;
-      initialScale = graph.view.scale || 1;
-
-      activePointerId = e.pointerId;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       try {
         el.setPointerCapture(e.pointerId);
       } catch {}
 
-      el.style.cursor = "grabbing";
-      document.body.style.userSelect = "none";
-      document.body.style.webkitUserSelect = "none";
-      window.getSelection()?.removeAllRanges();
+      const graph = viewerRef.current.graph;
+
+      if (activePointers.size === 1) {
+        mode = "pan";
+        hasMoved = false;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        panInitTx = graph.view.translate?.x || 0;
+        panInitTy = graph.view.translate?.y || 0;
+        panInitScale = graph.view.scale || 1;
+        el.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+        document.body.style.webkitUserSelect = "none";
+        window.getSelection()?.removeAllRanges();
+      } else if (activePointers.size >= 2) {
+        mode = "pinch";
+        const pts = Array.from(activePointers.values());
+        const p1 = pts[0];
+        const p2 = pts[1];
+        pinchInitDist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
+        pinchInitMidX = (p1.x + p2.x) / 2;
+        pinchInitMidY = (p1.y + p2.y) / 2;
+        pinchInitScale = graph.view.scale || 1;
+        pinchInitTx = graph.view.translate?.x || 0;
+        pinchInitTy = graph.view.translate?.y || 0;
+      }
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      if (!isDown || !viewerRef.current?.graph?.view) return;
+      if (!activePointers.has(e.pointerId) || !viewerRef.current?.graph?.view) return;
 
       e.preventDefault();
       e.stopPropagation();
 
-      const dx = e.clientX - startClientX;
-      const dy = e.clientY - startClientY;
+      activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-      if (!hasMoved && Math.hypot(dx, dy) > 2) {
-        hasMoved = true;
-      }
-
-      if (hasMoved) {
-        if (rafId !== null) {
-          cancelAnimationFrame(rafId);
+      if (mode === "pan" && activePointers.size === 1) {
+        const dx = e.clientX - panStartX;
+        const dy = e.clientY - panStartY;
+        if (!hasMoved && Math.hypot(dx, dy) > 2) {
+          hasMoved = true;
         }
+        if (hasMoved) {
+          if (rafId !== null) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            if (mode !== "pan" || !viewerRef.current?.graph?.view) return;
+            const targetX = panInitTx + dx / panInitScale;
+            const targetY = panInitTy + dy / panInitScale;
+            viewerRef.current.graph.view.setTranslate(targetX, targetY);
+          });
+        }
+      } else if (mode === "pinch" && activePointers.size >= 2) {
+        const pts = Array.from(activePointers.values());
+        const p1 = pts[0];
+        const p2 = pts[1];
+        const currentDist = Math.hypot(p2.x - p1.x, p2.y - p1.y) || 1;
+        const currentMidX = (p1.x + p2.x) / 2;
+        const currentMidY = (p1.y + p2.y) / 2;
+        const distRatio = currentDist / pinchInitDist;
+        const targetScale = Math.max(0.1, Math.min(6, Math.round(pinchInitScale * distRatio * 100) / 100));
+
+        const rect = el.getBoundingClientRect();
+        const graphX = (pinchInitMidX - rect.left) / pinchInitScale - pinchInitTx;
+        const graphY = (pinchInitMidY - rect.top) / pinchInitScale - pinchInitTy;
+        const targetTx = (currentMidX - rect.left) / targetScale - graphX;
+        const targetTy = (currentMidY - rect.top) / targetScale - graphY;
+
+        if (rafId !== null) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-          if (!isDown || !viewerRef.current?.graph?.view) return;
-          const targetX = initialTranslateX + dx / initialScale;
-          const targetY = initialTranslateY + dy / initialScale;
-          viewerRef.current.graph.view.setTranslate(targetX, targetY);
+          if (mode !== "pinch" || !viewerRef.current?.graph?.view) return;
+          viewerRef.current.graph.view.scaleAndTranslate(targetScale, targetTx, targetTy);
+          setZoomScale(targetScale);
         });
       }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
-      if (!isDown) return;
-      isDown = false;
-      el.style.cursor = "grab";
-      document.body.style.userSelect = "";
-      document.body.style.webkitUserSelect = "";
-      window.getSelection()?.removeAllRanges();
+      try {
+        el.releasePointerCapture(e.pointerId);
+      } catch {}
+      activePointers.delete(e.pointerId);
 
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-        rafId = null;
-      }
+      if (activePointers.size === 1) {
+        mode = "pan";
+        const remaining = Array.from(activePointers.values())[0];
+        panStartX = remaining.x;
+        panStartY = remaining.y;
+        panInitTx = viewerRef.current?.graph?.view?.translate?.x || 0;
+        panInitTy = viewerRef.current?.graph?.view?.translate?.y || 0;
+        panInitScale = viewerRef.current?.graph?.view?.scale || 1;
+      } else if (activePointers.size === 0) {
+        mode = "idle";
+        el.style.cursor = "grab";
+        document.body.style.userSelect = "";
+        document.body.style.webkitUserSelect = "";
+        window.getSelection()?.removeAllRanges();
 
-      if (activePointerId !== null) {
-        try {
-          el.releasePointerCapture(activePointerId);
-        } catch {}
-        activePointerId = null;
-      }
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
 
-      if (!viewerRef.current?.graph?.view) return;
-
-      if (hasMoved) {
-        const dx = e.clientX - startClientX;
-        const dy = e.clientY - startClientY;
-        const targetX = initialTranslateX + dx / initialScale;
-        const targetY = initialTranslateY + dy / initialScale;
-        viewerRef.current.graph.view.setTranslate(targetX, targetY);
+        if (viewerRef.current?.graph?.view) {
+          setZoomScale(viewerRef.current.graph.view.scale || 1);
+        }
       }
     };
 
@@ -576,6 +619,9 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
         display: "flex",
         flexDirection: "column",
         width: isFullscreen ? "100vw" : "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
         height: isFullscreen ? "100vh" : effectiveHeight,
         position: isFullscreen ? "fixed" : "relative",
         top: isFullscreen ? 0 : undefined,

@@ -55,6 +55,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
       });
       setNewComment("");
       onRefresh();
+      window.dispatchEvent(new CustomEvent("reported:comment-posted"));
     } catch (err: unknown) {
       setError(
         err instanceof Error
@@ -97,7 +98,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   }, [comments, activities]);
 
   return (
-    <Box sx={{ mt: 3 }}>
+    <Box sx={{ mt: 3, width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}>
       <Typography
         variant="h4"
         sx={{ mb: 2, display: "flex", alignItems: "center", gap: 1 }}

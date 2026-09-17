@@ -421,7 +421,7 @@ export const ReviewDetailPage: React.FC = () => {
   const currentProject = projects.find((p) => p.id === review.projectId);
 
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}>
       <Breadcrumbs sx={{ mb: 1.5, fontSize: "0.8125rem" }}>
         <Link href="/reviews">
           <Typography
@@ -493,17 +493,22 @@ export const ReviewDetailPage: React.FC = () => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", lg: "1fr 340px" },
-          gap: 3.5,
+          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 340px" },
+          gap: { xs: 2.5, lg: 3.5 },
           alignItems: "start",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, maxWidth: "100%", width: "100%", boxSizing: "border-box" }}>
           <Box sx={{ mb: 2 }}>
             <Box
               sx={{
                 display: "flex",
-                alignItems: "flex-start",
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: { xs: "flex-start", sm: "center" },
                 justifyContent: "space-between",
                 gap: 2,
               }}
@@ -515,6 +520,9 @@ export const ReviewDetailPage: React.FC = () => {
                   mb: 1,
                   letterSpacing: "-0.02em",
                   lineHeight: 1.3,
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                  minWidth: 0,
                 }}
               >
                 {review.title}
@@ -678,6 +686,7 @@ export const ReviewDetailPage: React.FC = () => {
               </Box>
             }
           />
+          <Box id="discussion-bottom" sx={{ height: 1, width: "100%" }} />
         </Box>
 
         <Box
@@ -691,6 +700,11 @@ export const ReviewDetailPage: React.FC = () => {
             backgroundColor: tokens.surface,
             position: { xs: "static", lg: "sticky" },
             top: 16,
+            minWidth: 0,
+            maxWidth: "100%",
+            width: "100%",
+            boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
           <Box>

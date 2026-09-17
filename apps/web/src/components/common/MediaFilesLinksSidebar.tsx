@@ -474,6 +474,10 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
         backgroundColor: tokens.surface,
         overflow: "hidden",
         mt: 2,
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
       }}
     >
       <Box
@@ -531,9 +535,13 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
           if (val === "files") setFilesOpen(true);
           if (val === "links") setLinksOpen(true);
         }}
-        variant="fullWidth"
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           minHeight: 38,
+          width: "100%",
+          maxWidth: "100%",
           borderBottom: `1px solid ${tokens.divider}`,
           backgroundColor: tokens.surface,
           "& .MuiTabs-indicator": {
@@ -543,12 +551,13 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
           "& .MuiTab-root": {
             minHeight: 38,
             py: 0.75,
-            px: 0.5,
+            px: { xs: 1, sm: 1.25 },
             fontSize: "0.75rem",
             fontWeight: 600,
             textTransform: "none",
             color: tokens.textSecondary,
             minWidth: 0,
+            flexShrink: 0,
             "&.Mui-selected": {
               color: tokens.primary,
               fontWeight: 700,
@@ -762,6 +771,10 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         backgroundColor: tokens.surfaceSecondary,
                         border: `1px solid ${tokens.border}`,
                         transition: "background-color 0.12s ease",
+                        minWidth: 0,
+                        maxWidth: "100%",
+                        boxSizing: "border-box",
+                        overflow: "hidden",
                         "&:hover": { backgroundColor: tokens.hover },
                       }}
                     >
@@ -975,6 +988,11 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         fontSize: "0.75rem",
                         fontWeight: 500,
                         transition: "background-color 0.12s ease",
+                        minWidth: 0,
+                        maxWidth: "100%",
+                        width: "100%",
+                        boxSizing: "border-box",
+                        overflow: "hidden",
                         "&:hover": {
                           backgroundColor: tokens.hover,
                           textDecoration: "underline",
@@ -984,7 +1002,15 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                       <ExternalLink size={13} style={{ flexShrink: 0 }} />
                       <Typography
                         variant="caption"
-                        sx={{ color: "inherit", fontWeight: 600 }}
+                        sx={{
+                          color: "inherit",
+                          fontWeight: 600,
+                          minWidth: 0,
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}
                         noWrap
                       >
                         {l.title}

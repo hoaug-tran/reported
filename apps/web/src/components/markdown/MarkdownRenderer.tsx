@@ -374,6 +374,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     <Box
       sx={{
         width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
+        overflowWrap: "break-word",
+        wordBreak: "break-word",
         lineHeight: 1.65,
         color: tokens.textPrimary,
         fontSize: "0.875rem",

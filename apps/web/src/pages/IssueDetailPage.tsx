@@ -57,6 +57,7 @@ import { useSmoothLoading } from "../hooks/useSmoothLoading";
 import { useAutoScrollToBottomOnLoad } from "../hooks/useAutoScrollToBottomOnLoad";
 import { MediaFilesLinksSidebar } from "../components/common/MediaFilesLinksSidebar";
 import { getLabelColor } from "../utils/labels";
+import { getIssuePresentation } from "../utils/issuePresentation";
 import { toast } from "../contexts/ToastContext";
 import { apiFetch, ApiError } from "../api/client";
 import {
@@ -314,7 +315,9 @@ export const IssueDetailPage: React.FC = () => {
         labels: editLabels,
       };
 
-      if (
+      if (editType !== IssueType.BUG) {
+        payload.bugDetails = null;
+      } else if (
         editSteps.trim() ||
         editEnvironment.trim() ||
         editActual.trim() ||
@@ -331,6 +334,8 @@ export const IssueDetailPage: React.FC = () => {
           frequency: editFrequency,
           evidenceJsonOrLogs: editEvidence.trim() || undefined,
         };
+      } else {
+        payload.bugDetails = null;
       }
 
       await apiFetch(`/issues/${issue.id}`, {
@@ -431,8 +436,10 @@ export const IssueDetailPage: React.FC = () => {
     }
   };
 
+  const presentation = getIssuePresentation(issue, isVi);
+
   return (
-    <Box sx={{ width: "100%" }}>
+    <Box sx={{ width: "100%", maxWidth: "100%", minWidth: 0, boxSizing: "border-box" }}>
       <Breadcrumbs sx={{ mb: 1.5, fontSize: "0.8125rem" }}>
         <Link href="/issues">
           <Typography
@@ -502,17 +509,22 @@ export const IssueDetailPage: React.FC = () => {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: { xs: "1fr", lg: "1fr 340px" },
-          gap: 3.5,
+          gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 340px" },
+          gap: { xs: 2.5, lg: 3.5 },
           alignItems: "start",
+          width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
+          boxSizing: "border-box",
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
+        <Box sx={{ minWidth: 0, maxWidth: "100%", width: "100%", boxSizing: "border-box" }}>
           <Box sx={{ mb: 2 }}>
             <Box
               sx={{
                 display: "flex",
-                alignItems: "flex-start",
+                flexDirection: { xs: "column", sm: "row" },
+                alignItems: { xs: "flex-start", sm: "center" },
                 justifyContent: "space-between",
                 gap: 2,
               }}
@@ -524,6 +536,9 @@ export const IssueDetailPage: React.FC = () => {
                   mb: 1,
                   letterSpacing: "-0.02em",
                   lineHeight: 1.3,
+                  wordBreak: "break-word",
+                  overflowWrap: "break-word",
+                  minWidth: 0,
                 }}
               >
                 {issue.title}
@@ -590,18 +605,30 @@ export const IssueDetailPage: React.FC = () => {
             >
               <StatusBadge status={issue.status} size="medium" />
               <Chip
-                label={issue.type}
+                icon={
+                  <presentation.icon
+                    size={13}
+                    style={{ color: presentation.color, marginLeft: 6 }}
+                  />
+                }
+                label={presentation.label}
                 size="small"
                 sx={{
                   height: 22,
                   fontSize: "0.6875rem",
                   fontWeight: 600,
-                  backgroundColor: "rgba(110, 118, 129, 0.14)",
-                  color: tokens.textPrimary,
+                  backgroundColor: presentation.bgColor,
+                  color: presentation.color,
+                  border: `1px solid ${presentation.borderColor}`,
+                  "& .MuiChip-icon": {
+                    color: presentation.color,
+                  },
                 }}
               />
               <PriorityBadge priority={issue.priority} />
-              <SeverityBadge severity={issue.severity} />
+              {presentation.showSeverity && (
+                <SeverityBadge severity={issue.severity} />
+              )}
               <span>
                 {isVi ? "Tạo bởi" : "Opened by"}{" "}
                 <strong>@{issue.author.username}</strong> •{" "}
@@ -619,158 +646,6 @@ export const IssueDetailPage: React.FC = () => {
 
           <Divider sx={{ my: 2 }} />
 
-          <Box
-            sx={{
-              mb: 3,
-              p: 2.5,
-              borderRadius: "8px",
-              border: `1px solid ${tokens.border}`,
-              backgroundColor: tokens.surface,
-            }}
-          >
-            <Typography
-              variant="h4"
-              sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}
-            >
-              {isVi
-                ? "Chi tiết tái hiện lỗi"
-                : "Bug Reproduction & Testing Details"}
-            </Typography>
-
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: tokens.textSecondary }}
-                >
-                  {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontFamily: '"JetBrains Mono", monospace',
-                    fontSize: "0.8125rem",
-                    mt: 0.3,
-                  }}
-                >
-                  {issue.bugDetails?.environment ||
-                    (isVi ? "(Không có thông tin môi trường)" : "(None)")}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: tokens.textSecondary }}
-                >
-                  {isVi ? "TẦN SUẤT" : "FREQUENCY"}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.frequency || "ALWAYS"}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 600, color: tokens.textSecondary }}
-              >
-                {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.3 }}>
-                {issue.bugDetails?.precondition ||
-                  (isVi ? "(Không có)" : "(None)")}
-              </Typography>
-            </Box>
-
-            <Box sx={{ mb: 2 }}>
-              <Typography
-                variant="caption"
-                sx={{ fontWeight: 600, color: tokens.textSecondary }}
-              >
-                {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
-              </Typography>
-              <Typography
-                variant="body2"
-                sx={{ whiteSpace: "pre-wrap", mt: 0.3 }}
-              >
-                {issue.bugDetails?.stepsToReproduce ||
-                  (isVi
-                    ? "(Không có mô tả chi tiết các bước)"
-                    : "(No steps specified)")}
-              </Typography>
-            </Box>
-
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 2,
-                mb: 2,
-              }}
-            >
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: tokens.error }}
-                >
-                  {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.actualResult ||
-                    (isVi ? "(Không có)" : "(None)")}
-                </Typography>
-              </Box>
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{ fontWeight: 600, color: tokens.success }}
-                >
-                  {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
-                </Typography>
-                <Typography variant="body2" sx={{ mt: 0.3 }}>
-                  {issue.bugDetails?.expectedResult ||
-                    (isVi ? "(Không có)" : "(None)")}
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ pt: 1.5, borderTop: `1px dashed ${tokens.border}` }}>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color: tokens.textSecondary,
-                  display: "block",
-                  mb: 0.5,
-                }}
-              >
-                {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
-              </Typography>
-              {issue.bugDetails?.evidenceJsonOrLogs ? (
-                <MarkdownRenderer
-                  content={issue.bugDetails.evidenceJsonOrLogs}
-                />
-              ) : (
-                <Typography
-                  variant="body2"
-                  sx={{ color: tokens.textSecondary, fontStyle: "italic" }}
-                >
-                  {isVi
-                    ? "Không có log hoặc bằng chứng đính kèm"
-                    : "No logs or evidence attached"}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-
           <Box sx={{ mb: 3 }}>
             <Typography
               variant="caption"
@@ -781,7 +656,21 @@ export const IssueDetailPage: React.FC = () => {
                 mb: 1,
               }}
             >
-              {isVi ? "MÔ TẢ CHI TIẾT" : "DESCRIPTION"}
+              {presentation.kind === "PROPOSAL"
+                ? isVi
+                  ? "NỘI DUNG ĐỀ XUẤT (RFC)"
+                  : "PROPOSAL SPECIFICATION"
+                : presentation.kind === "DISCUSSION"
+                  ? isVi
+                    ? "NỘI DUNG THẢO LUẬN"
+                    : "DISCUSSION TOPIC"
+                  : presentation.kind === "QUESTION"
+                    ? isVi
+                      ? "CÂU HỎI KỸ THUẬT"
+                      : "QUESTION DETAILS"
+                    : isVi
+                      ? "MÔ TẢ CHI TIẾT"
+                      : "DESCRIPTION"}
             </Typography>
             <MarkdownRenderer
               content={
@@ -792,6 +681,162 @@ export const IssueDetailPage: React.FC = () => {
               }
             />
           </Box>
+
+          {presentation.showBugDetails && (
+            <Box
+              sx={{
+                mb: 3,
+                p: 2.5,
+                borderRadius: "8px",
+                border: `1px solid ${tokens.border}`,
+                backgroundColor: tokens.surface,
+              }}
+            >
+              <Typography
+                variant="h4"
+                sx={{ fontSize: "0.9rem", fontWeight: 600, mb: 2 }}
+              >
+                {isVi
+                  ? "Chi tiết tái hiện lỗi"
+                  : "Bug Reproduction & Testing Details"}
+              </Typography>
+
+              {(issue.bugDetails?.environment ||
+                issue.bugDetails?.frequency) && (
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 2,
+                    mb: 2,
+                  }}
+                >
+                  {issue.bugDetails?.environment && (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                      >
+                        {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontFamily: '"JetBrains Mono", monospace',
+                          fontSize: "0.8125rem",
+                          mt: 0.3,
+                        }}
+                      >
+                        {issue.bugDetails.environment}
+                      </Typography>
+                    </Box>
+                  )}
+                  {issue.bugDetails?.frequency && (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                      >
+                        {isVi ? "TẦN SUẤT" : "FREQUENCY"}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.3 }}>
+                        {issue.bugDetails.frequency}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {issue.bugDetails?.precondition && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                  >
+                    {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.3 }}>
+                    {issue.bugDetails.precondition}
+                  </Typography>
+                </Box>
+              )}
+
+              {issue.bugDetails?.stepsToReproduce && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                  >
+                    {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: "pre-wrap", mt: 0.3 }}
+                  >
+                    {issue.bugDetails.stepsToReproduce}
+                  </Typography>
+                </Box>
+              )}
+
+              {(issue.bugDetails?.actualResult ||
+                issue.bugDetails?.expectedResult) && (
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                    gap: 2,
+                    mb: 2,
+                  }}
+                >
+                  {issue.bugDetails?.actualResult && (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: tokens.error }}
+                      >
+                        {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.3 }}>
+                        {issue.bugDetails.actualResult}
+                      </Typography>
+                    </Box>
+                  )}
+                  {issue.bugDetails?.expectedResult && (
+                    <Box>
+                      <Typography
+                        variant="caption"
+                        sx={{ fontWeight: 600, color: tokens.success }}
+                      >
+                        {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 0.3 }}>
+                        {issue.bugDetails.expectedResult}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {issue.bugDetails?.evidenceJsonOrLogs && (
+                <Box sx={{ pt: 1.5, borderTop: `1px dashed ${tokens.border}` }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: tokens.textSecondary,
+                      display: "block",
+                      mb: 0.5,
+                    }}
+                  >
+                    {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
+                  </Typography>
+                  <MarkdownRenderer
+                    content={issue.bugDetails.evidenceJsonOrLogs}
+                  />
+                </Box>
+              )}
+            </Box>
+          )}
 
           {issue.pullRequest && (
             <Box sx={{ my: 2 }}>
@@ -820,6 +865,7 @@ export const IssueDetailPage: React.FC = () => {
             activities={activities}
             onRefresh={fetchIssueData}
           />
+          <Box id="discussion-bottom" sx={{ height: 1, width: "100%" }} />
         </Box>
 
         <Box
@@ -833,6 +879,11 @@ export const IssueDetailPage: React.FC = () => {
             backgroundColor: tokens.surface,
             position: { xs: "static", lg: "sticky" },
             top: 16,
+            minWidth: 0,
+            maxWidth: "100%",
+            width: "100%",
+            boxSizing: "border-box",
+            overflow: "hidden",
           }}
         >
           <Box>
@@ -1639,30 +1690,89 @@ export const IssueDetailPage: React.FC = () => {
             </Box>
           </Box>
 
-          <Box
-            sx={{
-              p: 2,
-              borderRadius: "8px",
-              border: `1px solid ${tokens.border}`,
-              backgroundColor: tokens.background,
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-              {isVi
-                ? "Chi tiết tái hiện lỗi"
-                : "Bug Reproduction & Testing Details"}
-            </Typography>
-
+          {editType === IssueType.BUG && (
             <Box
               sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                p: 2,
+                borderRadius: "8px",
+                border: `1px solid ${tokens.border}`,
+                backgroundColor: tokens.background,
+                display: "flex",
+                flexDirection: "column",
                 gap: 2,
               }}
             >
+              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                {isVi
+                  ? "Chi tiết tái hiện lỗi"
+                  : "Bug Reproduction & Testing Details"}
+              </Typography>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 2,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: tokens.textSecondary,
+                      display: "block",
+                      mb: 0.5,
+                    }}
+                  >
+                    {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={editEnvironment}
+                    onChange={(e) => setEditEnvironment(e.target.value)}
+                    placeholder="Chrome 122, macOS 14..."
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                  />
+                </Box>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: tokens.textSecondary,
+                      display: "block",
+                      mb: 0.5,
+                    }}
+                  >
+                    {isVi ? "TẦN SUẤT" : "FREQUENCY"}
+                  </Typography>
+                  <Select
+                    fullWidth
+                    size="small"
+                    value={editFrequency}
+                    onChange={(e) =>
+                      setEditFrequency(e.target.value as BugFrequency)
+                    }
+                    sx={{ borderRadius: "6px" }}
+                  >
+                    <MenuItem value={BugFrequency.ALWAYS}>
+                      {isVi ? "Luôn luôn (100%)" : "Always (100%)"}
+                    </MenuItem>
+                    <MenuItem value={BugFrequency.OFTEN}>
+                      {isVi ? "Thường xuyên (~70%)" : "Often (~70%)"}
+                    </MenuItem>
+                    <MenuItem value={BugFrequency.SOMETIMES}>
+                      {isVi ? "Thỉnh thoảng (~30%)" : "Sometimes (~30%)"}
+                    </MenuItem>
+                    <MenuItem value={BugFrequency.RARE}>
+                      {isVi ? "Hiếm khi (<10%)" : "Rare (<10%)"}
+                    </MenuItem>
+                  </Select>
+                </Box>
+              </Box>
+
               <Box>
                 <Typography
                   variant="caption"
@@ -1673,181 +1783,124 @@ export const IssueDetailPage: React.FC = () => {
                     mb: 0.5,
                   }}
                 >
-                  {isVi ? "MÔI TRƯỜNG" : "ENVIRONMENT"}
+                  {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
                 </Typography>
                 <TextField
                   fullWidth
                   size="small"
-                  value={editEnvironment}
-                  onChange={(e) => setEditEnvironment(e.target.value)}
-                  placeholder="Chrome 122, macOS 14..."
-                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-                />
-              </Box>
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    fontWeight: 600,
-                    color: tokens.textSecondary,
-                    display: "block",
-                    mb: 0.5,
-                  }}
-                >
-                  {isVi ? "TẦN SUẤT" : "FREQUENCY"}
-                </Typography>
-                <Select
-                  fullWidth
-                  size="small"
-                  value={editFrequency}
-                  onChange={(e) =>
-                    setEditFrequency(e.target.value as BugFrequency)
+                  value={editPrecondition}
+                  onChange={(e) => setEditPrecondition(e.target.value)}
+                  placeholder={
+                    isVi
+                      ? "Ví dụ: Đã đăng nhập với tài khoản viewer..."
+                      : "e.g. Logged in as viewer..."
                   }
-                  sx={{ borderRadius: "6px" }}
-                >
-                  <MenuItem value={BugFrequency.ALWAYS}>
-                    {isVi ? "Luôn luôn (100%)" : "Always (100%)"}
-                  </MenuItem>
-                  <MenuItem value={BugFrequency.OFTEN}>
-                    {isVi ? "Thường xuyên (~70%)" : "Often (~70%)"}
-                  </MenuItem>
-                  <MenuItem value={BugFrequency.SOMETIMES}>
-                    {isVi ? "Thỉnh thoảng (~30%)" : "Sometimes (~30%)"}
-                  </MenuItem>
-                  <MenuItem value={BugFrequency.RARE}>
-                    {isVi ? "Hiếm khi (<10%)" : "Rare (<10%)"}
-                  </MenuItem>
-                </Select>
+                  sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                />
               </Box>
-            </Box>
 
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color: tokens.textSecondary,
-                  display: "block",
-                  mb: 0.5,
-                }}
-              >
-                {isVi ? "TIỀN ĐIỀU KIỆN" : "PRECONDITION"}
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                value={editPrecondition}
-                onChange={(e) => setEditPrecondition(e.target.value)}
-                placeholder={
-                  isVi
-                    ? "Ví dụ: Đã đăng nhập với tài khoản viewer..."
-                    : "e.g. Logged in as viewer..."
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-              />
-            </Box>
-
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color: tokens.textSecondary,
-                  display: "block",
-                  mb: 0.5,
-                }}
-              >
-                {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                value={editSteps}
-                onChange={(e) => setEditSteps(e.target.value)}
-                placeholder="1. Go to...\n2. Click..."
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-              />
-            </Box>
-
-            <Box
-              sx={{
-                display: "grid",
-                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
-                gap: 2,
-              }}
-            >
               <Box>
                 <Typography
                   variant="caption"
                   sx={{
                     fontWeight: 600,
-                    color: tokens.error,
+                    color: tokens.textSecondary,
                     display: "block",
                     mb: 0.5,
                   }}
                 >
-                  {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
+                  {isVi ? "CÁC BƯỚC TÁI HIỆN" : "STEPS TO REPRODUCE"}
                 </Typography>
                 <TextField
                   fullWidth
                   multiline
-                  rows={2}
-                  value={editActual}
-                  onChange={(e) => setEditActual(e.target.value)}
+                  rows={3}
+                  value={editSteps}
+                  onChange={(e) => setEditSteps(e.target.value)}
+                  placeholder="1. Go to...\n2. Click..."
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
+
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 2,
+                }}
+              >
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: tokens.error,
+                      display: "block",
+                      mb: 0.5,
+                    }}
+                  >
+                    {isVi ? "KẾT QUẢ THỰC TẾ" : "ACTUAL RESULT"}
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={editActual}
+                    onChange={(e) => setEditActual(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                  />
+                </Box>
+                <Box>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 600,
+                      color: tokens.success,
+                      display: "block",
+                      mb: 0.5,
+                    }}
+                  >
+                    {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    value={editExpected}
+                    onChange={(e) => setEditExpected(e.target.value)}
+                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
+                  />
+                </Box>
+              </Box>
+
               <Box>
                 <Typography
                   variant="caption"
                   sx={{
                     fontWeight: 600,
-                    color: tokens.success,
+                    color: tokens.textSecondary,
                     display: "block",
                     mb: 0.5,
                   }}
                 >
-                  {isVi ? "KẾT QUẢ MONG ĐỢI" : "EXPECTED RESULT"}
+                  {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
                 </Typography>
                 <TextField
                   fullWidth
                   multiline
                   rows={2}
-                  value={editExpected}
-                  onChange={(e) => setEditExpected(e.target.value)}
+                  value={editEvidence}
+                  onChange={(e) => setEditEvidence(e.target.value)}
+                  placeholder={
+                    isVi
+                      ? "Dán log lỗi, stacktrace hoặc link ảnh bằng chứng..."
+                      : "Paste logs, error stacktraces or image links..."
+                  }
                   sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
                 />
               </Box>
             </Box>
-
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  fontWeight: 600,
-                  color: tokens.textSecondary,
-                  display: "block",
-                  mb: 0.5,
-                }}
-              >
-                {isVi ? "BẰNG CHỨNG / LOG" : "EVIDENCE / TEST LOGS"}
-              </Typography>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                value={editEvidence}
-                onChange={(e) => setEditEvidence(e.target.value)}
-                placeholder={
-                  isVi
-                    ? "Dán log lỗi, stacktrace hoặc link ảnh bằng chứng..."
-                    : "Paste logs, error stacktraces or image links..."
-                }
-                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "6px" } }}
-              />
-            </Box>
-          </Box>
+          )}
 
           <Box>
             <Typography

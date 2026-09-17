@@ -20,6 +20,7 @@ export function Page({ children, variant = "default", sx }: PageProps) {
       sx={{
         width: "100%",
         maxWidth,
+        minWidth: 0,
         mx: 0,
         px: 0,
         py: 0,

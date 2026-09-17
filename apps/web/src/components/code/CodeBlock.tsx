@@ -305,6 +305,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     <Box
       sx={{
         my: 2,
+        width: "100%",
+        maxWidth: "100%",
+        minWidth: 0,
+        boxSizing: "border-box",
         borderRadius: "8px",
         border: `1px solid ${tokens.codeBorder}`,
         backgroundColor: tokens.codeBackground,
@@ -326,6 +330,9 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           py: 0.6,
           borderBottom: `1px solid ${tokens.codeBorder}`,
           backgroundColor: resolvedMode === "dark" ? "#141a24" : "#f4f6f8",
+          minWidth: 0,
+          maxWidth: "100%",
+          boxSizing: "border-box",
         }}
       >
         <ButtonBase
