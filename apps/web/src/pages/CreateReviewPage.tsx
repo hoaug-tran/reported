@@ -134,6 +134,8 @@ export const CreateReviewPage: React.FC = () => {
   const isVi = language === "vi";
 
   const queryParams = new URLSearchParams(window.location.search);
+  const editNumber = queryParams.get("edit");
+  const isEditing = Boolean(editNumber);
   const initRepoId = queryParams.get("repoId") || "";
   const initPrNumber = queryParams.get("prNumber")
     ? parseInt(queryParams.get("prNumber")!, 10)
@@ -189,6 +191,7 @@ export const CreateReviewPage: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isEditing) return;
     try {
       const saved = localStorage.getItem("reported_review_draft");
       if (saved) {
@@ -202,10 +205,63 @@ export const CreateReviewPage: React.FC = () => {
         setLastSaved(parsed.savedAt || null);
       }
     } catch {}
-  }, [initPrNumber]);
+  }, [initPrNumber, isEditing]);
+
+  useEffect(() => {
+    if (!editNumber) return;
+    apiFetch<import("@reported/contracts").ReviewDetailDto>(
+      `/reviews/${editNumber}`,
+      { skipCache: true },
+    )
+      .then((review) => {
+        const focusLine = review.description.match(
+          /^\*\*(?:Trọng tâm review|Focus areas):\*\*\s*(.+?)(?:\n\n|$)/,
+        );
+        const activeLabels = focusLine?.[1]
+          .split(",")
+          .map((label) => label.trim().toLowerCase()) || [];
+        setTitle(review.title);
+        setSpecialNotes(
+          focusLine
+            ? review.description.slice(focusLine[0].length).trim()
+            : review.description || "",
+        );
+        setFocusAreas(
+          Object.fromEntries(
+            FOCUS_AREAS_CONFIG.map((item) => [
+              item.key,
+              activeLabels.includes(item.labelVi.toLowerCase()) ||
+                activeLabels.includes(item.labelEn.toLowerCase()),
+            ]),
+          ),
+        );
+        setDeadline(review.deadline ? review.deadline.slice(0, 10) : "");
+        setProjectId(review.projectId || "");
+        setRepositoryId(review.repository?.id || "");
+        setBranch(review.branch || "");
+        setCommitHash(review.commitHash || "");
+        setPrUrl(review.pullRequest?.url || "");
+        setReviewerIds(review.reviewers?.map((item) => item.user.id) || []);
+        setSelectedLabels(review.labels?.map((label) => label.name) || []);
+        setPrSelectionMode(review.repository ? "repo" : "url");
+        setShowAdvanced(
+          Boolean(review.deadline || review.projectId || review.branch || review.commitHash),
+        );
+      })
+      .catch((err: unknown) =>
+        setErrorMsg(
+          err instanceof Error
+            ? err.message
+            : isVi
+              ? "Không thể tải yêu cầu review"
+              : "Failed to load review request",
+        ),
+      );
+  }, [editNumber]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (isEditing) return;
       if (prUrl || title || specialNotes || reviewerIds.length > 0) {
         const payload = {
           prUrl,
@@ -221,7 +277,15 @@ export const CreateReviewPage: React.FC = () => {
       }
     }, 1000);
     return () => clearTimeout(timer);
-  }, [prUrl, title, specialNotes, focusAreas, reviewerIds, selectedLabels]);
+  }, [
+    prUrl,
+    title,
+    specialNotes,
+    focusAreas,
+    reviewerIds,
+    selectedLabels,
+    isEditing,
+  ]);
 
   useEffect(() => {
     const fetchMetadata = async () => {
@@ -424,26 +488,40 @@ export const CreateReviewPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      const res = await apiFetch<{ id: string; number: number }>("/reviews", {
-        method: "POST",
-        body: JSON.stringify({
-          workspaceId: activeWorkspace?.id,
-          projectId: projectId || undefined,
-          title: effectiveTitle,
-          description: constructedDesc,
-          reviewType,
-          deadline: deadline ? new Date(deadline).toISOString() : undefined,
-          repositoryId: repositoryId || undefined,
-          prUrl: prUrl.trim() || undefined,
-          branch: branch.trim() || undefined,
-          commitHash: commitHash.trim() || undefined,
-          reviewerIds,
-          labels: selectedLabels,
-        }),
-      });
+      const payload = {
+        workspaceId: activeWorkspace?.id,
+        projectId: projectId || (isEditing ? null : undefined),
+        title: effectiveTitle,
+        description: constructedDesc,
+        reviewType,
+        deadline: deadline
+          ? new Date(deadline).toISOString()
+          : isEditing
+            ? null
+            : undefined,
+        repositoryId: repositoryId || (isEditing ? null : undefined),
+        prUrl: prUrl.trim() || (isEditing ? null : undefined),
+        branch: branch.trim() || (isEditing ? null : undefined),
+        commitHash: commitHash.trim() || (isEditing ? null : undefined),
+        reviewerIds,
+        labels: selectedLabels,
+      };
+      const res = isEditing
+        ? await apiFetch<{ message: string }>(`/reviews/${editNumber}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          })
+        : await apiFetch<{ id: string; number: number }>("/reviews", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
 
-      localStorage.removeItem("reported_review_draft");
-      setLocation(`/reviews/${res.number}`);
+      if (!isEditing) localStorage.removeItem("reported_review_draft");
+      setLocation(
+        isEditing
+          ? `/reviews/${editNumber}`
+          : `/reviews/${"number" in res ? res.number : ""}`,
+      );
     } catch (err: unknown) {
       const errMsg =
         err instanceof Error
@@ -481,7 +559,9 @@ export const CreateReviewPage: React.FC = () => {
             title={isVi ? "Quay lại danh sách review" : "Back to reviews"}
           >
             <IconButton
-              onClick={() => setLocation("/reviews")}
+              onClick={() =>
+                setLocation(isEditing ? `/reviews/${editNumber}` : "/reviews")
+              }
               sx={{ border: `1px solid ${tokens.border}`, borderRadius: "8px" }}
             >
               <ArrowLeft size={18} />
@@ -492,7 +572,13 @@ export const CreateReviewPage: React.FC = () => {
               variant="h5"
               sx={{ fontWeight: 700, color: tokens.textPrimary }}
             >
-              {isVi ? "Yêu cầu Review code" : "Request Code Review"}
+              {isEditing
+                ? isVi
+                  ? "Chỉnh sửa yêu cầu Review"
+                  : "Edit Review Request"
+                : isVi
+                  ? "Yêu cầu Review code"
+                  : "Request Code Review"}
             </Typography>
           </Box>
         </Box>
@@ -1307,7 +1393,9 @@ export const CreateReviewPage: React.FC = () => {
           >
             <Button
               variant="outlined"
-              onClick={() => setLocation("/reviews")}
+              onClick={() =>
+                setLocation(isEditing ? `/reviews/${editNumber}` : "/reviews")
+              }
               sx={buttonSx(tokens)}
             >
               {isVi ? "Hủy bỏ" : "Cancel"}
@@ -1328,11 +1416,15 @@ export const CreateReviewPage: React.FC = () => {
             >
               {isSubmitting
                 ? isVi
-                  ? "Đang gửi..."
-                  : "Submitting..."
-                : isVi
-                  ? "Gửi yêu cầu Review"
-                  : "Ask for Review"}
+                  ? "Đang lưu..."
+                  : "Saving..."
+                : isEditing
+                  ? isVi
+                    ? "Lưu thay đổi"
+                    : "Save Changes"
+                  : isVi
+                    ? "Gửi yêu cầu Review"
+                    : "Ask for Review"}
             </Button>
           </Box>
         </Paper>

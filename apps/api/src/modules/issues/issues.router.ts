@@ -33,6 +33,7 @@ import {
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/error.js";
 import { recordOutboxEvent } from "../../events/outbox.js";
+import { assertActivePost } from "../shared/post-state.js";
 import { formatPullRequestSummary } from "../github/github.router.js";
 
 export const issuesRouter = Router();
@@ -468,7 +469,12 @@ issuesRouter.post(
         if (match) {
           const prNum = parseInt(match[1], 10);
           const existingPr = await db.query.pullRequests.findFirst({
-            where: eq(pullRequests.prNumber, prNum),
+            where: input.repositoryId
+              ? and(
+                  eq(pullRequests.repositoryId, input.repositoryId),
+                  eq(pullRequests.prNumber, prNum),
+                )
+              : eq(pullRequests.prNumber, prNum),
           });
           if (existingPr) {
             pullRequestId = existingPr.id;
@@ -599,6 +605,9 @@ issuesRouter.patch(
       if (!issue) {
         throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
       }
+      if (issue.isDeleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
+      }
 
       const updates: Partial<typeof issues.$inferInsert> = {
         updatedAt: new Date(),
@@ -623,7 +632,15 @@ issuesRouter.patch(
           if (match) {
             const prNum = parseInt(match[1], 10);
             const existingPr = await db.query.pullRequests.findFirst({
-              where: eq(pullRequests.prNumber, prNum),
+              where: (input.repositoryId ?? issue.repositoryId)
+                ? and(
+                    eq(
+                      pullRequests.repositoryId,
+                      (input.repositoryId ?? issue.repositoryId)!,
+                    ),
+                    eq(pullRequests.prNumber, prNum),
+                  )
+                : eq(pullRequests.prNumber, prNum),
             });
             if (existingPr) {
               updates.pullRequestId = existingPr.id;
@@ -684,15 +701,18 @@ issuesRouter.patch(
 
       await db.update(issues).set(updates).where(eq(issues.id, issue.id));
 
-      await db.insert(activities).values({
-        targetType: TargetType.ISSUE,
-        targetId: issue.id,
-        actorId: user.id,
-        actionType: "EDITED",
-        metadata: {
-          fields: Object.keys(updates).filter((k) => k !== "updatedAt"),
-        },
-      });
+      const modifiedFields = Object.keys(updates).filter(
+        (key) => key !== "updatedAt" && key !== "status",
+      );
+      if (modifiedFields.length > 0) {
+        await db.insert(activities).values({
+          targetType: TargetType.ISSUE,
+          targetId: issue.id,
+          actorId: user.id,
+          actionType: "EDITED",
+          metadata: { fields: modifiedFields },
+        });
+      }
 
       if (input.assigneeIds !== undefined) {
         await db
@@ -757,6 +777,7 @@ issuesRouter.post(
     try {
       const user = req.user!;
       const issueId = req.params.id;
+      await assertActivePost(TargetType.ISSUE, issueId);
 
       const existing = await db.query.watchers.findFirst({
         where: and(
@@ -800,20 +821,30 @@ issuesRouter.delete(
         where: eq(issues.id, req.params.id),
       });
 
-      await db
+      if (!issue) {
+        throw new AppError(404, "ISSUE_NOT_FOUND", "Issue not found");
+      }
+      if (issue.isDeleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
+      }
+
+      const [deleted] = await db
         .update(issues)
         .set({ isDeleted: true, updatedAt: new Date() })
-        .where(eq(issues.id, req.params.id));
+        .where(and(eq(issues.id, issue.id), eq(issues.isDeleted, false)))
+        .returning({ id: issues.id });
 
-      if (issue) {
-        await db.insert(activities).values({
-          targetType: TargetType.ISSUE,
-          targetId: issue.id,
-          actorId: req.user!.id,
-          actionType: "DELETED",
-          metadata: { title: issue.title },
-        });
+      if (!deleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
       }
+
+      await db.insert(activities).values({
+        targetType: TargetType.ISSUE,
+        targetId: issue.id,
+        actorId: req.user!.id,
+        actionType: "DELETED",
+        metadata: { title: issue.title },
+      });
 
       return res.json({ message: "Issue deleted" });
     } catch (error) {

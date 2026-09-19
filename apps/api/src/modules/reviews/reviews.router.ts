@@ -36,6 +36,7 @@ import {
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/error.js";
 import { recordOutboxEvent } from "../../events/outbox.js";
+import { assertActivePost } from "../shared/post-state.js";
 import { formatPullRequestSummary } from "../github/github.router.js";
 
 export const reviewsRouter = Router();
@@ -497,7 +498,12 @@ reviewsRouter.post(
         if (match) {
           const prNum = parseInt(match[1], 10);
           const existingPr = await db.query.pullRequests.findFirst({
-            where: eq(pullRequests.prNumber, prNum),
+            where: input.repositoryId
+              ? and(
+                  eq(pullRequests.repositoryId, input.repositoryId),
+                  eq(pullRequests.prNumber, prNum),
+                )
+              : eq(pullRequests.prNumber, prNum),
           });
           if (existingPr) pullRequestId = existingPr.id;
         }
@@ -660,6 +666,9 @@ reviewsRouter.patch(
       if (!review) {
         throw new AppError(404, "REVIEW_NOT_FOUND", "Review request not found");
       }
+      if (review.isDeleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
+      }
 
       const perms = await checkReviewPermissions(user.id, user.role, review);
 
@@ -717,7 +726,15 @@ reviewsRouter.patch(
           if (match) {
             const prNum = parseInt(match[1], 10);
             const existingPr = await db.query.pullRequests.findFirst({
-              where: eq(pullRequests.prNumber, prNum),
+              where: (input.repositoryId ?? review.repositoryId)
+                ? and(
+                    eq(
+                      pullRequests.repositoryId,
+                      (input.repositoryId ?? review.repositoryId)!,
+                    ),
+                    eq(pullRequests.prNumber, prNum),
+                  )
+                : eq(pullRequests.prNumber, prNum),
             });
             if (existingPr) {
               updates.pullRequestId = existingPr.id;
@@ -835,6 +852,9 @@ reviewsRouter.delete(
       if (!review) {
         throw new AppError(404, "NOT_FOUND", "Review request not found");
       }
+      if (review.isDeleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
+      }
 
       const perms = await checkReviewPermissions(user.id, user.role, review);
       if (!perms.canDelete) {
@@ -845,10 +865,20 @@ reviewsRouter.delete(
         );
       }
 
-      await db
+      const [deleted] = await db
         .update(reviewRequests)
         .set({ isDeleted: true, updatedAt: new Date() })
-        .where(eq(reviewRequests.id, review.id));
+        .where(
+          and(
+            eq(reviewRequests.id, review.id),
+            eq(reviewRequests.isDeleted, false),
+          ),
+        )
+        .returning({ id: reviewRequests.id });
+
+      if (!deleted) {
+        throw new AppError(409, "POST_DELETED", "Deleted posts cannot be modified");
+      }
 
       await db.insert(activities).values({
         targetType: TargetType.REVIEW,
@@ -873,6 +903,7 @@ reviewsRouter.patch(
       const input = UpdateReviewDecisionSchema.parse(req.body);
       const user = req.user!;
       const reviewId = req.params.id;
+      await assertActivePost(TargetType.REVIEW, reviewId);
 
       const reviewerEntry = await db.query.reviewReviewers.findFirst({
         where: and(
@@ -956,6 +987,7 @@ reviewsRouter.patch(
       const input = UpdateAcknowledgementSchema.parse(req.body);
       const user = req.user!;
       const reviewId = req.params.id;
+      await assertActivePost(TargetType.REVIEW, reviewId);
 
       const reviewerEntry = await db.query.reviewReviewers.findFirst({
         where: and(

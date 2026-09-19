@@ -195,7 +195,7 @@ export const ReviewDetailPage: React.FC = () => {
       setComments(commData);
       setActivities(actData || []);
 
-      if (data.pullRequest?.id && !skipPrSync) {
+      if (data.pullRequest?.id && !skipPrSync && !data.isDeleted) {
         apiFetch<{ success: boolean; hasChanges?: boolean }>(
           `/github/pull-requests/${data.pullRequest.id}/sync`,
           { method: "POST" },
@@ -278,23 +278,7 @@ export const ReviewDetailPage: React.FC = () => {
 
   const handleOpenEdit = () => {
     if (!review) return;
-    setEditTitle(review.title);
-    setEditDescription(review.description || "");
-    setEditReviewType(review.reviewType || ReviewType.CODE);
-    setEditStatus(review.status || ReviewStatus.PENDING_REVIEW);
-    setEditDeadline(review.deadline ? review.deadline.slice(0, 10) : "");
-    setEditProjectId(review.projectId || "");
-    setEditRepositoryId(review.repository?.id || "");
-    setEditBranch(review.branch || "");
-    setEditCommitHash(review.commitHash || "");
-    setEditPrUrl(review.pullRequest?.url || "");
-    setEditReviewerIds(
-      review.reviewers ? review.reviewers.map((r) => r.user.id) : [],
-    );
-    setEditLabels(review.labels ? review.labels.map((l) => l.name) : []);
-    setNewLabelInput("");
-    setEditError(null);
-    setEditOpen(true);
+    setLocation(`/reviews/new?edit=${review.number}`);
   };
 
   const handleToggleLabel = (labelName: string) => {
@@ -682,9 +666,11 @@ export const ReviewDetailPage: React.FC = () => {
                   reviewId={review.id}
                   reviewers={review.reviewers || []}
                   onUpdated={fetchReviewData}
+                  readOnly={review.isDeleted}
                 />
               </Box>
             }
+            readOnly={review.isDeleted}
           />
           <Box id="discussion-bottom" sx={{ height: 1, width: "100%" }} />
         </Box>
@@ -914,7 +900,7 @@ export const ReviewDetailPage: React.FC = () => {
                             />
                           )}
 
-                          {canEdit && (
+                          {canEdit && !review.isDeleted && (
                             <Tooltip
                               title={isVi ? "Xoá reviewer" : "Remove reviewer"}
                             >

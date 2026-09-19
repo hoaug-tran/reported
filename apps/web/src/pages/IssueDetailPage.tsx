@@ -171,7 +171,7 @@ export const IssueDetailPage: React.FC = () => {
       setComments(commData);
       setActivities(actData);
 
-      if (data.pullRequest?.id && !skipPrSync) {
+      if (data.pullRequest?.id && !skipPrSync && !data.isDeleted) {
         apiFetch<{ success: boolean; hasChanges?: boolean }>(
           `/github/pull-requests/${data.pullRequest.id}/sync`,
           { method: "POST" },
@@ -237,40 +237,13 @@ export const IssueDetailPage: React.FC = () => {
 
   const handleOpenEdit = () => {
     if (!issue) return;
-    setEditTitle(issue.title);
-    setEditDescription(issue.description || "");
-    setEditType(issue.type || IssueType.BUG);
-    setEditPriority(issue.priority || IssuePriority.P2);
-    setEditSeverity(issue.severity || IssueSeverity.MAJOR);
-    setEditProjectId(issue.projectId || "");
-    setEditRepositoryId(issue.repository?.id || "");
-    setEditBranch(issue.branch || "");
-    setEditCommitHash(issue.commitHash || "");
-    setEditPrUrl(issue.pullRequest?.url || "");
-    setEditAssigneeIds(issue.assignees ? issue.assignees.map((a) => a.id) : []);
-    setEditLabels(issue.labels ? issue.labels.map((l) => l.name) : []);
-    setNewLabelInput("");
-
-    if (issue.bugDetails) {
-      setEditEnvironment(issue.bugDetails.environment || "");
-      setEditPrecondition(issue.bugDetails.precondition || "");
-      setEditSteps(issue.bugDetails.stepsToReproduce || "");
-      setEditActual(issue.bugDetails.actualResult || "");
-      setEditExpected(issue.bugDetails.expectedResult || "");
-      setEditFrequency(issue.bugDetails.frequency || BugFrequency.ALWAYS);
-      setEditEvidence(issue.bugDetails.evidenceJsonOrLogs || "");
-    } else {
-      setEditEnvironment("");
-      setEditPrecondition("");
-      setEditSteps("");
-      setEditActual("");
-      setEditExpected("");
-      setEditFrequency(BugFrequency.ALWAYS);
-      setEditEvidence("");
-    }
-
-    setEditError(null);
-    setEditOpen(true);
+    const intent =
+      issue.type === IssueType.FEATURE
+        ? "idea"
+        : issue.type === IssueType.TASK
+          ? "question"
+          : "bug";
+    setLocation(`/issues/new?edit=${issue.number}&intent=${intent}`);
   };
 
   const handleToggleLabel = (labelName: string) => {
@@ -864,6 +837,7 @@ export const IssueDetailPage: React.FC = () => {
             comments={comments}
             activities={activities}
             onRefresh={fetchIssueData}
+            readOnly={issue.isDeleted}
           />
           <Box id="discussion-bottom" sx={{ height: 1, width: "100%" }} />
         </Box>
@@ -932,6 +906,7 @@ export const IssueDetailPage: React.FC = () => {
               fullWidth
               variant="outlined"
               startIcon={isWatching ? <EyeOff size={16} /> : <Eye size={16} />}
+              disabled={issue.isDeleted}
               onClick={handleToggleWatch}
               sx={{ borderRadius: "6px", textTransform: "none" }}
             >
@@ -1023,7 +998,7 @@ export const IssueDetailPage: React.FC = () => {
                         {a.displayName}
                       </Typography>
                     </Box>
-                    {canEdit && (
+                    {canEdit && !issue.isDeleted && (
                       <Tooltip
                         title={isVi ? "Xoá người phân công" : "Remove assignee"}
                       >

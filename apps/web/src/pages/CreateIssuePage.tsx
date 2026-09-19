@@ -99,6 +99,8 @@ export const CreateIssuePage: React.FC = () => {
   const isVi = language === "vi";
 
   const searchParams = new URLSearchParams(window.location.search);
+  const editNumber = searchParams.get("edit");
+  const isEditing = Boolean(editNumber);
   const intentParam = searchParams.get("intent") || "bug";
   const isProposal = intentParam === "idea" || intentParam === "discussion";
   const isFromPosts =
@@ -183,6 +185,7 @@ export const CreateIssuePage: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isEditing) return;
     try {
       const saved = localStorage.getItem("reported_issue_draft");
       if (saved) {
@@ -221,10 +224,51 @@ export const CreateIssuePage: React.FC = () => {
         setLastSaved(parsed.savedAt || null);
       }
     } catch {}
-  }, []);
+  }, [isEditing]);
+
+  useEffect(() => {
+    if (!editNumber) return;
+    apiFetch<import("@reported/contracts").IssueDto>(`/issues/${editNumber}`, {
+      skipCache: true,
+    })
+      .then((issue) => {
+        setTitle(issue.title);
+        setDescription(issue.description || "");
+        setType(issue.type);
+        setPriority(issue.priority);
+        setSeverity(issue.severity);
+        setProjectId(issue.projectId || "");
+        setRepositoryId(issue.repository?.id || "");
+        setBranch(issue.branch || "");
+        setCommitHash(issue.commitHash || "");
+        setPrUrl(issue.pullRequest?.url || "");
+        setAssigneeIds(issue.assignees?.map((assignee) => assignee.id) || []);
+        setSelectedLabels(issue.labels?.map((label) => label.name) || []);
+        setEnvironment(issue.bugDetails?.environment || "");
+        setPrecondition(issue.bugDetails?.precondition || "");
+        setStepsToReproduce(issue.bugDetails?.stepsToReproduce || "");
+        setActualResult(issue.bugDetails?.actualResult || "");
+        setExpectedResult(issue.bugDetails?.expectedResult || "");
+        setFrequency(issue.bugDetails?.frequency || BugFrequency.ALWAYS);
+        setEvidenceJsonOrLogs(issue.bugDetails?.evidenceJsonOrLogs || "");
+        setShowPrLink(Boolean(issue.pullRequest?.url || issue.repository));
+        setShowBugDetails(Boolean(issue.bugDetails));
+        setShowEnvDetails(Boolean(issue.bugDetails));
+      })
+      .catch((err: unknown) =>
+        setErrorMsg(
+          err instanceof Error
+            ? err.message
+            : isVi
+              ? "Không thể tải bài viết"
+              : "Failed to load issue",
+        ),
+      );
+  }, [editNumber]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
+      if (isEditing) return;
       if (title || description || stepsToReproduce || problemStatement) {
         const payload = {
           title,
@@ -267,6 +311,7 @@ export const CreateIssuePage: React.FC = () => {
     proposalScope,
     alternativesText,
     risksText,
+    isEditing,
   ]);
 
   useEffect(() => {
@@ -548,28 +593,36 @@ flowchart TD
 
     try {
       setIsSubmitting(true);
-      const res = await apiFetch<{ id: string; number: number }>("/issues", {
-        method: "POST",
-        body: JSON.stringify({
-          workspaceId: activeWorkspace?.id,
-          projectId: projectId || undefined,
-          title: title.trim(),
-          description: finalDesc,
-          type,
-          priority,
-          severity,
-          labels: selectedLabels,
-          assigneeIds,
-          repositoryId: repositoryId || undefined,
-          prUrl: prUrl.trim() || undefined,
-          branch: branch.trim() || undefined,
-          commitHash: commitHash.trim() || undefined,
-          bugDetails: bugDetailsPayload,
-        }),
-      });
+      const payload = {
+        workspaceId: activeWorkspace?.id,
+        projectId: projectId || (isEditing ? null : undefined),
+        title: title.trim(),
+        description: finalDesc,
+        type,
+        priority,
+        severity,
+        labels: selectedLabels,
+        assigneeIds,
+        repositoryId: repositoryId || (isEditing ? null : undefined),
+        prUrl: prUrl.trim() || (isEditing ? null : undefined),
+        branch: branch.trim() || (isEditing ? null : undefined),
+        commitHash: commitHash.trim() || (isEditing ? null : undefined),
+        bugDetails: bugDetailsPayload,
+      };
+      const res = isEditing
+        ? await apiFetch<{ message: string }>(`/issues/${editNumber}`, {
+            method: "PATCH",
+            body: JSON.stringify(payload),
+          })
+        : await apiFetch<{ id: string; number: number }>("/issues", {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
 
-      localStorage.removeItem("reported_issue_draft");
-      setLocation(`/issues/${res.number}`);
+      if (!isEditing) localStorage.removeItem("reported_issue_draft");
+      setLocation(
+        isEditing ? `/issues/${editNumber}` : `/issues/${"number" in res ? res.number : ""}`,
+      );
     } catch (err: unknown) {
       const errMsg =
         err instanceof Error
@@ -648,7 +701,11 @@ flowchart TD
         ? (intentParam as keyof typeof intentCopy)
         : "bug"
     ];
-  const headerTitle = copy.title;
+  const headerTitle = isEditing
+    ? isVi
+      ? "Chỉnh sửa bài viết"
+      : "Edit Issue"
+    : copy.title;
   const titlePlaceholder = copy.placeholder;
 
   return (
@@ -664,7 +721,15 @@ flowchart TD
         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
           <Tooltip title={isVi ? "Quay lại" : "Back"}>
             <IconButton
-              onClick={() => setLocation(isFromPosts ? "/posts" : "/issues")}
+              onClick={() =>
+                setLocation(
+                  isEditing
+                    ? `/issues/${editNumber}`
+                    : isFromPosts
+                      ? "/posts"
+                      : "/issues",
+                )
+              }
               sx={{ border: `1px solid ${tokens.border}` }}
             >
               <ArrowLeft size={18} />
@@ -1758,7 +1823,15 @@ flowchart TD
           >
             <Button
               variant="outlined"
-              onClick={() => setLocation(isFromPosts ? "/posts" : "/issues")}
+              onClick={() =>
+                setLocation(
+                  isEditing
+                    ? `/issues/${editNumber}`
+                    : isFromPosts
+                      ? "/posts"
+                      : "/issues",
+                )
+              }
               sx={{
                 borderRadius: "8px",
                 textTransform: "none",
@@ -1794,13 +1867,21 @@ flowchart TD
                 },
               }}
             >
-              {isProposal
+              {isSubmitting
                 ? isVi
-                  ? "Đăng đề xuất"
-                  : "Post Proposal"
-                : isVi
-                  ? "Đăng bài"
-                  : "Post"}
+                  ? "Đang lưu..."
+                  : "Saving..."
+                : isEditing
+                  ? isVi
+                    ? "Lưu thay đổi"
+                    : "Save Changes"
+                  : isProposal
+                    ? isVi
+                      ? "Đăng đề xuất"
+                      : "Post Proposal"
+                    : isVi
+                      ? "Đăng bài"
+                      : "Post"}
             </Button>
           </Box>
         </Paper>
