@@ -21,6 +21,7 @@ interface AcknowledgementBadgeProps {
   reviewId: string;
   reviewers: ReviewerAssignmentDto[];
   onUpdated?: () => void;
+  readOnly?: boolean;
 }
 
 const statusConfig = {
@@ -58,6 +59,7 @@ export const AcknowledgementBadge: React.FC<AcknowledgementBadgeProps> = ({
   reviewId,
   reviewers,
   onUpdated,
+  readOnly = false,
 }) => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
@@ -144,7 +146,7 @@ export const AcknowledgementBadge: React.FC<AcknowledgementBadgeProps> = ({
               key={s}
               size="small"
               variant={isSelected ? "contained" : "outlined"}
-              disabled={loadingStatus !== null}
+              disabled={readOnly || loadingStatus !== null}
               onClick={() => handleUpdate(s)}
               startIcon={
                 isLoading ? (

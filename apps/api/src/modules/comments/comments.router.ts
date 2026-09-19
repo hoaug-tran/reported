@@ -27,6 +27,7 @@ import {
 import { requireAuth } from "../../middleware/auth.js";
 import { AppError } from "../../middleware/error.js";
 import { recordOutboxEvent } from "../../events/outbox.js";
+import { assertActivePost } from "../shared/post-state.js";
 
 export const commentsRouter = Router();
 
@@ -176,6 +177,22 @@ commentsRouter.post(
     try {
       const input = CreateCommentSchema.parse(req.body);
       const user = req.user!;
+      await assertActivePost(input.targetType, input.targetId);
+
+      if (input.parentId) {
+        const parent = await db.query.comments.findFirst({
+          where: eq(comments.id, input.parentId),
+        });
+        if (!parent || parent.isDeleted) {
+          throw new AppError(404, "COMMENT_NOT_FOUND", "Parent comment not found");
+        }
+        if (
+          parent.targetType !== input.targetType ||
+          parent.targetId !== input.targetId
+        ) {
+          throw new AppError(400, "INVALID_PARENT", "Parent comment belongs to another post");
+        }
+      }
 
       const [comment] = await db
         .insert(comments)
@@ -282,6 +299,13 @@ commentsRouter.post(
       const input = ToggleReactionSchema.parse(req.body);
       const user = req.user!;
       const commentId = req.params.id;
+      const comment = await db.query.comments.findFirst({
+        where: eq(comments.id, commentId),
+      });
+      if (!comment || comment.isDeleted) {
+        throw new AppError(404, "COMMENT_NOT_FOUND", "Comment not found");
+      }
+      await assertActivePost(comment.targetType as TargetType, comment.targetId);
 
       const existing = await db.query.commentReactions.findFirst({
         where: and(
@@ -329,9 +353,10 @@ commentsRouter.patch(
         where: eq(comments.id, commentId),
       });
 
-      if (!comment) {
+      if (!comment || comment.isDeleted) {
         throw new AppError(404, "NOT_FOUND", "Comment not found");
       }
+      await assertActivePost(comment.targetType as TargetType, comment.targetId);
 
       let isLeader = user.role === "ADMIN";
       if (!isLeader) {
@@ -378,9 +403,10 @@ commentsRouter.delete(
         where: eq(comments.id, commentId),
       });
 
-      if (!comment) {
+      if (!comment || comment.isDeleted) {
         throw new AppError(404, "NOT_FOUND", "Comment not found");
       }
+      await assertActivePost(comment.targetType as TargetType, comment.targetId);
 
       let isLeader = user.role === "ADMIN";
       if (!isLeader) {

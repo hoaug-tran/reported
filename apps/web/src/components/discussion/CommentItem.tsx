@@ -23,6 +23,7 @@ interface CommentItemProps {
   onRefresh: () => void;
   onQuote: (quoteText: string) => void;
   isNested?: boolean;
+  readOnly?: boolean;
 }
 
 const AVAILABLE_REACTIONS: Array<{
@@ -64,6 +65,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   onRefresh,
   onQuote,
   isNested = false,
+  readOnly = false,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
   const { user } = useAuthContext();
@@ -218,7 +220,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             </Typography>
           </Box>
 
-          {!comment.isDeleted && (
+          {!comment.isDeleted && !readOnly && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.2 }}>
               <Tooltip title="Quote reply">
                 <IconButton
@@ -321,7 +323,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
           )}
         </Box>
 
-        {!comment.isDeleted && (
+        {!comment.isDeleted && !readOnly && (
           <Box
             sx={{
               px: 2,
@@ -460,7 +462,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
         )}
       </Box>
 
-      {isReplying && (
+      {isReplying && !readOnly && (
         <Box sx={{ mt: 1.5, ml: { xs: 1, sm: 3 } }}>
           <MarkdownEditor
             value={replyContent}
@@ -501,6 +503,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               onRefresh={onRefresh}
               onQuote={onQuote}
               isNested={true}
+              readOnly={readOnly}
             />
           ))}
         </Box>

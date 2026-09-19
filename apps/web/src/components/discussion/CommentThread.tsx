@@ -20,6 +20,7 @@ interface CommentThreadProps {
   activities?: ActivityTimelineDto[];
   onRefresh: () => void;
   childrenBeforeEditor?: React.ReactNode;
+  readOnly?: boolean;
 }
 
 export const CommentThread: React.FC<CommentThreadProps> = ({
@@ -29,6 +30,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   activities = [],
   onRefresh,
   childrenBeforeEditor,
+  readOnly = false,
 }) => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
@@ -139,6 +141,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                   comment={item.comment}
                   onRefresh={onRefresh}
                   onQuote={handleQuote}
+                  readOnly={readOnly}
                 />
               );
             }
@@ -153,73 +156,75 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
 
       {childrenBeforeEditor}
 
-      <Box sx={{ mt: 3, pt: 2, borderTop: `1px solid ${tokens.divider}` }}>
-        {user ? (
-          <>
-            <Typography
-              variant="body2"
-              sx={{ fontWeight: 600, mb: 1, color: tokens.textPrimary }}
+      {!readOnly && (
+        <Box sx={{ mt: 3, pt: 2, borderTop: `1px solid ${tokens.divider}` }}>
+          {user ? (
+            <>
+              <Typography
+                variant="body2"
+                sx={{ fontWeight: 600, mb: 1, color: tokens.textPrimary }}
+              >
+                {isVi ? "Thêm phản hồi" : "Add a response"}
+              </Typography>
+
+              {error && (
+                <Alert
+                  severity="error"
+                  sx={{ mb: 1.5 }}
+                  onClose={() => setError(null)}
+                >
+                  {error}
+                </Alert>
+              )}
+
+              <MarkdownEditor
+                value={newComment}
+                onChange={setNewComment}
+                targetType={targetType}
+                targetId={targetId}
+                placeholder={
+                  isVi
+                    ? "Gửi phản hồi kỹ thuật, dán log, JSON, khối code hoặc gắn thẻ đồng nghiệp với @..."
+                    : "Leave technical feedback, paste logs, JSON, code blocks, or tag colleagues with @..."
+                }
+                minRows={4}
+                onSubmit={handleSubmit}
+              />
+
+              <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || !newComment.trim()}
+                >
+                  {isSubmitting
+                    ? isVi
+                      ? "Đang gửi..."
+                      : "Posting..."
+                    : isVi
+                      ? "Gửi bình luận"
+                      : "Comment"}
+                </Button>
+              </Box>
+            </>
+          ) : (
+            <Box
+              sx={{
+                p: 2,
+                textAlign: "center",
+                backgroundColor: tokens.surfaceSecondary,
+                borderRadius: 1,
+              }}
             >
-              {isVi ? "Thêm phản hồi" : "Add a response"}
-            </Typography>
-
-            {error && (
-              <Alert
-                severity="error"
-                sx={{ mb: 1.5 }}
-                onClose={() => setError(null)}
-              >
-                {error}
-              </Alert>
-            )}
-
-            <MarkdownEditor
-              value={newComment}
-              onChange={setNewComment}
-              targetType={targetType}
-              targetId={targetId}
-              placeholder={
-                isVi
-                  ? "Gửi phản hồi kỹ thuật, dán log, JSON, khối code hoặc gắn thẻ đồng nghiệp với @..."
-                  : "Leave technical feedback, paste logs, JSON, code blocks, or tag colleagues with @..."
-              }
-              minRows={4}
-              onSubmit={handleSubmit}
-            />
-
-            <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1.5 }}>
-              <Button
-                variant="contained"
-                onClick={handleSubmit}
-                disabled={isSubmitting || !newComment.trim()}
-              >
-                {isSubmitting
-                  ? isVi
-                    ? "Đang gửi..."
-                    : "Posting..."
-                  : isVi
-                    ? "Gửi bình luận"
-                    : "Comment"}
-              </Button>
+              <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
+                {isVi
+                  ? "Vui lòng đăng nhập để tham gia thảo luận này."
+                  : "Please sign in to participate in this discussion."}
+              </Typography>
             </Box>
-          </>
-        ) : (
-          <Box
-            sx={{
-              p: 2,
-              textAlign: "center",
-              backgroundColor: tokens.surfaceSecondary,
-              borderRadius: 1,
-            }}
-          >
-            <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-              {isVi
-                ? "Vui lòng đăng nhập để tham gia thảo luận này."
-                : "Please sign in to participate in this discussion."}
-            </Typography>
-          </Box>
-        )}
-      </Box>
+          )}
+        </Box>
+      )}
     </Box>
   );
 };
