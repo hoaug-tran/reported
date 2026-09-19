@@ -262,13 +262,27 @@ githubRouter.put(
 
 githubRouter.delete(
   "/repositories/:id",
+  requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const [deleted] = await db
-        .delete(repositories)
-        .where(eq(repositories.id, id))
-        .returning();
+      const deleted = await db.transaction(async (tx) => {
+        const repository = await tx.query.repositories.findFirst({
+          where: eq(repositories.id, id),
+        });
+        if (!repository) return null;
+
+        await tx
+          .update(issues)
+          .set({ repositoryId: null, pullRequestId: null })
+          .where(eq(issues.repositoryId, id));
+        await tx
+          .update(reviewRequests)
+          .set({ repositoryId: null, pullRequestId: null })
+          .where(eq(reviewRequests.repositoryId, id));
+        await tx.delete(repositories).where(eq(repositories.id, id));
+        return repository;
+      });
 
       if (!deleted) {
         throw new AppError(404, "NOT_FOUND", "Repository not found");
