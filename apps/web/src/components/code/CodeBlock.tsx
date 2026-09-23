@@ -100,6 +100,12 @@ const TOP_AUTO_LANGUAGES = [
   "graphql",
 ];
 
+const AUTO_HIGHLIGHT_LIMIT = 40_000;
+const LINE_NUMBER_LIMIT = 2_000;
+
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
 const splitHighlightedLines = (html: string): string[] => {
   const lines = html.split("\n");
   const result: string[] = [];
@@ -157,7 +163,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const { tokens, resolvedMode } = useThemeContext();
   const [copied, setCopied] = useState(false);
   const [showLineNumbers, setShowLineNumbers] = useState(
-    showLineNumbersDefault,
+    showLineNumbersDefault && code.split("\n").length <= LINE_NUMBER_LIMIT,
   );
   const [wrapLines, setWrapLines] = useState(false);
   const [userSelectedLang, setUserSelectedLang] = useState<string | null>(null);
@@ -199,6 +205,10 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
   const highlightResult = useMemo(() => {
     if (!cleanCode) {
       return { html: "", detectedLang: "plaintext", isAuto: false };
+    }
+
+    if (cleanCode.length > AUTO_HIGHLIGHT_LIMIT && (activeMode === "auto" || !effectiveLangKey)) {
+      return { html: escapeHtml(cleanCode), detectedLang: "plaintext", isAuto: false };
     }
 
     if (activeMode === "auto" || !effectiveLangKey) {

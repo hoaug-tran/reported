@@ -91,6 +91,7 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
   onClose,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
+  const rootRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<any>(null);
 
@@ -615,6 +616,7 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
 
   return (
     <Box
+      ref={rootRef}
       sx={{
         display: "flex",
         flexDirection: "column",
@@ -695,6 +697,10 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
                 size="small"
                 value={currentPageIndex}
                 onChange={(e) => handleSelectPage(Number(e.target.value))}
+                MenuProps={{
+                  container: () => rootRef.current,
+                  disableScrollLock: true,
+                }}
                 renderValue={(val) => {
                   const pName = pages.find((p) => p.index === val)?.name || `Trang ${Number(val) + 1}`;
                   return (
