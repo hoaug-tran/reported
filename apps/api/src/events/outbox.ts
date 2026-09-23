@@ -42,7 +42,17 @@ interface OutboxPayload {
   authorId?: string;
   snippet?: string;
   parentId?: string | null;
+  excludedUserIds?: string[];
   [key: string]: unknown;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 export async function recordOutboxEvent(
@@ -302,6 +312,7 @@ export async function processOutboxEvents() {
               targetType,
               targetId,
               parentId,
+              excludedUserIds = [],
             } = payload;
 
             const recipientSet = new Set<string>();
@@ -348,6 +359,9 @@ export async function processOutboxEvents() {
             if (actorId) {
               recipientSet.delete(actorId);
             }
+            for (const excludedUserId of excludedUserIds as string[]) {
+              recipientSet.delete(excludedUserId);
+            }
 
             const actor = actorId
               ? await db.query.users.findFirst({
@@ -372,22 +386,29 @@ export async function processOutboxEvents() {
               });
 
               if (await shouldSendEmail(userId, NotificationType.COMMENTED)) {
+                const safeActorName = escapeHtml(actor?.displayName || "Someone");
+                const safeTitle = escapeHtml(String(title || "this discussion"));
+                const safeSnippet = escapeHtml(String(snippet || "")).replace(/\n/g, "<br />");
+                const commentUrl = `${config.clientUrl}${link || "/"}`;
                 await dispatchEmailJob({
                   outboxEventId: evt.id,
                   recipientEmail: targetUser.email,
                   recipientName: targetUser.displayName,
-                  subject: `[Reported] New comment on ${title}`,
+                  subject: `[Reported] Bình luận mới: ${title || "Thảo luận"}`,
                   template: "new-comment",
                   htmlBody: `
-                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1f2328; line-height: 1.6;">
-                      <p><strong>${actor?.displayName || "Someone"}</strong> commented on <strong>${title}</strong>:</p>
-                      <blockquote style="border-left: 3px solid #d0d7de; margin: 12px 0; padding-left: 12px; color: #57606a;">
-                        ${snippet}
-                      </blockquote>
-                      <p><a href="${config.clientUrl}${link}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 500;">View Comment</a></p>
+                    <div style="max-width: 640px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #24292f; line-height: 1.6;">
+                      <div style="padding: 14px 20px; background: #24292f; color: #ffffff; font-weight: 700;">Reported</div>
+                      <div style="padding: 24px 20px; border: 1px solid #d0d7de; border-top: 0;">
+                        <div style="font-size: 12px; color: #57606a; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;">Bình luận mới</div>
+                        <h2 style="margin: 6px 0 14px; font-size: 18px; line-height: 1.35;">${safeTitle}</h2>
+                        <p style="margin: 0 0 12px;"><strong>${safeActorName}</strong> đã để lại bình luận:</p>
+                        <blockquote style="margin: 0 0 20px; padding: 12px 14px; border-left: 4px solid #0969da; background: #f6f8fa; color: #57606a;">${safeSnippet}</blockquote>
+                        <a href="${commentUrl}" style="display: inline-block; background-color: #0969da; color: #ffffff; padding: 9px 16px; border-radius: 6px; text-decoration: none; font-weight: 600;">Xem bình luận</a>
+                      </div>
                     </div>
                   `,
-                  textBody: `${actor?.displayName || "Someone"} commented on ${title}:\n\n${snippet}\n\nLink: ${config.clientUrl}${link}`,
+                  textBody: `${actor?.displayName || "Ai đó"} đã bình luận trong ${title || "thảo luận"}:\n\n${snippet || ""}\n\nXem bình luận: ${commentUrl}`,
                 });
               }
             }
