@@ -51,6 +51,7 @@ import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { UserAvatar } from "../common/UserAvatar";
 import { UserSummaryDto } from "@reported/contracts";
 import { useThemeContext } from "../../contexts/ThemeContext";
+import { useI18n } from "../../contexts/I18nContext";
 import { apiFetch } from "../../api/client";
 import { uploadFileWithChunking } from "../../utils/chunkedUpload";
 import { VoiceRecorder } from "../common/VoiceRecorder";
@@ -72,7 +73,8 @@ interface MarkdownEditorProps {
   targetId?: string;
 }
 
-const MAX_HISTORY = 100;
+const MAX_HISTORY = 30;
+const MAX_HISTORY_CHARACTERS = 2_000_000;
 
 const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   value,
@@ -84,6 +86,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   targetId,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
+  const { t } = useI18n();
   const [tabIndex, setTabIndex] = useState<"write" | "preview" | "split">("write");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState<number>(-1);
@@ -101,11 +104,12 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
   const [debouncedPreviewValue, setDebouncedPreviewValue] = useState(value);
   useEffect(() => {
+    if (tabIndex !== "split" && tabIndex !== "preview") return;
     const timer = setTimeout(() => {
       setDebouncedPreviewValue(localValue);
     }, 350);
     return () => clearTimeout(timer);
-  }, [localValue]);
+  }, [localValue, tabIndex]);
 
   const [insertAnchorEl, setInsertAnchorEl] = useState<null | HTMLElement>(null);
   const isInsertMenuOpen = Boolean(insertAnchorEl);
@@ -282,9 +286,12 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       });
       if (historyRef.current.length > MAX_HISTORY) {
         historyRef.current.shift();
-      } else {
-        historyIndexRef.current = historyRef.current.length - 1;
       }
+      const historyCharacters = historyRef.current.reduce((total, entry) => total + entry.value.length, 0);
+      if (historyCharacters > MAX_HISTORY_CHARACTERS) {
+        historyRef.current = [historyRef.current[historyRef.current.length - 1]];
+      }
+      historyIndexRef.current = historyRef.current.length - 1;
     },
     [],
   );
@@ -490,6 +497,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         setEditorHeight(h);
       }
     }
+    setDebouncedPreviewValue(localValueRef.current);
     setTabIndex(newTab);
   };
 
@@ -533,9 +541,9 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             },
           }}
         >
-          <Tab value="write" label="Write" />
-          <Tab value="preview" label="Preview" />
-          <Tab value="split" label="Split View" sx={{ display: { xs: "none", md: "inline-flex" } }} />
+          <Tab value="write" label={t("writeTab")} />
+          <Tab value="preview" label={t("previewTab")} />
+          <Tab value="split" label={t("splitViewTab")} sx={{ display: { xs: "none", md: "inline-flex" } }} />
         </Tabs>
 
         {(tabIndex === "write" || tabIndex === "split") && (
@@ -1342,6 +1350,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               inputRef={textareaRef}
               multiline
               minRows={minRows}
+              maxRows={24}
               fullWidth
               value={localValue}
               onChange={handleTextChange}
@@ -1414,6 +1423,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             inputRef={textareaRef}
             multiline
             minRows={minRows}
+            maxRows={24}
             fullWidth
             value={localValue}
             onChange={handleTextChange}
@@ -1496,8 +1506,8 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         </Box>
       ) : (
         <Box sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: "border-box" }}>
-          {localValue ? (
-            <MarkdownRenderer content={localValue} />
+          {debouncedPreviewValue ? (
+            <MarkdownRenderer content={debouncedPreviewValue} />
           ) : (
             <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: "italic" }}>
               Chưa có nội dung để xem trước.

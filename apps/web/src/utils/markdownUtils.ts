@@ -66,6 +66,16 @@ export function cleanMarkdownContent(raw: string): string {
   return cleaned.trim();
 }
 
+export function linkifyMentions(raw: string): string {
+  const protectedBlocks = raw.split(/(```[\s\S]*?```|`[^`\n]+`)/g);
+  return protectedBlocks
+    .map((segment, index) => {
+      if (index % 2 === 1) return segment;
+      return segment.replace(/(^|[\s(])@([a-zA-Z0-9_-]{1,39})\b/g, "$1[@$2](/users/$2)");
+    })
+    .join("");
+}
+
 export function parseGitHubAlert(rawText: string): ParsedAlert {
   if (!rawText) return { isAlert: false };
 

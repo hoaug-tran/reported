@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { Box, Typography, Button, Alert } from "@mui/material";
 import { CommentItem } from "./CommentItem";
 import { MarkdownEditor } from "../editor/MarkdownEditor";
@@ -71,9 +71,9 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     }
   };
 
-  const handleQuote = (quoteText: string) => {
+  const handleQuote = useCallback((quoteText: string) => {
     setNewComment((prev) => (prev ? `${prev}\n\n${quoteText}` : quoteText));
-  };
+  }, []);
 
   const timelineItems = useMemo(() => {
     const items: Array<

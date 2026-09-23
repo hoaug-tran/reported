@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -8,14 +8,15 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import { Reply, Quote, Edit2, Trash2, Smile } from "lucide-react";
+import { ChevronDown, ChevronUp, EyeOff, Flag, Link as LinkIcon, MoreHorizontal, Reply, Quote, Edit2, Trash2, Smile } from "lucide-react";
 import { UserAvatar } from "../common/UserAvatar";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { MarkdownEditor } from "../editor/MarkdownEditor";
 import { useThemeContext } from "../../contexts/ThemeContext";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
-import { CommentDto, ReactionType } from "@reported/contracts";
+import { TranslationKey, useI18n } from "../../contexts/I18nContext";
+import { CommentDto, CommentHideReason, ReactionType } from "@reported/contracts";
 import { apiFetch } from "../../api/client";
 
 interface CommentItemProps {
@@ -26,23 +27,19 @@ interface CommentItemProps {
   readOnly?: boolean;
 }
 
-const AVAILABLE_REACTIONS: Array<{
-  type: ReactionType;
-  emoji: string;
-  label: string;
-}> = [
-  { type: ReactionType.LIKE, emoji: "👍", label: "Like" },
-  { type: ReactionType.DISLIKE, emoji: "👎", label: "Dislike" },
-  { type: ReactionType.HEART, emoji: "❤️", label: "Love" },
-  { type: ReactionType.HOORAY, emoji: "🎉", label: "Hooray" },
-  { type: ReactionType.ROCKET, emoji: "🚀", label: "Rocket" },
-  { type: ReactionType.EYES, emoji: "👀", label: "Eyes" },
-  { type: ReactionType.FIRE, emoji: "🔥", label: "Fire" },
-  { type: ReactionType.USEFUL, emoji: "💡", label: "Idea" },
-  { type: ReactionType.AGREE, emoji: "✅", label: "Agree" },
-  { type: ReactionType.DISAGREE, emoji: "❌", label: "Disagree" },
-  { type: ReactionType.BUG, emoji: "🐛", label: "Bug" },
-  { type: ReactionType.CONFUSED, emoji: "😕", label: "Confused" },
+const AVAILABLE_REACTIONS: Array<{ type: ReactionType; emoji: string }> = [
+  { type: ReactionType.LIKE, emoji: "👍" },
+  { type: ReactionType.DISLIKE, emoji: "👎" },
+  { type: ReactionType.HEART, emoji: "❤️" },
+  { type: ReactionType.HOORAY, emoji: "🎉" },
+  { type: ReactionType.ROCKET, emoji: "🚀" },
+  { type: ReactionType.EYES, emoji: "👀" },
+  { type: ReactionType.FIRE, emoji: "🔥" },
+  { type: ReactionType.USEFUL, emoji: "💡" },
+  { type: ReactionType.AGREE, emoji: "✅" },
+  { type: ReactionType.DISAGREE, emoji: "❌" },
+  { type: ReactionType.BUG, emoji: "🐛" },
+  { type: ReactionType.CONFUSED, emoji: "😕" },
 ];
 
 const REACTION_EMOJIS: Record<string, string> = {
@@ -60,7 +57,23 @@ const REACTION_EMOJIS: Record<string, string> = {
   [ReactionType.CONFUSED]: "😕",
 };
 
-export const CommentItem: React.FC<CommentItemProps> = ({
+const HIDE_REASONS = Object.values(CommentHideReason);
+
+const COLLAPSE_CHARACTER_LIMIT = 2_000;
+const COLLAPSE_LINE_LIMIT = 18;
+
+function shouldCollapseComment(content: string) {
+  return content.length > COLLAPSE_CHARACTER_LIMIT || content.split("\n").length > COLLAPSE_LINE_LIMIT;
+}
+
+function relativeTime(value: string, isVi: boolean) {
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  const units = seconds < 60 ? [seconds, "giây", "second"] : seconds < 3600 ? [Math.floor(seconds / 60), "phút", "minute"] : seconds < 86400 ? [Math.floor(seconds / 3600), "giờ", "hour"] : [Math.floor(seconds / 86400), "ngày", "day"];
+  const [amount, vi, en] = units as [number, string, string];
+  return isVi ? `${amount} ${vi} trước` : `${amount} ${en}${amount === 1 ? "" : "s"} ago`;
+}
+
+const CommentItemComponent: React.FC<CommentItemProps> = ({
   comment,
   onRefresh,
   onQuote,
@@ -70,6 +83,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const { tokens, resolvedMode } = useThemeContext();
   const { user } = useAuthContext();
   const { activeWorkspace } = useWorkspace();
+  const { t, language } = useI18n();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(comment.content);
@@ -78,12 +92,45 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   const [reactionAnchor, setReactionAnchor] = useState<null | HTMLElement>(
     null,
   );
+  const [moderationAnchor, setModerationAnchor] = useState<null | HTMLElement>(null);
+  const isLongComment = useMemo(() => shouldCollapseComment(comment.content), [comment.content]);
+  const [isExpanded, setIsExpanded] = useState(() => !shouldCollapseComment(comment.content));
 
   const isLeader =
     activeWorkspace?.role === "OWNER" ||
     activeWorkspace?.role === "ADMIN" ||
     user?.role === "ADMIN";
   const canModify = user && (user.id === comment.author.id || isLeader);
+  const canModerate = Boolean(isLeader);
+  const isVi = language === "vi";
+  const hideReasonLabel = (reason?: CommentHideReason | null) => {
+    const key = ({
+      [CommentHideReason.OFF_TOPIC]: "hideAsOffTopic",
+      [CommentHideReason.OUTDATED]: "hideAsOutdated",
+      [CommentHideReason.DUPLICATE]: "hideAsDuplicate",
+      [CommentHideReason.RESOLVED]: "hideAsResolved",
+      [CommentHideReason.SPAM]: "hideAsSpam",
+      [CommentHideReason.ABUSE]: "hideAsAbuse",
+    }[reason || CommentHideReason.OFF_TOPIC] || "hideAsOffTopic") as TranslationKey;
+    return t(key);
+  };
+  const reactionLabel = (reaction: ReactionType) => {
+    const key = ({
+      [ReactionType.LIKE]: "reactionLike",
+      [ReactionType.DISLIKE]: "reactionDislike",
+      [ReactionType.HEART]: "reactionLove",
+      [ReactionType.HOORAY]: "reactionHooray",
+      [ReactionType.ROCKET]: "reactionRocket",
+      [ReactionType.EYES]: "reactionEyes",
+      [ReactionType.FIRE]: "reactionFire",
+      [ReactionType.USEFUL]: "reactionIdea",
+      [ReactionType.AGREE]: "reactionAgree",
+      [ReactionType.DISAGREE]: "reactionDisagree",
+      [ReactionType.BUG]: "reactionBug",
+      [ReactionType.CONFUSED]: "reactionConfused",
+    }[reaction] || "reactionLike") as TranslationKey;
+    return t(key);
+  };
 
   const handleToggleReaction = async (reaction: ReactionType | string) => {
     setReactionAnchor(null);
@@ -113,9 +160,22 @@ export const CommentItem: React.FC<CommentItemProps> = ({
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this comment?")) return;
+    if (!confirm(t("confirmDeleteComment"))) return;
     try {
       await apiFetch(`/comments/${comment.id}`, { method: "DELETE" });
+      onRefresh();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleVisibility = async (hidden: boolean, reason?: CommentHideReason) => {
+    setModerationAnchor(null);
+    try {
+      await apiFetch(`/comments/${comment.id}/visibility`, {
+        method: "PATCH",
+        body: JSON.stringify({ hidden, reason }),
+      });
       onRefresh();
     } catch (err) {
       console.error(err);
@@ -144,6 +204,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
   return (
     <Box
+      id={`comment-${comment.id}`}
       sx={{
         my: 1.5,
         ml: isNested ? { xs: 1.5, sm: 3.5 } : 0,
@@ -210,19 +271,19 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               variant="caption"
               sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}
             >
-              •{" "}
-              {new Date(comment.createdAt).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              • <Tooltip title={new Date(comment.createdAt).toLocaleString()}><span>{relativeTime(comment.createdAt, isVi)}</span></Tooltip>
+              {comment.updatedAt !== comment.createdAt && <span> · {isVi ? "đã chỉnh sửa" : "edited"}</span>}
             </Typography>
           </Box>
 
           {!comment.isDeleted && !readOnly && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.2 }}>
-              <Tooltip title="Quote reply">
+              <Tooltip title={isVi ? "Sao chép liên kết" : "Copy link"}>
+                <IconButton size="small" onClick={() => navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}#comment-${comment.id}`)} sx={{ color: tokens.textSecondary, p: 0.6 }}>
+                  <LinkIcon size={14} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={t("quoteReply")}>
                 <IconButton
                   size="small"
                   onClick={() => {
@@ -240,7 +301,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               </Tooltip>
 
               {!isNested && (
-                <Tooltip title="Reply">
+                <Tooltip title={t("reply")}>
                   <IconButton
                     size="small"
                     onClick={() => setIsReplying(!isReplying)}
@@ -253,7 +314,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
 
               {canModify && (
                 <>
-                  <Tooltip title="Edit comment">
+                  <Tooltip title={t("editComment")}>
                     <IconButton
                       size="small"
                       onClick={() => setIsEditing(!isEditing)}
@@ -262,7 +323,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       <Edit2 size={14} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete comment">
+                  <Tooltip title={t("deleteComment")}>
                     <IconButton
                       size="small"
                       onClick={handleDelete}
@@ -271,6 +332,44 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                       <Trash2 size={14} />
                     </IconButton>
                   </Tooltip>
+                </>
+              )}
+              {canModerate && (
+                <>
+                  <Tooltip title={t("moderateComment")}>
+                    <IconButton
+                      size="small"
+                      onClick={(event) => setModerationAnchor(event.currentTarget)}
+                      sx={{ color: tokens.textSecondary, p: 0.6 }}
+                    >
+                      <MoreHorizontal size={15} />
+                    </IconButton>
+                  </Tooltip>
+                  <Menu
+                    anchorEl={moderationAnchor}
+                    open={Boolean(moderationAnchor)}
+                    onClose={() => setModerationAnchor(null)}
+                    PaperProps={{
+                      sx: {
+                        minWidth: 190,
+                        borderRadius: "8px",
+                        backgroundColor: tokens.surface,
+                        border: `1px solid ${tokens.border}`,
+                      },
+                    }}
+                  >
+                    {comment.isHidden ? (
+                      <MenuItem onClick={() => handleVisibility(false)}>
+                        <EyeOff size={15} style={{ marginRight: 8 }} /> {t("showComment")}
+                      </MenuItem>
+                    ) : (
+                      HIDE_REASONS.map((reason) => (
+                        <MenuItem key={reason} onClick={() => handleVisibility(true, reason)}>
+                          <Flag size={15} style={{ marginRight: 8 }} /> {hideReasonLabel(reason)}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Menu>
                 </>
               )}
             </Box>
@@ -283,8 +382,21 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               variant="body2"
               sx={{ fontStyle: "italic", color: tokens.textSecondary }}
             >
-              [Bình luận đã bị xóa]
+              [{t("commentDeleted")}]
             </Typography>
+          ) : comment.isHidden ? (
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1,
+                color: tokens.textSecondary,
+                fontSize: "0.84rem",
+              }}
+            >
+              <EyeOff size={16} />
+              <span>{t("commentHiddenAs")} {hideReasonLabel(comment.hiddenReason)}.</span>
+            </Box>
           ) : isEditing ? (
             <Box>
               <MarkdownEditor
@@ -307,23 +419,61 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                   variant="text"
                   onClick={() => setIsEditing(false)}
                 >
-                  Cancel
+                  {t("cancelBtn")}
                 </Button>
                 <Button
                   size="small"
                   variant="contained"
                   onClick={handleSaveEdit}
                 >
-                  Save changes
+                  {t("saveBtn")}
                 </Button>
               </Box>
             </Box>
+          ) : isLongComment && !isExpanded ? (
+            <Box>
+              <Box sx={{ position: "relative", maxHeight: 300, overflow: "hidden" }}>
+                <MarkdownRenderer content={comment.content} />
+                <Box
+                  aria-hidden
+                  sx={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 72,
+                    background: `linear-gradient(transparent, ${tokens.surface})`,
+                    pointerEvents: "none",
+                  }}
+                />
+              </Box>
+              <Button
+                size="small"
+                onClick={() => setIsExpanded(true)}
+                endIcon={<ChevronDown size={14} />}
+                sx={{ mt: 1, textTransform: "none", fontWeight: 700 }}
+              >
+                {t("showMore")}
+              </Button>
+            </Box>
           ) : (
-            <MarkdownRenderer content={comment.content} />
+            <>
+              <MarkdownRenderer content={comment.content} />
+              {isLongComment && (
+                <Button
+                  size="small"
+                  onClick={() => setIsExpanded(false)}
+                  endIcon={<ChevronUp size={14} />}
+                  sx={{ mt: 1, textTransform: "none", fontWeight: 700 }}
+                >
+                  {t("showLess")}
+                </Button>
+              )}
+            </>
           )}
         </Box>
 
-        {!comment.isDeleted && !readOnly && (
+        {!comment.isDeleted && !comment.isHidden && !readOnly && (
           <Box
             sx={{
               px: 2,
@@ -379,7 +529,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 </Tooltip>
               ))}
 
-            <Tooltip title="Add reaction">
+            <Tooltip title={t("addReaction")}>
               <Box
                 onClick={(e) => setReactionAnchor(e.currentTarget)}
                 sx={{
@@ -404,7 +554,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 }}
               >
                 <Smile size={13} />
-                <span>React</span>
+                <span>{t("react")}</span>
               </Box>
             </Tooltip>
 
@@ -433,7 +583,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
                 }}
               >
                 {AVAILABLE_REACTIONS.map((item) => (
-                  <Tooltip key={item.type} title={item.label}>
+                  <Tooltip key={item.type} title={reactionLabel(item.type)}>
                     <Box
                       onClick={() => handleToggleReaction(item.type)}
                       sx={{
@@ -469,7 +619,7 @@ export const CommentItem: React.FC<CommentItemProps> = ({
             onChange={setReplyContent}
             targetType={comment.targetType}
             targetId={comment.targetId}
-            placeholder={`Reply to @${comment.author.username}...`}
+            placeholder={`${t("replyTo")} @${comment.author.username}...`}
             minRows={2}
             onSubmit={handleSubmitReply}
           />
@@ -481,14 +631,14 @@ export const CommentItem: React.FC<CommentItemProps> = ({
               variant="text"
               onClick={() => setIsReplying(false)}
             >
-              Cancel
+              {t("cancelBtn")}
             </Button>
             <Button
               size="small"
               variant="contained"
               onClick={handleSubmitReply}
             >
-              Submit Reply
+              {t("submitReply")}
             </Button>
           </Box>
         </Box>
@@ -511,3 +661,5 @@ export const CommentItem: React.FC<CommentItemProps> = ({
     </Box>
   );
 };
+
+export const CommentItem = React.memo(CommentItemComponent);

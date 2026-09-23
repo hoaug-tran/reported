@@ -18,6 +18,7 @@ import { GitHubAlert } from "./GitHubAlert";
 import { DrawioViewer } from "./DrawioViewer";
 import {
   cleanMarkdownContent,
+  linkifyMentions,
   parseGitHubAlert,
   GitHubAlertType,
 } from "../../utils/markdownUtils";
@@ -72,14 +73,14 @@ const customSanitizeSchema = {
   },
 };
 
-export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) => {
+const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content }) => {
   const { tokens, resolvedMode } = useThemeContext();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState("");
   const [lightboxAlt, setLightboxAlt] = useState("");
 
   const normalizedContent = useMemo(() => {
-    return cleanMarkdownContent(content || "");
+    return linkifyMentions(cleanMarkdownContent(content || ""));
   }, [content]);
 
   const components: Components = useMemo(() => {
@@ -631,3 +632,5 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
     </Box>
   );
 };
+
+export const MarkdownRenderer = React.memo(MarkdownRendererComponent);
