@@ -18,6 +18,36 @@ interface ActivityTimelineProps {
   activities: ActivityTimelineDto[];
 }
 
+const statusLabels: Record<string, { vi: string; en: string }> = {
+  OPEN: { vi: "Đang mở", en: "Open" },
+  IN_PROGRESS: { vi: "Đang xử lý", en: "In progress" },
+  NEEDS_INFO: { vi: "Cần thêm thông tin", en: "Needs information" },
+  RESOLVED: { vi: "Đã giải quyết", en: "Resolved" },
+  CLOSED: { vi: "Đã đóng", en: "Closed" },
+  REOPENED: { vi: "Đã mở lại", en: "Reopened" },
+  PENDING_REVIEW: { vi: "Chờ review", en: "Pending review" },
+  IN_REVIEW: { vi: "Đang review", en: "In review" },
+  CHANGES_REQUESTED: { vi: "Cần chỉnh sửa", en: "Changes requested" },
+  APPROVED: { vi: "Đã duyệt", en: "Approved" },
+  COMPLETED: { vi: "Hoàn thành", en: "Completed" },
+};
+
+const fieldLabels: Record<string, string> = {
+  title: "tiêu đề",
+  description: "mô tả",
+  environment: "môi trường",
+  precondition: "điều kiện tiên quyết",
+  stepsToReproduce: "các bước tái hiện",
+  actualResult: "kết quả thực tế",
+  expectedResult: "kết quả mong đợi",
+  frequency: "tần suất",
+  evidenceJsonOrLogs: "bằng chứng / log",
+  priority: "mức ưu tiên",
+  severity: "mức độ nghiêm trọng",
+  assigneeIds: "người phụ trách",
+  labels: "nhãn",
+};
+
 export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   activities,
 }) => {
@@ -50,6 +80,12 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         new Date(prev.createdAt).getTime() - new Date(act.createdAt).getTime(),
       ) < 60000;
     if (!(sameActor && sameAction && sameTime)) {
+      const isLegacyDuplicateEdit =
+        act.actionType === "EDITED" &&
+        prev.actionType === "STATUS_CHANGED" &&
+        sameActor &&
+        sameTime;
+      if (isLegacyDuplicateEdit) return;
       deduped.push(act);
     }
   });
@@ -66,6 +102,10 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         : "";
     const decision = typeof meta.decision === "string" ? meta.decision : "";
     const note = typeof meta.note === "string" ? meta.note : "";
+    const statusLabel = (status: string) => {
+      const label = statusLabels[status];
+      return label ? (isVi ? label.vi : label.en) : status;
+    };
 
     switch (act.actionType) {
       case "CREATED":
@@ -93,9 +133,9 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             <RefreshCw size={15} color={tokens.warning} />
             <span>
               {isVi ? "đã đổi trạng thái từ " : "changed status from "}
-              <code>{fromStatus}</code>
+              <code>{statusLabel(fromStatus)}</code>
               {isVi ? " sang " : " to "}
-              <code>{toStatus}</code>
+              <code>{statusLabel(toStatus)}</code>
             </span>
           </>
         );
@@ -151,14 +191,18 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         );
       case "EDITED": {
         const fields = Array.isArray(meta.fields)
-          ? (meta.fields as string[]).join(", ")
+          ? (meta.fields as string[])
+              .map((field) => (isVi ? fieldLabels[field] || field : field))
+              .slice(0, 3)
+              .join(", ")
           : "";
+        const fieldCount = Array.isArray(meta.fields) ? meta.fields.length : 0;
         return (
           <>
             <RefreshCw size={15} color={tokens.info} />
             <span>
               {isVi ? "đã chỉnh sửa nội dung" : "edited details"}
-              {fields ? ` (${fields})` : ""}
+              {fields ? ` (${fields}${fieldCount > 3 ? ", …" : ""})` : ""}
             </span>
           </>
         );

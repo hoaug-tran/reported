@@ -704,7 +704,7 @@ issuesRouter.patch(
       const modifiedFields = Object.keys(updates).filter(
         (key) => key !== "updatedAt" && key !== "status",
       );
-      if (modifiedFields.length > 0) {
+      if (modifiedFields.length > 0 && !updates.status) {
         await db.insert(activities).values({
           targetType: TargetType.ISSUE,
           targetId: issue.id,

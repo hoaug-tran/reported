@@ -784,7 +784,7 @@ reviewsRouter.patch(
       const modifiedFields = Object.keys(updates).filter(
         (k) => k !== "updatedAt" && k !== "status",
       );
-      if (modifiedFields.length > 0) {
+      if (modifiedFields.length > 0 && !updates.status) {
         await db.insert(activities).values({
           targetType: TargetType.REVIEW,
           targetId: review.id,
