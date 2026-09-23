@@ -8,10 +8,11 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import { ChevronDown, ChevronUp, EyeOff, Flag, Link as LinkIcon, MoreHorizontal, Reply, Quote, Edit2, Trash2, Smile } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Flag, Link as LinkIcon, MoreHorizontal, Reply, Quote, Edit2, Trash2, Smile, History } from "lucide-react";
 import { UserAvatar } from "../common/UserAvatar";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { MarkdownEditor } from "../editor/MarkdownEditor";
+import { CommentEditHistoryModal } from "./CommentEditHistoryModal";
 import { useThemeContext } from "../../contexts/ThemeContext";
 import { useAuthContext } from "../../contexts/AuthContext";
 import { useWorkspace } from "../../contexts/WorkspaceContext";
@@ -93,6 +94,8 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
     null,
   );
   const [moderationAnchor, setModerationAnchor] = useState<null | HTMLElement>(null);
+  const [isRevealed, setIsRevealed] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isLongComment = useMemo(() => shouldCollapseComment(comment.content), [comment.content]);
   const [isExpanded, setIsExpanded] = useState(() => !shouldCollapseComment(comment.content));
 
@@ -113,6 +116,24 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
       [CommentHideReason.ABUSE]: "hideAsAbuse",
     }[reason || CommentHideReason.OFF_TOPIC] || "hideAsOffTopic") as TranslationKey;
     return t(key);
+  };
+  const hideReasonDescription = (reason?: CommentHideReason | null) => {
+    switch (reason) {
+      case CommentHideReason.OFF_TOPIC:
+        return isVi ? "lạc đề" : "off-topic";
+      case CommentHideReason.OUTDATED:
+        return isVi ? "đã lỗi thời" : "outdated";
+      case CommentHideReason.DUPLICATE:
+        return isVi ? "trùng lặp" : "duplicate";
+      case CommentHideReason.RESOLVED:
+        return isVi ? "đã được giải quyết" : "resolved";
+      case CommentHideReason.SPAM:
+        return isVi ? "spam" : "spam";
+      case CommentHideReason.ABUSE:
+        return isVi ? "nội dung không phù hợp" : "abuse";
+      default:
+        return isVi ? "lạc đề" : "off-topic";
+    }
   };
   const reactionLabel = (reaction: ReactionType) => {
     const key = ({
@@ -272,7 +293,33 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
               sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}
             >
               • <Tooltip title={new Date(comment.createdAt).toLocaleString()}><span>{relativeTime(comment.createdAt, isVi)}</span></Tooltip>
-              {comment.updatedAt !== comment.createdAt && <span> · {isVi ? "đã chỉnh sửa" : "edited"}</span>}
+              {Boolean(comment.isEdited || (comment.editedAt && comment.editedAt !== comment.createdAt)) && (
+                <Tooltip title={isVi ? "Xem lịch sử chỉnh sửa" : "View edit history"}>
+                  <Box
+                    component="span"
+                    onClick={() => setHistoryOpen(true)}
+                    sx={{
+                      cursor: "pointer",
+                      ml: 0.5,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 0.3,
+                      borderRadius: "4px",
+                      px: 0.5,
+                      py: 0.1,
+                      backgroundColor: tokens.hover,
+                      transition: "all 0.15s ease",
+                      "&:hover": {
+                        backgroundColor: tokens.surfaceSecondary,
+                        color: tokens.primary,
+                      },
+                    }}
+                  >
+                    <History size={11} />
+                    <span>{isVi ? "đã chỉnh sửa" : "edited"}</span>
+                  </Box>
+                </Tooltip>
+              )}
             </Typography>
           </Box>
 
@@ -385,17 +432,63 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
               [{t("commentDeleted")}]
             </Typography>
           ) : comment.isHidden ? (
-            <Box
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                gap: 1,
-                color: tokens.textSecondary,
-                fontSize: "0.84rem",
-              }}
-            >
-              <EyeOff size={16} />
-              <span>{t("commentHiddenAs")} {hideReasonLabel(comment.hiddenReason)}.</span>
+            <Box>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 1,
+                  color: tokens.textSecondary,
+                  fontSize: "0.84rem",
+                  flexWrap: "wrap",
+                }}
+              >
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <EyeOff size={16} />
+                  <span>
+                    {isVi
+                      ? `Bình luận này đã được ẩn vì ${hideReasonDescription(comment.hiddenReason)}.`
+                      : `This comment was hidden as ${hideReasonDescription(comment.hiddenReason)}.`}
+                  </span>
+                </Box>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => setIsRevealed(!isRevealed)}
+                  startIcon={isRevealed ? <EyeOff size={14} /> : <Eye size={14} />}
+                  sx={{
+                    textTransform: "none",
+                    fontSize: "0.78rem",
+                    fontWeight: 600,
+                    py: 0.25,
+                    px: 1,
+                    color: tokens.textSecondary,
+                    "&:hover": { color: tokens.primary },
+                  }}
+                >
+                  {isRevealed
+                    ? isVi
+                      ? "Ẩn nội dung"
+                      : "Hide content"
+                    : isVi
+                      ? "Hiện bình luận"
+                      : "Show comment"}
+                </Button>
+              </Box>
+
+              {isRevealed && (
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    pt: 1.5,
+                    borderTop: `1px dashed ${tokens.border}`,
+                    opacity: 0.9,
+                  }}
+                >
+                  <MarkdownRenderer content={comment.content} />
+                </Box>
+              )}
             </Box>
           ) : isEditing ? (
             <Box>
@@ -473,7 +566,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
           )}
         </Box>
 
-        {!comment.isDeleted && !comment.isHidden && !readOnly && (
+        {!comment.isDeleted && (!comment.isHidden || isRevealed) && !readOnly && (
           <Box
             sx={{
               px: 2,
@@ -658,6 +751,13 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
           ))}
         </Box>
       )}
+
+      <CommentEditHistoryModal
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        commentId={comment.id}
+        currentContent={comment.content}
+      />
     </Box>
   );
 };

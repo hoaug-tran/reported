@@ -62,7 +62,10 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
   );
 
   const filteredActivities = sortedActivities.filter(
-    (act) => act.actionType !== "COMMENT_ADDED",
+    (act) =>
+      act.actionType !== "COMMENT_ADDED" &&
+      act.actionType !== "COMMENT_HIDDEN" &&
+      act.actionType !== "COMMENT_UNHIDDEN",
   );
   if (filteredActivities.length === 0) return null;
 
@@ -80,12 +83,17 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
         new Date(prev.createdAt).getTime() - new Date(act.createdAt).getTime(),
       ) < 60000;
     if (!(sameActor && sameAction && sameTime)) {
-      const isLegacyDuplicateEdit =
-        act.actionType === "EDITED" &&
-        prev.actionType === "STATUS_CHANGED" &&
+      const isDuplicateStatusAndEdit =
+        ((act.actionType === "EDITED" && prev.actionType === "STATUS_CHANGED") ||
+          (act.actionType === "STATUS_CHANGED" && prev.actionType === "EDITED")) &&
         sameActor &&
         sameTime;
-      if (isLegacyDuplicateEdit) return;
+      if (isDuplicateStatusAndEdit) {
+        if (act.actionType === "STATUS_CHANGED") {
+          deduped[deduped.length - 1] = act;
+        }
+        return;
+      }
       deduped.push(act);
     }
   });
@@ -133,9 +141,13 @@ export const ActivityTimeline: React.FC<ActivityTimelineProps> = ({
             <RefreshCw size={15} color={tokens.warning} />
             <span>
               {isVi ? "đã đổi trạng thái từ " : "changed status from "}
-              <code>{statusLabel(fromStatus)}</code>
+              <strong style={{ fontWeight: 600, color: tokens.textPrimary }}>
+                {statusLabel(fromStatus)}
+              </strong>
               {isVi ? " sang " : " to "}
-              <code>{statusLabel(toStatus)}</code>
+              <strong style={{ fontWeight: 600, color: tokens.textPrimary }}>
+                {statusLabel(toStatus)}
+              </strong>
             </span>
           </>
         );

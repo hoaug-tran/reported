@@ -86,9 +86,36 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
     });
 
     const filteredActivities = (activities || []).filter(
-      (act) => act.actionType !== "COMMENT_ADDED",
+      (act) =>
+        act.actionType !== "COMMENT_ADDED" &&
+        act.actionType !== "COMMENT_HIDDEN" &&
+        act.actionType !== "COMMENT_UNHIDDEN",
     );
-    filteredActivities.forEach((a) => {
+
+    const sortedActs = [...filteredActivities].sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    const dedupedActs: ActivityTimelineDto[] = [];
+    sortedActs.forEach((act) => {
+      const isDuplicateEdit =
+        act.actionType === "EDITED" &&
+        sortedActs.some(
+          (other) =>
+            other.actionType === "STATUS_CHANGED" &&
+            other.actor.id === act.actor.id &&
+            Math.abs(
+              new Date(other.createdAt).getTime() -
+                new Date(act.createdAt).getTime(),
+            ) < 60000,
+        );
+      if (!isDuplicateEdit) {
+        dedupedActs.push(act);
+      }
+    });
+
+    dedupedActs.forEach((a) => {
       items.push({ type: "activity", activity: a, createdAt: a.createdAt });
     });
 
