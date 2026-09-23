@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import {
   db,
   comments,
+  commentEdits,
   commentReactions,
   mentions,
   users,
@@ -22,6 +23,7 @@ import {
   TargetType,
   ReactionType,
   CommentDto,
+  CommentEditHistoryDto,
   CommentHideReason,
   ReactionSummaryDto,
   UserRole,
@@ -121,7 +123,8 @@ commentsRouter.get(
             isDeleted: c.isDeleted,
             isHidden: c.isHidden,
             hiddenReason: c.hiddenReason as CommentHideReason | null,
-            isEdited: c.updatedAt.getTime() > c.createdAt.getTime(),
+            editedAt: c.editedAt ? c.editedAt.toISOString() : null,
+            isEdited: Boolean(c.editedAt),
             author: author
               ? {
                   id: author.id,
@@ -389,14 +392,6 @@ commentsRouter.patch(
         .where(eq(comments.id, comment.id))
         .returning();
 
-      await db.insert(activities).values({
-        targetType: comment.targetType,
-        targetId: comment.targetId,
-        actorId: user.id,
-        actionType: input.hidden ? "COMMENT_HIDDEN" : "COMMENT_UNHIDDEN",
-        metadata: { commentId: comment.id, reason: input.hidden ? input.reason : null },
-      });
-
       return res.json(updated);
     } catch (error) {
       next(error);
@@ -442,13 +437,78 @@ commentsRouter.patch(
         throw new AppError(403, "FORBIDDEN", "You cannot edit this comment");
       }
 
-      const [updated] = await db
-        .update(comments)
-        .set({ content: input.content, updatedAt: new Date() })
-        .where(eq(comments.id, commentId))
-        .returning();
+      if (input.content !== comment.content) {
+        await db.insert(commentEdits).values({
+          commentId: comment.id,
+          editorId: user.id,
+          previousContent: comment.content,
+          newContent: input.content,
+        });
 
-      return res.json(updated);
+        const [updated] = await db
+          .update(comments)
+          .set({ content: input.content, editedAt: new Date(), updatedAt: new Date() })
+          .where(eq(comments.id, commentId))
+          .returning();
+
+        return res.json(updated);
+      }
+
+      return res.json(comment);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+commentsRouter.get(
+  "/:id/history",
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const commentId = req.params.id;
+      const comment = await db.query.comments.findFirst({
+        where: eq(comments.id, commentId),
+      });
+
+      if (!comment || comment.isDeleted) {
+        throw new AppError(404, "NOT_FOUND", "Comment not found");
+      }
+
+      const edits = await db
+        .select({
+          id: commentEdits.id,
+          commentId: commentEdits.commentId,
+          editorId: commentEdits.editorId,
+          previousContent: commentEdits.previousContent,
+          newContent: commentEdits.newContent,
+          createdAt: commentEdits.createdAt,
+          editorUsername: users.username,
+          editorDisplayName: users.displayName,
+          editorAvatarUrl: users.avatarUrl,
+          editorRole: users.role,
+        })
+        .from(commentEdits)
+        .leftJoin(users, eq(commentEdits.editorId, users.id))
+        .where(eq(commentEdits.commentId, commentId))
+        .orderBy(asc(commentEdits.createdAt));
+
+      const history: CommentEditHistoryDto[] = edits.map((e) => ({
+        id: e.id,
+        commentId: e.commentId,
+        previousContent: e.previousContent,
+        newContent: e.newContent,
+        createdAt: e.createdAt.toISOString(),
+        editor: {
+          id: e.editorId,
+          username: e.editorUsername || "ghost",
+          displayName: e.editorDisplayName || "Former Member",
+          avatarUrl: e.editorAvatarUrl,
+          email: "",
+          role: (e.editorRole || "USER") as UserRole,
+        },
+      }));
+
+      return res.json(history);
     } catch (error) {
       next(error);
     }

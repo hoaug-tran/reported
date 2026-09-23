@@ -613,20 +613,23 @@ issuesRouter.patch(
         updatedAt: new Date(),
       };
 
-      if (input.title) updates.title = input.title;
-      if (input.description) updates.description = input.description;
-      if (input.type) updates.type = input.type;
-      if (input.priority) updates.priority = input.priority;
-      if (input.severity) updates.severity = input.severity;
-      if (input.projectId !== undefined) updates.projectId = input.projectId;
-      if (input.repositoryId !== undefined)
+      if (input.title && input.title !== issue.title) updates.title = input.title;
+      if (input.description !== undefined && input.description !== issue.description)
+        updates.description = input.description;
+      if (input.type && input.type !== issue.type) updates.type = input.type;
+      if (input.priority && input.priority !== issue.priority) updates.priority = input.priority;
+      if (input.severity && input.severity !== issue.severity) updates.severity = input.severity;
+      if (input.projectId !== undefined && input.projectId !== issue.projectId)
+        updates.projectId = input.projectId;
+      if (input.repositoryId !== undefined && input.repositoryId !== issue.repositoryId)
         updates.repositoryId = input.repositoryId;
-      if (input.branch !== undefined) updates.branch = input.branch;
-      if (input.commitHash !== undefined) updates.commitHash = input.commitHash;
+      if (input.branch !== undefined && input.branch !== issue.branch) updates.branch = input.branch;
+      if (input.commitHash !== undefined && input.commitHash !== issue.commitHash)
+        updates.commitHash = input.commitHash;
 
       if (input.prUrl !== undefined) {
         if (!input.prUrl) {
-          updates.pullRequestId = null;
+          if (issue.pullRequestId) updates.pullRequestId = null;
         } else {
           const match = input.prUrl.match(/pull\/(\d+)/);
           if (match) {
@@ -642,38 +645,39 @@ issuesRouter.patch(
                   )
                 : eq(pullRequests.prNumber, prNum),
             });
-            if (existingPr) {
+            if (existingPr && existingPr.id !== issue.pullRequestId) {
               updates.pullRequestId = existingPr.id;
             }
           }
         }
       }
 
-      const targetType = input.type || issue.type;
-      const isTargetBug = targetType === IssueType.BUG;
+      const shouldClearBug =
+        input.bugDetails === null ||
+        (input.type !== undefined && input.type !== IssueType.BUG && issue.type === IssueType.BUG);
 
-      if (!isTargetBug || input.bugDetails === null) {
-        updates.environment = null;
-        updates.precondition = null;
-        updates.stepsToReproduce = null;
-        updates.actualResult = null;
-        updates.expectedResult = null;
-        updates.frequency = null;
-        updates.evidenceJsonOrLogs = null;
+      if (shouldClearBug) {
+        if (issue.environment !== null) updates.environment = null;
+        if (issue.precondition !== null) updates.precondition = null;
+        if (issue.stepsToReproduce !== null) updates.stepsToReproduce = null;
+        if (issue.actualResult !== null) updates.actualResult = null;
+        if (issue.expectedResult !== null) updates.expectedResult = null;
+        if (issue.frequency !== null) updates.frequency = null;
+        if (issue.evidenceJsonOrLogs !== null) updates.evidenceJsonOrLogs = null;
       } else if (input.bugDetails) {
-        if (input.bugDetails.environment !== undefined)
+        if (input.bugDetails.environment !== undefined && input.bugDetails.environment !== issue.environment)
           updates.environment = input.bugDetails.environment;
-        if (input.bugDetails.precondition !== undefined)
+        if (input.bugDetails.precondition !== undefined && input.bugDetails.precondition !== issue.precondition)
           updates.precondition = input.bugDetails.precondition;
-        if (input.bugDetails.stepsToReproduce !== undefined)
+        if (input.bugDetails.stepsToReproduce !== undefined && input.bugDetails.stepsToReproduce !== issue.stepsToReproduce)
           updates.stepsToReproduce = input.bugDetails.stepsToReproduce;
-        if (input.bugDetails.actualResult !== undefined)
+        if (input.bugDetails.actualResult !== undefined && input.bugDetails.actualResult !== issue.actualResult)
           updates.actualResult = input.bugDetails.actualResult;
-        if (input.bugDetails.expectedResult !== undefined)
+        if (input.bugDetails.expectedResult !== undefined && input.bugDetails.expectedResult !== issue.expectedResult)
           updates.expectedResult = input.bugDetails.expectedResult;
-        if (input.bugDetails.frequency !== undefined)
+        if (input.bugDetails.frequency !== undefined && input.bugDetails.frequency !== issue.frequency)
           updates.frequency = input.bugDetails.frequency;
-        if (input.bugDetails.evidenceJsonOrLogs !== undefined)
+        if (input.bugDetails.evidenceJsonOrLogs !== undefined && input.bugDetails.evidenceJsonOrLogs !== issue.evidenceJsonOrLogs)
           updates.evidenceJsonOrLogs = input.bugDetails.evidenceJsonOrLogs;
       }
 
@@ -704,7 +708,7 @@ issuesRouter.patch(
       const modifiedFields = Object.keys(updates).filter(
         (key) => key !== "updatedAt" && key !== "status",
       );
-      if (modifiedFields.length > 0 && !updates.status) {
+      if (modifiedFields.length > 0) {
         await db.insert(activities).values({
           targetType: TargetType.ISSUE,
           targetId: issue.id,

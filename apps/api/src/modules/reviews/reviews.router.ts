@@ -699,17 +699,26 @@ reviewsRouter.patch(
       const updates: Partial<typeof reviewRequests.$inferInsert> = {
         updatedAt: new Date(),
       };
-      if (input.title) updates.title = input.title.trim();
-      if (input.description !== undefined)
-        updates.description = input.description ? input.description.trim() : "";
-      if (input.reviewType) updates.reviewType = input.reviewType;
-      if (input.deadline !== undefined)
-        updates.deadline = input.deadline ? new Date(input.deadline) : null;
-      if (input.projectId !== undefined) updates.projectId = input.projectId;
-      if (input.repositoryId !== undefined)
+      if (input.title && input.title.trim() !== review.title) updates.title = input.title.trim();
+      if (input.description !== undefined) {
+        const cleanDesc = input.description ? input.description.trim() : "";
+        if (cleanDesc !== review.description) updates.description = cleanDesc;
+      }
+      if (input.reviewType && input.reviewType !== review.reviewType)
+        updates.reviewType = input.reviewType;
+      if (input.deadline !== undefined) {
+        const nextDeadline = input.deadline ? new Date(input.deadline) : null;
+        const currentDeadline = review.deadline ? new Date(review.deadline).getTime() : null;
+        if (nextDeadline?.getTime() !== currentDeadline) updates.deadline = nextDeadline;
+      }
+      if (input.projectId !== undefined && input.projectId !== review.projectId)
+        updates.projectId = input.projectId;
+      if (input.repositoryId !== undefined && input.repositoryId !== review.repositoryId)
         updates.repositoryId = input.repositoryId;
-      if (input.branch !== undefined) updates.branch = input.branch;
-      if (input.commitHash !== undefined) updates.commitHash = input.commitHash;
+      if (input.branch !== undefined && input.branch !== review.branch)
+        updates.branch = input.branch;
+      if (input.commitHash !== undefined && input.commitHash !== review.commitHash)
+        updates.commitHash = input.commitHash;
 
       const oldStatus = review.status;
       let statusChanged = false;
@@ -720,7 +729,7 @@ reviewsRouter.patch(
 
       if (input.prUrl !== undefined) {
         if (!input.prUrl) {
-          updates.pullRequestId = null;
+          if (review.pullRequestId) updates.pullRequestId = null;
         } else {
           const match = input.prUrl.match(/pull\/(\d+)/);
           if (match) {
@@ -736,7 +745,7 @@ reviewsRouter.patch(
                   )
                 : eq(pullRequests.prNumber, prNum),
             });
-            if (existingPr) {
+            if (existingPr && existingPr.id !== review.pullRequestId) {
               updates.pullRequestId = existingPr.id;
             }
           }
@@ -784,7 +793,7 @@ reviewsRouter.patch(
       const modifiedFields = Object.keys(updates).filter(
         (k) => k !== "updatedAt" && k !== "status",
       );
-      if (modifiedFields.length > 0 && !updates.status) {
+      if (modifiedFields.length > 0) {
         await db.insert(activities).values({
           targetType: TargetType.REVIEW,
           targetId: review.id,
