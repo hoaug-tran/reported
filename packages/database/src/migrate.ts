@@ -289,6 +289,18 @@ export async function migrate() {
       ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_reason TEXT;
       ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_by UUID REFERENCES users(id) ON DELETE SET NULL;
       ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS edited_at TIMESTAMPTZ;
+
+      CREATE TABLE IF NOT EXISTS comment_edits (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        editor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        previous_content TEXT NOT NULL,
+        new_content TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_comment_edits_comment ON comment_edits (comment_id);
 
       CREATE TABLE IF NOT EXISTS comment_reactions (
         comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,

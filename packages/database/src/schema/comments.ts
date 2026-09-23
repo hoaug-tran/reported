@@ -32,11 +32,31 @@ export const comments = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    editedAt: timestamp("edited_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_comments_target").on(table.targetType, table.targetId),
     index("idx_comments_parent").on(table.parentId),
   ],
+);
+
+export const commentEdits = pgTable(
+  "comment_edits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    commentId: uuid("comment_id")
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    editorId: uuid("editor_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    previousContent: text("previous_content").notNull(),
+    newContent: text("new_content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("idx_comment_edits_comment").on(table.commentId)],
 );
 
 export const commentReactions = pgTable(

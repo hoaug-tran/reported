@@ -56,4 +56,15 @@ export interface CommentDto {
   replies?: CommentDto[];
   createdAt: string;
   updatedAt: string;
+  editedAt?: string | null;
+  isEdited?: boolean;
+}
+
+export interface CommentEditHistoryDto {
+  id: string;
+  commentId: string;
+  editor: UserSummaryDto;
+  previousContent: string;
+  newContent: string;
+  createdAt: string;
 }
