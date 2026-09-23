@@ -285,6 +285,11 @@ export async function migrate() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS is_hidden BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_reason TEXT;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_by UUID REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS hidden_at TIMESTAMPTZ;
+
       CREATE TABLE IF NOT EXISTS comment_reactions (
         comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,

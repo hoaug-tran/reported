@@ -22,6 +22,10 @@ export const comments = pgTable(
     parentId: uuid("parent_id"),
     content: text("content").notNull(),
     isDeleted: boolean("is_deleted").notNull().default(false),
+    isHidden: boolean("is_hidden").notNull().default(false),
+    hiddenReason: text("hidden_reason"),
+    hiddenBy: uuid("hidden_by").references(() => users.id, { onDelete: "set null" }),
+    hiddenAt: timestamp("hidden_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

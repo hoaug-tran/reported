@@ -18,9 +18,11 @@ import {
   CreateCommentSchema,
   UpdateCommentSchema,
   ToggleReactionSchema,
+  UpdateCommentVisibilitySchema,
   TargetType,
   ReactionType,
   CommentDto,
+  CommentHideReason,
   ReactionSummaryDto,
   UserRole,
 } from "@reported/contracts";
@@ -30,6 +32,13 @@ import { recordOutboxEvent } from "../../events/outbox.js";
 import { assertActivePost } from "../shared/post-state.js";
 
 export const commentsRouter = Router();
+
+function createCommentSnippet(content: string, maxLength = 280) {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  const boundary = normalized.lastIndexOf(" ", maxLength - 1);
+  return `${normalized.slice(0, boundary > 0 ? boundary : maxLength).trim()}…`;
+}
 
 commentsRouter.get(
   "/",
@@ -58,58 +67,49 @@ commentsRouter.get(
         )
         .orderBy(asc(comments.createdAt));
 
-      const enriched = await Promise.all(
-        commentList.map(async (c) => {
-          const author = await db.query.users.findFirst({
-            where: eq(users.id, c.authorId),
-          });
+      const authorIds = [...new Set(commentList.map((comment) => comment.authorId))];
+      const commentIds = commentList.map((comment) => comment.id);
+      const [authorList, reactionList] = await Promise.all([
+        authorIds.length
+          ? db.select().from(users).where(inArray(users.id, authorIds))
+          : Promise.resolve([]),
+        commentIds.length
+          ? db
+              .select({
+                commentId: commentReactions.commentId,
+                reaction: commentReactions.reaction,
+                userId: commentReactions.userId,
+                username: users.username,
+                displayName: users.displayName,
+              })
+              .from(commentReactions)
+              .leftJoin(users, eq(commentReactions.userId, users.id))
+              .where(inArray(commentReactions.commentId, commentIds))
+          : Promise.resolve([]),
+      ]);
+      const authorsById = new Map(authorList.map((author) => [author.id, author]));
+      const reactionsByComment = new Map<string, typeof reactionList>();
+      for (const reaction of reactionList) {
+        const current = reactionsByComment.get(reaction.commentId) || [];
+        current.push(reaction);
+        reactionsByComment.set(reaction.commentId, current);
+      }
 
-          const reactionList = await db
-            .select({
-              reaction: commentReactions.reaction,
-              userId: commentReactions.userId,
-              username: users.username,
-              displayName: users.displayName,
-            })
-            .from(commentReactions)
-            .leftJoin(users, eq(commentReactions.userId, users.id))
-            .where(eq(commentReactions.commentId, c.id));
-
-          const reactionsGrouped: Record<
-            string,
-            {
-              count: number;
-              users: Array<{
-                id: string;
-                username: string;
-                displayName: string;
-              }>;
-            }
-          > = {};
-          for (const r of reactionList) {
-            if (!reactionsGrouped[r.reaction]) {
-              reactionsGrouped[r.reaction] = { count: 0, users: [] };
-            }
-            reactionsGrouped[r.reaction].count++;
-            if (r.userId && r.username && r.displayName) {
-              reactionsGrouped[r.reaction].users.push({
-                id: r.userId,
-                username: r.username,
-                displayName: r.displayName,
-              });
+      const enriched = commentList.map((c) => {
+          const author = authorsById.get(c.authorId);
+          const reactionsGrouped: Record<string, { count: number; users: Array<{ id: string; username: string; displayName: string }> }> = {};
+          for (const reaction of reactionsByComment.get(c.id) || []) {
+            const group = reactionsGrouped[reaction.reaction] || (reactionsGrouped[reaction.reaction] = { count: 0, users: [] });
+            group.count++;
+            if (reaction.userId && reaction.username && reaction.displayName) {
+              group.users.push({ id: reaction.userId, username: reaction.username, displayName: reaction.displayName });
             }
           }
-
-          const currentUserId = req.user?.id;
-          const reactionsFormatted: ReactionSummaryDto[] = Object.entries(
-            reactionsGrouped,
-          ).map(([reaction, data]) => ({
+          const reactionsFormatted: ReactionSummaryDto[] = Object.entries(reactionsGrouped).map(([reaction, data]) => ({
             reaction: reaction as ReactionType,
             count: data.count,
             users: data.users,
-            hasReacted: Boolean(
-              currentUserId && data.users.some((u) => u.id === currentUserId),
-            ),
+            hasReacted: Boolean(req.user?.id && data.users.some((member) => member.id === req.user!.id)),
           }));
 
           return {
@@ -119,6 +119,8 @@ commentsRouter.get(
             parentId: c.parentId,
             content: c.isDeleted ? "[Bình luận đã bị xóa]" : c.content,
             isDeleted: c.isDeleted,
+            isHidden: c.isHidden,
+            hiddenReason: c.hiddenReason as CommentHideReason | null,
             isEdited: c.updatedAt.getTime() > c.createdAt.getTime(),
             author: author
               ? {
@@ -142,8 +144,7 @@ commentsRouter.get(
             createdAt: c.createdAt.toISOString(),
             updatedAt: c.updatedAt.toISOString(),
           };
-        }),
-      );
+        });
 
       const topLevelComments: CommentDto[] = [];
       const replyMap = new Map<string, CommentDto[]>();
@@ -232,12 +233,14 @@ commentsRouter.post(
       const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
       const matches = Array.from(input.content.matchAll(mentionRegex));
       const usernames = Array.from(new Set(matches.map((m) => m[1])));
+      let mentionedUserIds: string[] = [];
 
       if (usernames.length > 0) {
         const mentionedUsers = await db
           .select({ id: users.id, username: users.username })
           .from(users)
           .where(inArray(users.username, usernames));
+        mentionedUserIds = mentionedUsers.map((mentionedUser) => mentionedUser.id);
 
         for (const mUser of mentionedUsers) {
           await db.insert(mentions).values({
@@ -254,7 +257,7 @@ commentsRouter.post(
             targetUserIds: mentionedUsers.map((u) => u.id),
             actorId: user.id,
             title: `Mentioned in ${targetTitle}`,
-            message: input.content.slice(0, 140),
+            message: createCommentSnippet(input.content),
             link: targetLink,
             targetType: input.targetType,
             targetId: input.targetId,
@@ -269,8 +272,9 @@ commentsRouter.post(
         targetAuthorId,
         actorId: user.id,
         title: targetTitle,
-        snippet: input.content.slice(0, 140),
+        snippet: createCommentSnippet(input.content),
         link: targetLink,
+        excludedUserIds: mentionedUserIds,
       });
 
       await db.insert(activities).values({
@@ -280,7 +284,7 @@ commentsRouter.post(
         actionType: "COMMENT_ADDED",
         metadata: {
           commentId: comment.id,
-          snippet: input.content.slice(0, 80),
+          snippet: createCommentSnippet(input.content, 120),
         },
       });
 
@@ -334,6 +338,66 @@ commentsRouter.post(
         });
         return res.json({ reacted: true });
       }
+    } catch (error) {
+      next(error);
+    }
+  },
+);
+
+commentsRouter.patch(
+  "/:id/visibility",
+  requireAuth,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const input = UpdateCommentVisibilitySchema.parse(req.body);
+      const user = req.user!;
+      const comment = await db.query.comments.findFirst({
+        where: eq(comments.id, req.params.id),
+      });
+
+      if (!comment || comment.isDeleted) {
+        throw new AppError(404, "NOT_FOUND", "Comment not found");
+      }
+      await assertActivePost(comment.targetType as TargetType, comment.targetId);
+
+      let canModerate = user.role === "ADMIN";
+      if (!canModerate) {
+        const workspaceId = req.headers["x-workspace-id"] as string;
+        if (workspaceId) {
+          const membership = await db.query.workspaceMembers.findFirst({
+            where: and(
+              eq(workspaceMembers.workspaceId, workspaceId),
+              eq(workspaceMembers.userId, user.id),
+            ),
+          });
+          canModerate = membership?.role === "OWNER" || membership?.role === "ADMIN";
+        }
+      }
+      if (!canModerate) {
+        throw new AppError(403, "FORBIDDEN", "Only workspace moderators can hide comments");
+      }
+
+      const [updated] = await db
+        .update(comments)
+        .set({
+          isHidden: input.hidden,
+          hiddenReason: input.hidden ? input.reason! : null,
+          hiddenBy: input.hidden ? user.id : null,
+          hiddenAt: input.hidden ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(comments.id, comment.id))
+        .returning();
+
+      await db.insert(activities).values({
+        targetType: comment.targetType,
+        targetId: comment.targetId,
+        actorId: user.id,
+        actionType: input.hidden ? "COMMENT_HIDDEN" : "COMMENT_UNHIDDEN",
+        metadata: { commentId: comment.id, reason: input.hidden ? input.reason : null },
+      });
+
+      return res.json(updated);
     } catch (error) {
       next(error);
     }

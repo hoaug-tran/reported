@@ -121,6 +121,15 @@ export enum ReactionType {
   CONFUSED = "CONFUSED",
 }
 
+export enum CommentHideReason {
+  OFF_TOPIC = "OFF_TOPIC",
+  OUTDATED = "OUTDATED",
+  DUPLICATE = "DUPLICATE",
+  RESOLVED = "RESOLVED",
+  SPAM = "SPAM",
+  ABUSE = "ABUSE",
+}
+
 export enum PullRequestState {
   OPEN = "OPEN",
   CLOSED = "CLOSED",

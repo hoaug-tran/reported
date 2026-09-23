@@ -109,9 +109,6 @@ app.use(errorHandler);
 
 if (process.env.NODE_ENV !== "test") {
   migrate()
-    .catch((err) => {
-      console.error("Failed to run auto-migrations on startup:", err);
-    })
     .then(() => {
       app.listen(config.port, () => {
         console.log(
@@ -119,5 +116,9 @@ if (process.env.NODE_ENV !== "test") {
         );
         startOutboxWorker(3000);
       });
+    })
+    .catch((err) => {
+      console.error("Failed to run database migrations; API will not start:", err);
+      process.exit(1);
     });
 }

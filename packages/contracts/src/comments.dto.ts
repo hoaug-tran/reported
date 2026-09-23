@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ReactionType, TargetType } from "./enums.js";
+import { CommentHideReason, ReactionType, TargetType } from "./enums.js";
 import { UserSummaryDto } from "./auth.dto.js";
 
 export const CreateCommentSchema = z.object({
@@ -16,6 +16,18 @@ export const UpdateCommentSchema = z.object({
 });
 
 export type UpdateCommentDto = z.infer<typeof UpdateCommentSchema>;
+
+export const UpdateCommentVisibilitySchema = z
+  .object({
+    hidden: z.boolean(),
+    reason: z.nativeEnum(CommentHideReason).optional(),
+  })
+  .refine((value) => !value.hidden || Boolean(value.reason), {
+    message: "A reason is required when hiding a comment",
+    path: ["reason"],
+  });
+
+export type UpdateCommentVisibilityDto = z.infer<typeof UpdateCommentVisibilitySchema>;
 
 export const ToggleReactionSchema = z.object({
   reaction: z.union([z.nativeEnum(ReactionType), z.string().min(1).max(32)]),
@@ -37,6 +49,8 @@ export interface CommentDto {
   parentId?: string | null;
   content: string;
   isDeleted?: boolean;
+  isHidden?: boolean;
+  hiddenReason?: CommentHideReason | null;
   author: UserSummaryDto;
   reactions: ReactionSummaryDto[];
   replies?: CommentDto[];
