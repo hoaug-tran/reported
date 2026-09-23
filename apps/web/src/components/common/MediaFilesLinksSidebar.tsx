@@ -744,141 +744,157 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                     : "No files shared in this item"}
                 </Typography>
               ) : (
-                <Box
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                    maxHeight: activeTab === "all" ? 220 : 340,
-                    overflowY: "auto",
-                    pr: 0.5,
-                    "&::-webkit-scrollbar": { width: 4 },
-                    "&::-webkit-scrollbar-thumb": {
-                      backgroundColor: tokens.border,
-                      borderRadius: 2,
-                    },
-                  }}
-                >
-                  {displayedFiles.map((f) => (
-                    <Box
-                      key={f.id}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 1.5,
-                        p: 1,
-                        borderRadius: "6px",
-                        backgroundColor: tokens.surfaceSecondary,
-                        border: `1px solid ${tokens.border}`,
-                        transition: "background-color 0.12s ease",
-                        minWidth: 0,
-                        maxWidth: "100%",
-                        boxSizing: "border-box",
-                        overflow: "hidden",
-                        "&:hover": { backgroundColor: tokens.hover },
-                      }}
-                    >
-                      {renderFileIcon(f.mimeType, f.originalName)}
+                <Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 1,
+                      maxHeight: showAllFiles
+                        ? activeTab === "all"
+                          ? 320
+                          : 420
+                        : activeTab === "all"
+                          ? 220
+                          : 340,
+                      overflowY: "auto",
+                      pr: 0.5,
+                      "&::-webkit-scrollbar": { width: 4 },
+                      "&::-webkit-scrollbar-thumb": {
+                        backgroundColor: tokens.border,
+                        borderRadius: 2,
+                      },
+                    }}
+                  >
+                    {displayedFiles.map((f) => (
+                      <Box
+                        key={f.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 1.5,
+                          p: 1,
+                          borderRadius: "6px",
+                          backgroundColor: tokens.surfaceSecondary,
+                          border: `1px solid ${tokens.border}`,
+                          transition: "background-color 0.12s ease",
+                          minWidth: 0,
+                          maxWidth: "100%",
+                          boxSizing: "border-box",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          minHeight: 52,
+                          "&:hover": { backgroundColor: tokens.hover },
+                        }}
+                      >
+                        {renderFileIcon(f.mimeType, f.originalName)}
 
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            fontWeight: 600,
-                            fontSize: "0.8125rem",
-                            color: tokens.textPrimary,
-                          }}
-                          noWrap
-                        >
-                          {f.originalName}
-                        </Typography>
-
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            mt: 0.2,
-                          }}
-                        >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Typography
-                            variant="caption"
+                            variant="body2"
                             sx={{
-                              color: tokens.textSecondary,
-                              fontSize: "0.6875rem",
+                              fontWeight: 600,
+                              fontSize: "0.8125rem",
+                              color: tokens.textPrimary,
+                            }}
+                            noWrap
+                          >
+                            {f.originalName}
+                          </Typography>
+
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 1,
+                              mt: 0.2,
                             }}
                           >
-                            {formatFileSize(f.sizeBytes)}
-                          </Typography>
-                          <CheckCircle2 size={11} color={tokens.success} />
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              color: tokens.textSecondary,
-                              fontSize: "0.6875rem",
-                              ml: "auto",
-                            }}
-                          >
-                            {formatDate(f.createdAt)}
-                          </Typography>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: tokens.textSecondary,
+                                fontSize: "0.6875rem",
+                              }}
+                            >
+                              {formatFileSize(f.sizeBytes)}
+                            </Typography>
+                            <CheckCircle2 size={11} color={tokens.success} />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                color: tokens.textSecondary,
+                                fontSize: "0.6875rem",
+                                ml: "auto",
+                              }}
+                            >
+                              {formatDate(f.createdAt)}
+                            </Typography>
+                          </Box>
                         </Box>
-                      </Box>
 
-                      {f.originalName?.toLowerCase().endsWith(".drawio") && (
-                        <Tooltip title={isVi ? "Xem sơ đồ Draw.io" : "Preview Draw.io diagram"}>
+                        {f.originalName?.toLowerCase().endsWith(".drawio") && (
+                          <Tooltip
+                            title={
+                              isVi
+                                ? "Xem sơ đồ Draw.io"
+                                : "Preview Draw.io diagram"
+                            }
+                          >
+                            <IconButton
+                              size="small"
+                              onClick={() =>
+                                setPreviewDrawio({
+                                  url: f.url,
+                                  filename: f.originalName,
+                                })
+                              }
+                              sx={{
+                                color: tokens.textSecondary,
+                                "&:hover": { color: tokens.primary },
+                              }}
+                            >
+                              <Eye size={16} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+
+                        <Tooltip
+                          title={
+                            f.isVoiceNote || f.mimeType.startsWith("audio/")
+                              ? isVi
+                                ? "Mở / Nghe âm thanh"
+                                : "Play audio"
+                              : isVi
+                                ? "Tải tệp về"
+                                : "Download file"
+                          }
+                        >
                           <IconButton
                             size="small"
-                            onClick={() =>
-                              setPreviewDrawio({
-                                url: f.url,
-                                filename: f.originalName,
-                              })
+                            component="a"
+                            href={f.url}
+                            target={
+                              f.isVoiceNote || f.mimeType.startsWith("audio/")
+                                ? "_blank"
+                                : undefined
+                            }
+                            download={
+                              f.isVoiceNote || f.mimeType.startsWith("audio/")
+                                ? undefined
+                                : f.originalName
                             }
                             sx={{
                               color: tokens.textSecondary,
                               "&:hover": { color: tokens.primary },
                             }}
                           >
-                            <Eye size={16} />
+                            <Download size={16} />
                           </IconButton>
                         </Tooltip>
-                      )}
-
-                      <Tooltip
-                        title={
-                          f.isVoiceNote || f.mimeType.startsWith("audio/")
-                            ? isVi
-                              ? "Mở / Nghe âm thanh"
-                              : "Play audio"
-                            : isVi
-                              ? "Tải tệp về"
-                              : "Download file"
-                        }
-                      >
-                        <IconButton
-                          size="small"
-                          component="a"
-                          href={f.url}
-                          target={
-                            f.isVoiceNote || f.mimeType.startsWith("audio/")
-                              ? "_blank"
-                              : undefined
-                          }
-                          download={
-                            f.isVoiceNote || f.mimeType.startsWith("audio/")
-                              ? undefined
-                              : f.originalName
-                          }
-                          sx={{
-                            color: tokens.textSecondary,
-                            "&:hover": { color: tokens.primary },
-                          }}
-                        >
-                          <Download size={16} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  ))}
+                      </Box>
+                    ))}
+                  </Box>
 
                   {nonMediaFiles.length > 3 && (
                     <Button
@@ -890,7 +906,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         textTransform: "none",
                         fontWeight: 600,
                         fontSize: "0.75rem",
-                        mt: 0.5,
+                        mt: 1,
                       }}
                     >
                       {showAllFiles
@@ -993,6 +1009,8 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
                         width: "100%",
                         boxSizing: "border-box",
                         overflow: "hidden",
+                        flexShrink: 0,
+                        minHeight: 32,
                         "&:hover": {
                           backgroundColor: tokens.hover,
                           textDecoration: "underline",
