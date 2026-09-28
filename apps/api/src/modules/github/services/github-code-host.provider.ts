@@ -31,14 +31,14 @@ interface GitHubBranchResponse {
   name: string;
 }
 
-function mapGitHubState(
+const mapGitHubState = (
   state: string,
   mergedAt: string | null,
-): "OPEN" | "CLOSED" | "MERGED" {
+): "OPEN" | "CLOSED" | "MERGED" => {
   if (mergedAt) return "MERGED";
   if (state.toLowerCase() === "closed") return "CLOSED";
   return "OPEN";
-}
+};
 
 export class GitHubCodeHostProvider implements ICodeHostProvider {
   readonly providerId = "github";

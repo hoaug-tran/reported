@@ -53,7 +53,7 @@ interface DrawioViewerProps {
 
 let scriptLoadPromise: Promise<void> | null = null;
 
-function loadViewerScript(): Promise<void> {
+const loadViewerScript = (): Promise<void> => {
   if (typeof window !== "undefined" && (window as any).GraphViewer) {
     return Promise.resolve();
   }
@@ -211,7 +211,7 @@ export const DrawioViewer: React.FC<DrawioViewerProps> = ({
   useEffect(() => {
     let isMounted = true;
 
-    async function load() {
+    const load = async () => {
       try {
         const content = await fetchXml();
         if (isMounted && content) {

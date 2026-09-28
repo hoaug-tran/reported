@@ -99,11 +99,14 @@ export const MembersPage: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      await apiFetch(`/workspaces/${activeWorkspace.id}/members/invite`, {
-        method: "POST",
-        body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
-      });
-      toast.success(`Đã gửi lời mời tới ${inviteEmail}`);
+      const res = await apiFetch<{ success: boolean; message: string }>(
+        `/workspaces/${activeWorkspace.id}/members/invite`,
+        {
+          method: "POST",
+          body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
+        },
+      );
+      toast.success(res.message || `Đã gửi lời mời tới ${inviteEmail}`);
       setInviteModalOpen(false);
       setInviteEmail("");
       await fetchMembers();
@@ -548,7 +551,13 @@ export const MembersPage: React.FC = () => {
             {t("inviteMember")} vào {activeWorkspace?.name}
           </DialogTitle>
           <DialogContent
-            sx={{ display: "flex", flexDirection: "column", gap: 2.5, pt: 1 }}
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 2.5,
+              pt: "24px !important",
+              overflowY: "visible",
+            }}
           >
             <TextField
               fullWidth

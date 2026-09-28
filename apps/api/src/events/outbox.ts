@@ -46,19 +46,19 @@ interface OutboxPayload {
   [key: string]: unknown;
 }
 
-function escapeHtml(value: string) {
+const escapeHtml = (value: string) => {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;");
-}
+};
 
-export async function recordOutboxEvent(
+export const recordOutboxEvent = async (
   eventType: string,
   payload: Record<string, unknown>,
-) {
+) => {
   try {
     const [inserted] = await db
       .insert(outboxEvents)
@@ -72,12 +72,12 @@ export async function recordOutboxEvent(
   } catch (err) {
     console.error("Failed to record outbox event:", err);
   }
-}
+};
 
-async function shouldSendEmail(
+const shouldSendEmail = async (
   userId: string,
   eventType: NotificationType,
-): Promise<boolean> {
+): Promise<boolean> => {
   const pref = await db.query.notificationPreferences.findFirst({
     where: and(
       eq(notificationPreferences.userId, userId),
@@ -93,9 +93,9 @@ async function shouldSendEmail(
     pref.channel === NotificationChannel.EMAIL ||
     pref.channel === NotificationChannel.BOTH
   );
-}
+};
 
-async function dispatchEmailJob({
+const dispatchEmailJob = async ({
   outboxEventId,
   recipientEmail,
   recipientName,
@@ -111,7 +111,7 @@ async function dispatchEmailJob({
   template: string;
   htmlBody: string;
   textBody: string;
-}) {
+}) => {
   const result = await sendEmail({
     to: recipientEmail,
     toName: recipientName,
@@ -135,9 +135,9 @@ async function dispatchEmailJob({
       : "FAILED",
     sentAt: result.success ? new Date() : null,
   });
-}
+};
 
-export async function processOutboxEvents() {
+export const processOutboxEvents = async () => {
   try {
     const pendingEvents = await db
       .select()
@@ -613,19 +613,19 @@ export async function processOutboxEvents() {
 
 let workerInterval: NodeJS.Timeout | null = null;
 
-export function startOutboxWorker(intervalMs = 3000) {
+export const startOutboxWorker = (intervalMs = 3000) => {
   if (workerInterval) return;
   console.log(
-    `🚀 Transactional Outbox worker started (polling every ${intervalMs}ms)`,
+    `Outbox worker started (polling every ${intervalMs}ms)`,
   );
   workerInterval = setInterval(() => {
     processOutboxEvents().catch(console.error);
   }, intervalMs);
-}
+};
 
-export function stopOutboxWorker() {
+export const stopOutboxWorker = () => {
   if (workerInterval) {
     clearInterval(workerInterval);
     workerInterval = null;
   }
-}
+};

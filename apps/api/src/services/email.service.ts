@@ -18,7 +18,7 @@ export interface SendEmailResult {
 
 let transporter: Transporter | null = null;
 
-function getTransporter(): Transporter | null {
+const getTransporter = (): Transporter | null => {
   if (transporter) return transporter;
 
   const host = config.smtp.host;
@@ -46,11 +46,11 @@ function getTransporter(): Transporter | null {
   });
 
   return transporter;
-}
+};
 
-async function sendViaResend(
+const sendViaResend = async (
   options: SendEmailOptions,
-): Promise<SendEmailResult> {
+): Promise<SendEmailResult> => {
   const payload = {
     from: config.emailFrom,
     to: [options.toName ? `"${options.toName}" <${options.to}>` : options.to],
@@ -89,11 +89,11 @@ async function sendViaResend(
     mode: "resend",
     messageId: data.id || `resend-${Date.now()}`,
   };
-}
+};
 
-export async function sendEmail(
+export const sendEmail = async (
   options: SendEmailOptions,
-): Promise<SendEmailResult> {
+): Promise<SendEmailResult> => {
   if (config.mailDriver === "resend" && config.resendApiKey) {
     try {
       return await sendViaResend(options);

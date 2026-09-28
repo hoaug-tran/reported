@@ -35,7 +35,7 @@ interface DashboardSidebarWidgetsProps {
   workspace?: WorkspaceSummaryDto | null;
 }
 
-function formatRelativeTime(dateStr: string, isVi: boolean): string {
+const formatRelativeTime = (dateStr: string, isVi: boolean): string => {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 60) return isVi ? `${diffMin}p trước` : `${diffMin}m ago`;
@@ -43,7 +43,7 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
   if (diffHour < 24) return isVi ? `${diffHour}h trước` : `${diffHour}h ago`;
   const diffDay = Math.floor(diffHour / 24);
   return isVi ? `${diffDay} ngày trước` : `${diffDay}d ago`;
-}
+};
 
 const POPULAR_TAGS = [
   { name: "bug", color: "#ef4444", bg: "rgba(239, 68, 68, 0.12)" },

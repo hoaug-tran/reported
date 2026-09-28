@@ -5,10 +5,10 @@ interface UseSmoothLoadingOptions {
   minDuration?: number;
 }
 
-export function useSmoothLoading(
+export const useSmoothLoading = (
   isLoading: boolean,
   options: UseSmoothLoadingOptions = {},
-): boolean {
+): boolean => {
   const { delay = 160, minDuration = 280 } = options;
   const [showLoading, setShowLoading] = useState(false);
   const startTimeRef = useRef<number>(0);
@@ -50,4 +50,4 @@ export function useSmoothLoading(
   }, [isLoading, delay, minDuration]);
 
   return showLoading;
-}
+};

@@ -1,16 +1,16 @@
-export function isDesktopNotificationSupported(): boolean {
+export const isDesktopNotificationSupported = (): boolean => {
   return typeof window !== "undefined" && "Notification" in window;
-}
+};
 
-export function getDesktopNotificationPermission():
-  NotificationPermission | "unsupported" {
+export const getDesktopNotificationPermission = ():
+  NotificationPermission | "unsupported" => {
   if (!isDesktopNotificationSupported()) return "unsupported";
   return Notification.permission;
-}
+};
 
-export async function requestDesktopNotificationPermission(): Promise<
+export const requestDesktopNotificationPermission = async (): Promise<
   NotificationPermission | "unsupported"
-> {
+> => {
   if (!isDesktopNotificationSupported()) return "unsupported";
   try {
     return await Notification.requestPermission();
@@ -18,9 +18,9 @@ export async function requestDesktopNotificationPermission(): Promise<
     console.error("Failed to request desktop notification permission", err);
     return Notification.permission;
   }
-}
+};
 
-export function showDesktopNotification(
+export const showDesktopNotification = (
   title: string,
   options?: {
     body?: string;
@@ -28,7 +28,7 @@ export function showDesktopNotification(
     tag?: string;
     onClick?: () => void;
   },
-): Notification | null {
+): Notification | null => {
   if (
     !isDesktopNotificationSupported() ||
     Notification.permission !== "granted"
@@ -70,4 +70,4 @@ export function showDesktopNotification(
   } catch {
     return null;
   }
-}
+};

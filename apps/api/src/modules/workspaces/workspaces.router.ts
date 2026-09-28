@@ -309,7 +309,7 @@ workspacesRouter.post(
           throw new AppError(
             409,
             "ALREADY_MEMBER",
-            "User is already a member of this workspace",
+            "Người dùng đã là thành viên của không gian làm việc này",
           );
         }
 
@@ -322,7 +322,7 @@ workspacesRouter.post(
 
         return res.status(201).json({
           success: true,
-          message: `${existingUser.displayName} (@${existingUser.username}) added to workspace as ${input.role}`,
+          message: `Đã thêm ${existingUser.displayName} (@${existingUser.username}) vào không gian làm việc với vai trò ${input.role}`,
           user: existingUser,
         });
       }
@@ -352,7 +352,7 @@ workspacesRouter.post(
 
         return res.status(200).json({
           success: true,
-          message: `Updated invitation for ${input.email}`,
+          message: `Đã cập nhật lời mời cho ${input.email}. Người dùng chưa có tài khoản trên hệ thống và sẽ tham gia khi đăng ký.`,
           invitation: updatedInvite,
         });
       }
@@ -371,7 +371,7 @@ workspacesRouter.post(
 
       return res.status(201).json({
         success: true,
-        message: `Invitation sent to ${input.email}`,
+        message: `Đã tạo lời mời cho email ${input.email}. Người dùng này chưa có tài khoản trên Reported và sẽ được tự động tham gia sau khi đăng ký.`,
         invitation,
       });
     } catch (error) {

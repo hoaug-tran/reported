@@ -27,15 +27,16 @@ interface MermaidViewerProps {
   code: string;
 }
 
-let mermaidPromise: Promise<typeof import("mermaid")["default"]> | null = null;
-function getMermaid() {
+let mermaidPromise: Promise<any> | null = null;
+
+const getMermaid = () => {
   if (!mermaidPromise) {
     mermaidPromise = import("mermaid").then((m) => m.default);
   }
   return mermaidPromise;
-}
+};
 
-function detectDiagramType(code: string): string {
+const detectDiagramType = (code: string): string => {
   const trimmed = code.trim();
   const firstLine = trimmed.split("\n")[0]?.trim().toLowerCase() || "";
 
@@ -76,7 +77,7 @@ export const MermaidViewer: React.FC<MermaidViewerProps> = ({ code }) => {
   useEffect(() => {
     let isCancelled = false;
 
-    async function renderDiagram() {
+    const renderDiagram = async () => {
       if (!cleanCode) {
         setSvgHtml("");
         setLoading(false);

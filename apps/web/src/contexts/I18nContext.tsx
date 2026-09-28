@@ -53,10 +53,10 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export function useI18n() {
+export const useI18n = () => {
   const ctx = useContext(I18nContext);
   if (!ctx) {
     throw new Error("useI18n must be used within I18nProvider");
   }
   return ctx;
-}
+};

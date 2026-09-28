@@ -1,4 +1,4 @@
-export function sanitizeFilename(name: string): string {
+export const sanitizeFilename = (name: string): string => {
   const normalized = name.normalize("NFC");
   const cleaned = normalized
     .replace(/[\\/:*?"<>|]/g, "-")
@@ -6,9 +6,9 @@ export function sanitizeFilename(name: string): string {
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
   return cleaned || "diagram";
-}
+};
 
-export function downloadBlob(blob: Blob, filename: string): void {
+export const downloadBlob = (blob: Blob, filename: string): void => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -17,9 +17,9 @@ export function downloadBlob(blob: Blob, filename: string): void {
   link.click();
   document.body.removeChild(link);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+};
 
-export function extractDrawioPages(xmlString: string): Array<{ index: number; id: string; name: string }> {
+export const extractDrawioPages = (xmlString: string): Array<{ index: number; id: string; name: string }> => {
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(xmlString, "application/xml");
@@ -32,13 +32,13 @@ export function extractDrawioPages(xmlString: string): Array<{ index: number; id
   } catch {
     return [];
   }
-}
+};
 
-export async function exportCurrentPageSvg(
+export const exportCurrentPageSvg = async (
   viewer: any,
   baseName: string,
   pageName: string,
-): Promise<void> {
+): Promise<void> => {
   let svg: SVGSVGElement | null = null;
   if (viewer?.graph?.getSvg) {
     try {
@@ -73,14 +73,14 @@ export async function exportCurrentPageSvg(
   const blob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
   const filename = `${sanitizeFilename(baseName)}__${sanitizeFilename(pageName)}.svg`;
   downloadBlob(blob, filename);
-}
+};
 
-export async function exportCurrentPagePng(
+export const exportCurrentPagePng = async (
   viewer: any,
   baseName: string,
   pageName: string,
   scale = 2,
-): Promise<void> {
+): Promise<void> => {
   let originalFoEnabled: boolean | undefined = undefined;
   const mxSvgCanvas2D = (window as any).mxSvgCanvas2D;
   if (mxSvgCanvas2D && mxSvgCanvas2D.prototype) {
@@ -178,14 +178,14 @@ export async function exportCurrentPagePng(
 
   const filename = `${sanitizeFilename(baseName)}__${sanitizeFilename(pageName)}.png`;
   downloadBlob(blob, filename);
-}
+};
 
-export function exportCurrentPageDrawio(
+export const exportCurrentPageDrawio = (
   fullXml: string,
   pageIndex: number,
   baseName: string,
   pageName: string,
-): void {
+): void => {
   const parser = new DOMParser();
   const doc = parser.parseFromString(fullXml, "application/xml");
   const diagramNodes = Array.from(doc.getElementsByTagName("diagram"));
@@ -213,10 +213,10 @@ export function exportCurrentPageDrawio(
   const blob = new Blob([serialized], { type: "application/vnd.jgraph.mxfile;charset=utf-8" });
   const filename = `${sanitizeFilename(baseName)}__${sanitizeFilename(pageName)}.drawio`;
   downloadBlob(blob, filename);
-}
+};
 
-export function exportFullDrawio(fullXml: string, baseName: string): void {
+export const exportFullDrawio = (fullXml: string, baseName: string): void => {
   const blob = new Blob([fullXml], { type: "application/vnd.jgraph.mxfile;charset=utf-8" });
   const filename = `${sanitizeFilename(baseName)}.drawio`;
   downloadBlob(blob, filename);
-}
+};

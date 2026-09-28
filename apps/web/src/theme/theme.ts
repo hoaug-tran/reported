@@ -1,7 +1,7 @@
 import { createTheme, ThemeOptions } from "@mui/material/styles";
 import { darkTokens, lightTokens } from "./tokens";
 
-export function createAppTheme(mode: "light" | "dark") {
+export const createAppTheme = (mode: "light" | "dark") => {
   const tokens = mode === "dark" ? darkTokens : lightTokens;
 
   const themeOptions: ThemeOptions = {

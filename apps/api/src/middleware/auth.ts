@@ -12,11 +12,13 @@ declare global {
   }
 }
 
-export async function authenticate(
+import { MESSAGES } from "../config/constants.js";
+
+export const authenticate = async (
   req: Request,
   _res: Response,
   next: NextFunction,
-) {
+) => {
   try {
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -53,25 +55,25 @@ export async function authenticate(
   } catch (error) {
     next(error);
   }
-}
+};
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export const requireAuth = (req: Request, _res: Response, next: NextFunction) => {
   if (!req.user) {
     return next(
       new AppError(
         401,
         "UNAUTHORIZED",
-        "Authentication required to access this resource",
+        MESSAGES.unauthorized,
       ),
     );
   }
   next();
-}
+};
 
-export function requireRole(...allowedRoles: UserRole[]) {
+export const requireRole = (...allowedRoles: UserRole[]) => {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new AppError(401, "UNAUTHORIZED", "Authentication required"));
+      return next(new AppError(401, "UNAUTHORIZED", MESSAGES.unauthorized));
     }
 
     if (!allowedRoles.includes(req.user.role as UserRole)) {
@@ -79,11 +81,11 @@ export function requireRole(...allowedRoles: UserRole[]) {
         new AppError(
           403,
           "FORBIDDEN",
-          `Insufficient permissions. Allowed roles: ${allowedRoles.join(", ")}`,
+          `${MESSAGES.forbidden}. Allowed roles: ${allowedRoles.join(", ")}`,
         ),
       );
     }
 
     next();
   };
-}
+};

@@ -47,7 +47,7 @@ import {
   ReviewerAssignmentDto,
 } from "@reported/contracts";
 
-function formatRelativeTime(dateStr: string, isVi: boolean): string {
+const formatRelativeTime = (dateStr: string, isVi: boolean): string => {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffSec = Math.floor(diffMs / 1000);
   if (diffSec < 60) return isVi ? "vừa xong" : "just now";
@@ -61,7 +61,7 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
     month: "short",
     day: "numeric",
   });
-}
+};
 
 export const ReviewsPage: React.FC = () => {
   const { tokens } = useThemeContext();

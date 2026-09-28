@@ -10,7 +10,7 @@ export interface WeatherInfo {
   loading: boolean;
 }
 
-function getWeatherDescription(code: number, isVi: boolean): string {
+const getWeatherDescription = (code: number, isVi: boolean): string => {
   if (code === 0) return isVi ? "Trời quang đãng" : "Clear sky";
   if (code === 1 || code === 2 || code === 3)
     return isVi ? "Mây rải rác" : "Partly cloudy";
@@ -21,9 +21,9 @@ function getWeatherDescription(code: number, isVi: boolean): string {
   if (code >= 80 && code <= 82) return isVi ? "Mưa rào" : "Rain showers";
   if (code >= 95 && code <= 99) return isVi ? "Có dông sét" : "Thunderstorm";
   return isVi ? "Thời tiết ôn hòa" : "Fair weather";
-}
+};
 
-export function useWeatherAndClock(isVi = true) {
+export const useWeatherAndClock = (isVi = true) => {
   const [now, setNow] = useState<Date>(new Date());
   const [weather, setWeather] = useState<WeatherInfo>({
     temperature: 28,
@@ -45,7 +45,7 @@ export function useWeatherAndClock(isVi = true) {
   useEffect(() => {
     let isCancelled = false;
 
-    async function fetchWeather(lat: number, lon: number, cityName?: string) {
+    const fetchWeather = async (lat: number, lon: number, cityName?: string) => {
       try {
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
         const res = await fetch(weatherUrl);

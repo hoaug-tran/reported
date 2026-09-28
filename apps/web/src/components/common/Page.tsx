@@ -10,7 +10,7 @@ type PageProps = {
   sx?: SxProps<Theme>;
 };
 
-export function Page({ children, variant = "default", sx }: PageProps) {
+export const Page = ({ children, variant = "default", sx }: PageProps) => {
   const maxWidth =
     variant === "wide" || variant === "default" || variant === "form"
       ? "none"
@@ -31,7 +31,7 @@ export function Page({ children, variant = "default", sx }: PageProps) {
       {children}
     </Box>
   );
-}
+};
 
 type PageHeaderProps = {
   title: React.ReactNode;
@@ -40,7 +40,7 @@ type PageHeaderProps = {
   icon?: React.ReactNode;
 };
 
-export function PageHeader({ title, subtitle, action, icon }: PageHeaderProps) {
+export const PageHeader = ({ title, subtitle, action, icon }: PageHeaderProps) => {
   const { tokens } = useThemeContext();
   return (
     <Box
@@ -87,7 +87,7 @@ export function PageHeader({ title, subtitle, action, icon }: PageHeaderProps) {
       )}
     </Box>
   );
-}
+};
 
 type SectionCardProps = {
   children: React.ReactNode;
@@ -95,7 +95,7 @@ type SectionCardProps = {
   dashed?: boolean;
 };
 
-export function SectionCard({ children, sx, dashed }: SectionCardProps) {
+export const SectionCard = ({ children, sx, dashed }: SectionCardProps) => {
   const { tokens } = useThemeContext();
   return (
     <Paper
@@ -111,15 +111,15 @@ export function SectionCard({ children, sx, dashed }: SectionCardProps) {
       {children}
     </Paper>
   );
-}
+};
 
-export function Toolbar({
+export const Toolbar = ({
   children,
   sx,
 }: {
   children: React.ReactNode;
   sx?: SxProps<Theme>;
-}) {
+}) => {
   const { tokens } = useThemeContext();
   return (
     <Box
@@ -139,9 +139,9 @@ export function Toolbar({
       {children}
     </Box>
   );
-}
+};
 
-export function EmptyState({
+export const EmptyState = ({
   icon,
   title,
   description,
@@ -153,7 +153,7 @@ export function EmptyState({
   description?: React.ReactNode;
   action?: React.ReactNode;
   loading?: boolean;
-}) {
+}) => {
   const { tokens } = useThemeContext();
   return (
     <SectionCard dashed sx={{ p: 5, textAlign: "center" }}>
@@ -180,4 +180,4 @@ export function EmptyState({
       {action}
     </SectionCard>
   );
-}
+};

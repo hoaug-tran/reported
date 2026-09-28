@@ -35,12 +35,12 @@ import { assertActivePost } from "../shared/post-state.js";
 
 export const commentsRouter = Router();
 
-function createCommentSnippet(content: string, maxLength = 280) {
+const createCommentSnippet = (content: string, maxLength = 280) => {
   const normalized = content.replace(/\s+/g, " ").trim();
   if (normalized.length <= maxLength) return normalized;
   const boundary = normalized.lastIndexOf(" ", maxLength - 1);
   return `${normalized.slice(0, boundary > 0 ? boundary : maxLength).trim()}…`;
-}
+};
 
 commentsRouter.get(
   "/",

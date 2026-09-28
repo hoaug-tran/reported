@@ -39,12 +39,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
-function hashPassword(password: string): string {
+const hashPassword = (password: string): string => {
   const salt = "reported_static_seed_salt_2026";
   return crypto.scryptSync(password, salt, 64).toString("hex");
 }
 
-export async function seed(): Promise<void> {
+export const seed = async (): Promise<void> => {
   try {
     await db.execute(
       sql`TRUNCATE TABLE users, workspaces, workspace_members, projects, project_members, repositories, pull_requests, labels, issues, issue_assignees, issue_labels, review_requests, review_reviewers, review_labels, comments, comment_reactions, mentions, activities, notifications, notification_preferences, watchers, outbox_events, email_jobs, saved_views, external_accounts, sessions, audit_logs CASCADE;`,

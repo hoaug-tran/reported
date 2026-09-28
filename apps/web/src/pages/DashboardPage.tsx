@@ -67,7 +67,7 @@ interface ConversationItem {
   link: string;
 }
 
-function formatRelativeTime(dateStr: string, isVi: boolean): string {
+const formatRelativeTime = (dateStr: string, isVi: boolean): string => {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffSec = Math.floor(diffMs / 1000);
   if (diffSec < 60) return isVi ? "vừa xong" : "just now";
@@ -81,7 +81,7 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
     month: "short",
     day: "numeric",
   });
-}
+};
 
 export const DashboardPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -125,7 +125,7 @@ export const DashboardPage: React.FC = () => {
           : "Good evening";
 
   useEffect(() => {
-    async function loadDashboardData() {
+    const loadDashboardData = async () => {
       setLoading(true);
       try {
         const [
@@ -232,7 +232,7 @@ export const DashboardPage: React.FC = () => {
     }
 
     loadDashboardData();
-  }, [user]);
+  }, [user, activeWorkspace?.id]);
 
   const filteredConversations = conversations.filter((item) => {
     if (feedFilter === "all") return true;

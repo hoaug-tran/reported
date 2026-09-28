@@ -13,6 +13,7 @@ import {
   lightTokens,
   SemanticColors,
 } from "../theme/tokens";
+import { STORAGE_KEYS } from "../constants/index";
 
 interface ThemeContextType {
   mode: ThemeMode;
@@ -23,10 +24,12 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [mode, setModeState] = useState<ThemeMode>(() => {
     return (
-      (localStorage.getItem("reported_theme_mode") as ThemeMode) || "light"
+      (localStorage.getItem(STORAGE_KEYS.themeMode) as ThemeMode) || "light"
     );
   });
 
@@ -53,7 +56,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const setMode = (newMode: ThemeMode) => {
     setModeState(newMode);
-    localStorage.setItem("reported_theme_mode", newMode);
+    localStorage.setItem(STORAGE_KEYS.themeMode, newMode);
   };
 
   const tokens = useMemo(() => {
@@ -70,12 +73,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       </MuiThemeProvider>
     </ThemeContext.Provider>
   );
-}
+};
 
-export function useThemeContext() {
+export const useThemeContext = () => {
   const context = useContext(ThemeContext);
   if (!context) {
     throw new Error("useThemeContext must be used within ThemeProvider");
   }
   return context;
-}
+};

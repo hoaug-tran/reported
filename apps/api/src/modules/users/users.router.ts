@@ -7,6 +7,7 @@ import {
   reviewRequests,
   reviewReviewers,
   comments,
+  workspaceMembers,
   eq,
   ilike,
   or,
@@ -15,15 +16,17 @@ import {
   gte,
   and,
   ne,
+  inArray,
 } from "@reported/database";
 import { AppError } from "../../middleware/error.js";
 import { requireAuth } from "../../middleware/auth.js";
 
 export const usersRouter = Router();
 
+usersRouter.use(requireAuth);
+
 usersRouter.patch(
   "/me",
-  requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.user!.id;
@@ -156,12 +159,45 @@ usersRouter.get(
   "/:username",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const currentUser = req.user!;
       const user = await db.query.users.findFirst({
         where: eq(users.username, req.params.username),
       });
 
       if (!user) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found");
+      }
+
+      const isSelf = currentUser.id === user.id;
+      if (!isSelf && currentUser.role !== "ADMIN") {
+        const myWorkspaces = await db
+          .select({ workspaceId: workspaceMembers.workspaceId })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.userId, currentUser.id));
+
+        const myWsIds = myWorkspaces.map((w) => w.workspaceId);
+        let hasSharedWs = false;
+        if (myWsIds.length > 0) {
+          const shared = await db
+            .select({ id: workspaceMembers.id })
+            .from(workspaceMembers)
+            .where(
+              and(
+                inArray(workspaceMembers.workspaceId, myWsIds),
+                eq(workspaceMembers.userId, user.id),
+              ),
+            )
+            .limit(1);
+          hasSharedWs = shared.length > 0;
+        }
+
+        if (!hasSharedWs) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "You can only view profiles of members in your workspace",
+          );
+        }
       }
 
       const [createdIssues] = await db
@@ -186,7 +222,7 @@ usersRouter.get(
         avatarUrl: user.avatarUrl,
         bio: user.bio,
         role: user.role,
-        email: user.email,
+        email: isSelf ? user.email : undefined,
         githubUsername: user.githubUsername,
         createdAt: user.createdAt,
         createdIssuesCount: createdIssues?.count || 0,
@@ -203,12 +239,45 @@ usersRouter.get(
   "/:username/activity",
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const currentUser = req.user!;
       const user = await db.query.users.findFirst({
         where: eq(users.username, req.params.username),
       });
 
       if (!user) {
         throw new AppError(404, "USER_NOT_FOUND", "User not found");
+      }
+
+      const isSelf = currentUser.id === user.id;
+      if (!isSelf && currentUser.role !== "ADMIN") {
+        const myWorkspaces = await db
+          .select({ workspaceId: workspaceMembers.workspaceId })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.userId, currentUser.id));
+
+        const myWsIds = myWorkspaces.map((w) => w.workspaceId);
+        let hasSharedWs = false;
+        if (myWsIds.length > 0) {
+          const shared = await db
+            .select({ id: workspaceMembers.id })
+            .from(workspaceMembers)
+            .where(
+              and(
+                inArray(workspaceMembers.workspaceId, myWsIds),
+                eq(workspaceMembers.userId, user.id),
+              ),
+            )
+            .limit(1);
+          hasSharedWs = shared.length > 0;
+        }
+
+        if (!hasSharedWs) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "You can only view activity of members in your workspace",
+          );
+        }
       }
 
       const oneYearAgo = new Date();

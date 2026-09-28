@@ -1,3 +1,5 @@
+import { CACHE_CONFIG, ERROR_FALLBACKS } from "../constants/index";
+
 export class ApiError extends Error {
   constructor(
     public code: string,
@@ -22,7 +24,7 @@ interface CacheEntry {
 const inFlightRequests = new Map<string, Promise<any>>();
 const responseCache = new Map<string, CacheEntry>();
 
-export function clearApiCache(pattern?: string) {
+export const clearApiCache = (pattern?: string) => {
   if (!pattern) {
     responseCache.clear();
     return;
@@ -32,24 +34,27 @@ export function clearApiCache(pattern?: string) {
       responseCache.delete(key);
     }
   }
-}
+};
 
-function getCacheTtl(url: string): number {
+const getCacheTtl = (url: string): number => {
+  if (url.includes("/github-pulls")) {
+    return CACHE_CONFIG.ttlZeroMs;
+  }
   if (
     url.includes("/github/repositories") ||
     url.includes("/members") ||
     url.includes("/projects") ||
     url.includes("/saved-views")
   ) {
-    return 15_000;
+    return CACHE_CONFIG.ttlFastMs;
   }
   return 3_000;
-}
+};
 
-export async function apiFetch<T>(
+export const apiFetch = async <T>(
   endpoint: string,
   options: ApiFetchOptions = {},
-): Promise<T> {
+): Promise<T> => {
   const method = (options.method || "GET").toUpperCase();
   const url = endpoint.startsWith("/api") ? endpoint : `/api/v1${endpoint}`;
 
@@ -97,9 +102,28 @@ export async function apiFetch<T>(
 
       if (!response.ok) {
         const errObj = data.error || {};
+        let message = errObj.message || response.statusText;
+        if (
+          !message ||
+          message === "An error occurred" ||
+          message === "Internal server error" ||
+          message === "An unexpected error occurred"
+        ) {
+          if (response.status === 401) {
+            message = ERROR_FALLBACKS.unauthorized;
+          } else if (response.status === 403) {
+            message = ERROR_FALLBACKS.forbidden;
+          } else if (response.status === 404) {
+            message = ERROR_FALLBACKS.notFound;
+          } else if (response.status === 409) {
+            message = ERROR_FALLBACKS.conflict;
+          } else {
+            message = ERROR_FALLBACKS.internal;
+          }
+        }
         throw new ApiError(
           errObj.code || "UNKNOWN_ERROR",
-          errObj.message || response.statusText || "An error occurred",
+          message,
           response.status,
           errObj.details,
         );

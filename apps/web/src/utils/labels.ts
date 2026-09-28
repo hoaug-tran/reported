@@ -7,11 +7,11 @@ export interface LabelStyle {
   activeText: string;
 }
 
-export function getLabelColor(
+export const getLabelColor = (
   name: string,
   customColor?: string,
   isSelected?: boolean,
-): LabelStyle {
+): LabelStyle => {
   const n = (name || "").toLowerCase().trim();
 
   let base = {

@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../../../.env") });
 
-export async function cleanDatabase(): Promise<void> {
+export const cleanDatabase = async (): Promise<void> => {
   try {
     await db.execute(sql`
       TRUNCATE TABLE 

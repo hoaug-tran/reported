@@ -29,17 +29,17 @@ export interface SemanticColors {
 }
 
 export const darkTokens: SemanticColors = {
-  background: "#0b0f17",
-  surface: "#121824",
-  surfaceSecondary: "#1a2332",
-  surfaceHover: "#243044",
-  textPrimary: "#f1f5f9",
-  textSecondary: "#94a3b8",
-  textMuted: "#64748b",
-  border: "#243042",
-  borderSubtle: "#1a2332",
-  divider: "#1e293b",
-  hover: "rgba(148, 163, 184, 0.08)",
+  background: "#131417",
+  surface: "#1a1b1f",
+  surfaceSecondary: "#22242a",
+  surfaceHover: "#2a2d34",
+  textPrimary: "#f1f2f4",
+  textSecondary: "#9ea3ab",
+  textMuted: "#6b7280",
+  border: "#2c2f36",
+  borderSubtle: "#202227",
+  divider: "#26282e",
+  hover: "rgba(255, 255, 255, 0.05)",
   selected: "rgba(56, 139, 253, 0.16)",
   primary: "#388bfd",
   primaryHover: "#58a6ff",
@@ -52,8 +52,8 @@ export const darkTokens: SemanticColors = {
   error: "#f85149",
   errorGlow: "rgba(248, 81, 73, 0.18)",
   info: "#388bfd",
-  codeBackground: "#0f141d",
-  codeBorder: "#243042",
+  codeBackground: "#16171b",
+  codeBorder: "#2c2f36",
 };
 
 export const lightTokens: SemanticColors = {

@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 
-function base32Encode(buffer: Buffer): string {
+const base32Encode = (buffer: Buffer): string => {
   let bits = 0;
   let value = 0;
   let output = "";
@@ -22,9 +22,9 @@ function base32Encode(buffer: Buffer): string {
   }
 
   return output;
-}
+};
 
-function base32Decode(input: string): Buffer {
+const base32Decode = (input: string): Buffer => {
   const cleaned = input
     .toUpperCase()
     .replace(/=+$/, "")

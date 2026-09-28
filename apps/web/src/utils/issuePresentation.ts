@@ -22,9 +22,9 @@ export interface IssuePresentation {
   showBugDetails: boolean;
 }
 
-export function hasActualBugDetails(
+export const hasActualBugDetails = (
   bugDetails?: BugTemplateData | null,
-): boolean {
+): boolean => {
   if (!bugDetails) return false;
   return Boolean(
     bugDetails.stepsToReproduce?.trim() ||
@@ -34,16 +34,16 @@ export function hasActualBugDetails(
       bugDetails.precondition?.trim() ||
       bugDetails.evidenceJsonOrLogs?.trim(),
   );
-}
+};
 
-export function getIssuePresentation(
+export const getIssuePresentation = (
   issue: {
     type?: IssueType | string;
     labels?: Array<{ name: string }> | string[];
     bugDetails?: BugTemplateData | null;
   },
   isVi: boolean,
-): IssuePresentation {
+): IssuePresentation => {
   const rawLabels = issue.labels || [];
   const labelNames = rawLabels.map((l) =>
     (typeof l === "string" ? l : l.name || "").toLowerCase().trim(),

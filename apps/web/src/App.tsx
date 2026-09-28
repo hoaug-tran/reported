@@ -30,7 +30,7 @@ import { AppShellSkeleton } from "./components/common/Skeletons";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoutes() {
+const ProtectedRoutes = () => {
   const { user, isLoading } = useAuthContext();
   const [location] = useLocation();
 
@@ -67,6 +67,7 @@ function ProtectedRoutes() {
           <Route path="/repositories" component={RepositoriesPage} />
           <Route path="/projects" component={ProjectsPage} />
           <Route path="/members" component={MembersPage} />
+          <Route path="/profile" component={UserProfilePage} />
           <Route path="/users/:username" component={UserProfilePage} />
           <Route path="/settings/workspace" component={WorkspaceSettingsPage} />
           <Route
@@ -87,7 +88,7 @@ function ProtectedRoutes() {
   );
 }
 
-export function App() {
+export const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>

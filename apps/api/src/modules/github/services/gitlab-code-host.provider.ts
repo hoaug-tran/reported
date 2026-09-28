@@ -31,12 +31,12 @@ interface GitLabBranchResponse {
   name: string;
 }
 
-function mapGitLabState(state: string): "OPEN" | "CLOSED" | "MERGED" {
+const mapGitLabState = (state: string): "OPEN" | "CLOSED" | "MERGED" => {
   const s = state.toLowerCase();
   if (s === "merged") return "MERGED";
   if (s === "closed") return "CLOSED";
   return "OPEN";
-}
+};
 
 export class GitLabCodeHostProvider implements ICodeHostProvider {
   readonly providerId = "gitlab";

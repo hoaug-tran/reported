@@ -1,6 +1,6 @@
 import { pool } from "./db.js";
 
-export async function migrate() {
+export const migrate = async () => {
   const client = await pool.connect();
   try {
     await client.query(`
@@ -116,7 +116,7 @@ export async function migrate() {
         expires_at TIMESTAMPTZ NOT NULL,
         invited_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         accepted_at TIMESTAMPTZ,
-        createdAt TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
       CREATE TABLE IF NOT EXISTS projects (
@@ -383,6 +383,15 @@ export async function migrate() {
       );
 
       ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE;
+      ALTER TABLE invitations ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='invitations' AND column_name='createdat') THEN
+          ALTER TABLE invitations RENAME COLUMN createdat TO created_at;
+        END IF;
+      EXCEPTION
+        WHEN duplicate_column THEN NULL;
+      END $$;
 
       CREATE TABLE IF NOT EXISTS outbox_events (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

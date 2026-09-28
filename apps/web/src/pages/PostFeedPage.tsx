@@ -55,7 +55,7 @@ interface FeedItem {
   link: string;
 }
 
-function formatRelativeTime(dateStr: string, isVi: boolean): string {
+const formatRelativeTime = (dateStr: string, isVi: boolean): string => {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const diffSec = Math.floor(diffMs / 1000);
   if (diffSec < 60) return isVi ? "vừa xong" : "just now";
@@ -69,7 +69,7 @@ function formatRelativeTime(dateStr: string, isVi: boolean): string {
     month: "short",
     day: "numeric",
   });
-}
+};
 
 export const PostFeedPage: React.FC = () => {
   const { tokens } = useThemeContext();
@@ -141,11 +141,11 @@ export const PostFeedPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeWorkspace?.id]);
 
   useEffect(() => {
     loadFeed();
-  }, [loadFeed]);
+  }, [loadFeed, activeWorkspace?.id]);
 
   const filteredItems = items.filter((item) => {
     if (

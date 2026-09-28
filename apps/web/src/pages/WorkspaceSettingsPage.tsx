@@ -11,8 +11,10 @@ import {
   DialogContent,
   DialogActions,
 } from "@mui/material";
-import { Save, Trash2, AlertTriangle } from "lucide-react";
+import { Save, Trash2, AlertTriangle, Info, FolderGit2 } from "lucide-react";
 import { Page, PageHeader, SectionCard } from "../components/common/Page";
+import { AboutReportedModal } from "../components/common/AboutReportedModal";
+import { AUTHOR_CONFIG, APP_CONFIG } from "../constants/index";
 import { useThemeContext } from "../contexts/ThemeContext";
 import { useI18n } from "../contexts/I18nContext";
 import { useWorkspace } from "../contexts/WorkspaceContext";
@@ -37,6 +39,7 @@ export const WorkspaceSettingsPage: React.FC = () => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   useEffect(() => {
     if (activeWorkspace) {
@@ -224,6 +227,69 @@ export const WorkspaceSettingsPage: React.FC = () => {
           </Box>
         </SectionCard>
       )}
+
+      <SectionCard sx={{ p: 3, mb: 3 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+          {isVi ? "Về nền tảng Reported" : "About Reported Platform"}
+        </Typography>
+        <Typography
+          variant="caption"
+          sx={{ color: tokens.textSecondary, mb: 2, display: "block" }}
+        >
+          {isVi
+            ? "Thông tin nền tảng, tác giả phát triển và mã nguồn dự án"
+            : "Platform details, development team, and open source repository"}
+        </Typography>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{ color: tokens.textSecondary, lineHeight: 1.6 }}
+          >
+            {isVi
+              ? "Reported là nền tảng quản lý báo cáo lỗi, theo dõi issue chuyên sâu và tổ chức quy trình code review chuẩn mực cho đội ngũ kỹ sư. Được kiến trúc và phát triển bởi Hoàng Trần (@hoaug-tran)."
+              : "Reported is an engineering-first issue tracking and rigorous code review platform. Architected and developed by Hoàng Trần (@hoaug-tran)."}
+          </Typography>
+          <Box
+            sx={{
+              display: "flex",
+              gap: 1.5,
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Info size={14} />}
+              onClick={() => setAboutOpen(true)}
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                fontSize: "0.8rem",
+              }}
+            >
+              {isVi ? "Xem chi tiết dự án" : "View project details"}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FolderGit2 size={14} />}
+              component="a"
+              href={AUTHOR_CONFIG.githubUrl}
+              target="_blank"
+              rel="noreferrer"
+              sx={{
+                borderRadius: "6px",
+                textTransform: "none",
+                fontSize: "0.8rem",
+              }}
+            >
+              GitHub (@{AUTHOR_CONFIG.username})
+            </Button>
+          </Box>
+        </Box>
+      </SectionCard>
+      <AboutReportedModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
 
       <Dialog
         open={deleteDialogOpen}
