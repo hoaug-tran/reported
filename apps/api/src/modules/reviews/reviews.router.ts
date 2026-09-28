@@ -587,11 +587,11 @@ reviewsRouter.post(
   },
 );
 
-async function checkReviewPermissions(
+const checkReviewPermissions = async (
   userId: string,
   userGlobalRole: string,
   review: typeof reviewRequests.$inferSelect,
-) {
+) => {
   const isAuthor = review.authorId === userId;
   const isSystemAdmin = userGlobalRole === "ADMIN";
 
@@ -659,8 +659,12 @@ reviewsRouter.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
+      const param = req.params.id;
+      const isNum = /^\d+$/.test(param);
       const review = await db.query.reviewRequests.findFirst({
-        where: eq(reviewRequests.id, req.params.id),
+        where: isNum
+          ? eq(reviewRequests.number, parseInt(param, 10))
+          : eq(reviewRequests.id, param),
       });
 
       if (!review) {
@@ -854,8 +858,12 @@ reviewsRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
+      const param = req.params.id;
+      const isNum = /^\d+$/.test(param);
       const review = await db.query.reviewRequests.findFirst({
-        where: eq(reviewRequests.id, req.params.id),
+        where: isNum
+          ? eq(reviewRequests.number, parseInt(param, 10))
+          : eq(reviewRequests.id, param),
       });
 
       if (!review) {
@@ -911,8 +919,8 @@ reviewsRouter.patch(
     try {
       const input = UpdateReviewDecisionSchema.parse(req.body);
       const user = req.user!;
-      const reviewId = req.params.id;
-      await assertActivePost(TargetType.REVIEW, reviewId);
+      const activeReview = await assertActivePost(TargetType.REVIEW, req.params.id);
+      const reviewId = activeReview.id;
 
       const reviewerEntry = await db.query.reviewReviewers.findFirst({
         where: and(
@@ -995,8 +1003,8 @@ reviewsRouter.patch(
     try {
       const input = UpdateAcknowledgementSchema.parse(req.body);
       const user = req.user!;
-      const reviewId = req.params.id;
-      await assertActivePost(TargetType.REVIEW, reviewId);
+      const activeReview = await assertActivePost(TargetType.REVIEW, req.params.id);
+      const reviewId = activeReview.id;
 
       const reviewerEntry = await db.query.reviewReviewers.findFirst({
         where: and(

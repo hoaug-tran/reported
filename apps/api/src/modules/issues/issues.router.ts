@@ -597,9 +597,13 @@ issuesRouter.patch(
     try {
       const input = UpdateIssueSchema.parse(req.body);
       const user = req.user!;
+      const param = req.params.id;
+      const isNum = /^\d+$/.test(param);
 
       const issue = await db.query.issues.findFirst({
-        where: eq(issues.id, req.params.id),
+        where: isNum
+          ? eq(issues.number, parseInt(param, 10))
+          : eq(issues.id, param),
       });
 
       if (!issue) {
@@ -821,8 +825,13 @@ issuesRouter.delete(
   requireAuth,
   async (req: Request, res: Response, next: NextFunction) => {
     try {
+      const param = req.params.id;
+      const isNum = /^\d+$/.test(param);
+
       const issue = await db.query.issues.findFirst({
-        where: eq(issues.id, req.params.id),
+        where: isNum
+          ? eq(issues.number, parseInt(param, 10))
+          : eq(issues.id, param),
       });
 
       if (!issue) {
