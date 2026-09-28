@@ -44,6 +44,8 @@ import { apiFetch } from "../api/client";
 import { UserProfileDto } from "@reported/contracts";
 import { compressAvatarToWebP } from "../utils/imageOptimizer";
 import { uploadFileWithChunking } from "../utils/chunkedUpload";
+import { NotFoundPage } from "./NotFoundPage";
+import { AccessDeniedPage } from "./AccessDeniedPage";
 
 interface ActivityItem {
   type: string;
@@ -85,10 +87,11 @@ export const UserProfilePage: React.FC = () => {
   const isDark = resolvedMode === "dark";
   const toast = useToast();
   const { user: currentUser, refreshUser } = useAuthContext();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const [, params] = useRoute("/users/:username");
 
   const [loading, setLoading] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [activityData, setActivityData] = useState<ActivityData | null>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -102,6 +105,11 @@ export const UserProfilePage: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
+  const isProfileRoute = location === "/profile";
+  const targetUsername = isProfileRoute
+    ? currentUser?.username
+    : params?.username;
+
   const isSelf =
     currentUser &&
     profile &&
@@ -109,11 +117,12 @@ export const UserProfilePage: React.FC = () => {
       currentUser.username === profile.username);
 
   useEffect(() => {
-    if (!params?.username) return;
+    if (!targetUsername) return;
     setLoading(true);
+    setErrorStatus(null);
     Promise.all([
-      apiFetch<UserProfileDto>(`/users/${params.username}`),
-      apiFetch<ActivityData>(`/users/${params.username}/activity`).catch(
+      apiFetch<UserProfileDto>(`/users/${targetUsername}`),
+      apiFetch<ActivityData>(`/users/${targetUsername}/activity`).catch(
         () => null,
       ),
     ])
@@ -121,9 +130,12 @@ export const UserProfilePage: React.FC = () => {
         setProfile(prof);
         setActivityData(act);
       })
-      .catch(console.error)
+      .catch((err: unknown) => {
+        const status = (err as { status?: number })?.status || 404;
+        setErrorStatus(status);
+      })
       .finally(() => setLoading(false));
-  }, [params?.username]);
+  }, [targetUsername]);
 
   const handleOpenEdit = () => {
     if (!profile) return;
@@ -253,47 +265,48 @@ export const UserProfilePage: React.FC = () => {
 
   const monthLabels = useMemo(() => {
     const labels: Array<{ text: string; colIndex: number }> = [];
-    let lastMonth = -1;
+    let lastColIndex = -999;
+    const monthNamesVi = [
+      "Thg 1",
+      "Thg 2",
+      "Thg 3",
+      "Thg 4",
+      "Thg 5",
+      "Thg 6",
+      "Thg 7",
+      "Thg 8",
+      "Thg 9",
+      "Thg 10",
+      "Thg 11",
+      "Thg 12",
+    ];
+    const monthNamesEn = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+
     weeks.forEach((week, wIdx) => {
-      const firstDayOfMonth = week.find(
-        (d) =>
-          d.dateStr.endsWith("-01") ||
-          (d.dayOfWeek === 1 && d.month !== lastMonth),
-      );
-      if (firstDayOfMonth && firstDayOfMonth.month !== lastMonth) {
-        lastMonth = firstDayOfMonth.month;
-        const monthNamesVi = [
-          "Thg 1",
-          "Thg 2",
-          "Thg 3",
-          "Thg 4",
-          "Thg 5",
-          "Thg 6",
-          "Thg 7",
-          "Thg 8",
-          "Thg 9",
-          "Thg 10",
-          "Thg 11",
-          "Thg 12",
-        ];
-        const monthNamesEn = [
-          "Jan",
-          "Feb",
-          "Mar",
-          "Apr",
-          "May",
-          "Jun",
-          "Jul",
-          "Aug",
-          "Sep",
-          "Oct",
-          "Nov",
-          "Dec",
-        ];
-        labels.push({
-          text: isVi ? monthNamesVi[lastMonth] : monthNamesEn[lastMonth],
-          colIndex: wIdx,
-        });
+      const firstDayOfMonth = week.find((d) => d.dateStr.endsWith("-01"));
+      if (firstDayOfMonth) {
+        if (wIdx - lastColIndex >= 3 && weeks.length - wIdx >= 2) {
+          labels.push({
+            text: isVi
+              ? monthNamesVi[firstDayOfMonth.month]
+              : monthNamesEn[firstDayOfMonth.month],
+            colIndex: wIdx,
+          });
+          lastColIndex = wIdx;
+        }
       }
     });
     return labels;
@@ -342,20 +355,12 @@ export const UserProfilePage: React.FC = () => {
     );
   }
 
-  if (!profile) {
-    return (
-      <Box sx={{ textAlign: "center", py: 8 }}>
-        <Typography variant="h3">
-          {isVi ? "Không tìm thấy người dùng" : "User not found"}
-        </Typography>
-        <Button
-          onClick={() => setLocation("/")}
-          sx={{ mt: 2, borderRadius: "6px" }}
-        >
-          {isVi ? "Về trang chủ" : "Back to Home"}
-        </Button>
-      </Box>
-    );
+  if (errorStatus === 403) {
+    return <AccessDeniedPage />;
+  }
+
+  if (errorStatus === 404 || !profile) {
+    return <NotFoundPage />;
   }
 
   return (
@@ -731,7 +736,15 @@ export const UserProfilePage: React.FC = () => {
           </Box>
         </Box>
 
-        <Box sx={{ width: "100%", overflowX: "auto", pb: 1, pr: 0.5 }}>
+        <Box
+          sx={{
+            width: "100%",
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
+            pb: 1,
+            pr: 0.5,
+          }}
+        >
           <Box
             sx={{
               width: "100%",
