@@ -4,11 +4,11 @@ export interface ImageOptimizeOptions {
   maxHeight?: number;
 }
 
-export async function convertImageToWebP(
+export const convertImageToWebP = async (
   file: File,
   options: ImageOptimizeOptions = {},
-): Promise<File> {
-  const { quality = 0.82, maxWidth = 1920, maxHeight = 1920 } = options;
+): Promise<File> => {
+  const { quality = 0.85, maxWidth = 2560, maxHeight = 2560 } = options;
 
   if (!file.type.startsWith("image/")) {
     return file;
@@ -45,6 +45,9 @@ export async function convertImageToWebP(
           return resolve(file);
         }
 
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
         canvas.toBlob(
@@ -77,12 +80,26 @@ export async function convertImageToWebP(
     reader.onerror = () => resolve(file);
     reader.readAsDataURL(file);
   });
-}
+};
 
-export async function compressAvatarToWebP(file: File): Promise<File> {
+export const compressAvatarToWebP = async (file: File): Promise<File> => {
   return convertImageToWebP(file, {
-    quality: 0.85,
+    quality: 0.88,
     maxWidth: 512,
     maxHeight: 512,
   });
-}
+};
+
+export const optimizeFileForUpload = async (
+  file: File | Blob,
+  fileName: string,
+): Promise<{ file: File | Blob; fileName: string }> => {
+  if (file instanceof File && file.type.startsWith("image/")) {
+    const optimized = await convertImageToWebP(file);
+    return {
+      file: optimized,
+      fileName: optimized.name || fileName,
+    };
+  }
+  return { file, fileName };
+};

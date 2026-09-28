@@ -1,4 +1,5 @@
-import { convertImageToWebP } from "./imageOptimizer";
+import { optimizeFileForUpload } from "./imageOptimizer";
+import { STORAGE_KEYS, UPLOAD_CONFIG } from "../constants/index";
 
 export interface UploadAttachmentResult {
   id: string;
@@ -17,23 +18,18 @@ interface UploadOptions {
   onProgress?: (progressPercent: number) => void;
 }
 
-const CHUNK_SIZE = 2 * 1024 * 1024;
-
-export async function uploadFileWithChunking(
+export const uploadFileWithChunking = async (
   file: File | Blob,
   fileName: string,
   options: UploadOptions = {},
-): Promise<UploadAttachmentResult> {
-  let processedFile = file;
-  let processedName = fileName;
-  if (file instanceof File && file.type.startsWith("image/")) {
-    processedFile = await convertImageToWebP(file);
-    processedName = (processedFile as File).name || fileName;
-  }
+): Promise<UploadAttachmentResult> => {
+  const optimized = await optimizeFileForUpload(file, fileName);
+  const processedFile = optimized.file;
+  const processedName = optimized.fileName;
 
-  const token = localStorage.getItem("reported_token");
+  const token = localStorage.getItem(STORAGE_KEYS.token);
   const activeWorkspaceId = localStorage.getItem(
-    "reported_active_workspace_id",
+    STORAGE_KEYS.activeWorkspaceId,
   );
 
   const headers: Record<string, string> = {};
@@ -46,7 +42,7 @@ export async function uploadFileWithChunking(
 
   const fileSize = processedFile.size;
 
-  if (fileSize <= CHUNK_SIZE) {
+  if (fileSize <= UPLOAD_CONFIG.chunkSize) {
     const formData = new FormData();
     formData.append("file", processedFile, processedName);
     if (options.targetType) formData.append("targetType", options.targetType);
@@ -68,21 +64,21 @@ export async function uploadFileWithChunking(
   }
 
   const uploadId = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-  const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+  const totalChunks = Math.ceil(fileSize / UPLOAD_CONFIG.chunkSize);
   let finalResult: UploadAttachmentResult | null = null;
 
   for (let i = 0; i < totalChunks; i++) {
-    const start = i * CHUNK_SIZE;
-    const end = Math.min(start + CHUNK_SIZE, fileSize);
-    const chunkBlob = file.slice(start, end);
+    const start = i * UPLOAD_CONFIG.chunkSize;
+    const end = Math.min(start + UPLOAD_CONFIG.chunkSize, fileSize);
+    const chunkBlob = processedFile.slice(start, end);
 
     const formData = new FormData();
     formData.append("chunk", chunkBlob, `chunk_${i}`);
     formData.append("uploadId", uploadId);
     formData.append("chunkIndex", String(i));
     formData.append("totalChunks", String(totalChunks));
-    formData.append("filename", fileName);
-    formData.append("mimeType", file.type || "application/octet-stream");
+    formData.append("filename", processedName);
+    formData.append("mimeType", processedFile.type || "application/octet-stream");
     if (options.targetType) formData.append("targetType", options.targetType);
     if (options.targetId) formData.append("targetId", options.targetId);
 
@@ -114,4 +110,4 @@ export async function uploadFileWithChunking(
   }
 
   return finalResult;
-}
+};

@@ -392,6 +392,8 @@ attachmentsRouter.get(
         );
       }
 
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+
       if (isInline) {
         res.setHeader("Content-Type", record.mimeType);
         return res.sendFile(fullPath);
