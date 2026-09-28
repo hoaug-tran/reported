@@ -35,6 +35,7 @@ import {
   GitBranch,
   ChevronDown,
   Plus,
+  ArrowRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../contexts/ThemeContext";
@@ -511,7 +512,16 @@ export const RepositoriesPage: React.FC = () => {
                                   variant="caption"
                                   sx={{ color: tokens.textSecondary }}
                                 >
-                                  {pr.headBranch} → {pr.baseBranch}
+                                  <span>{pr.headBranch}</span>
+                                  <ArrowRight
+                                    size={10}
+                                    style={{
+                                      display: "inline-block",
+                                      verticalAlign: "middle",
+                                      margin: "0 4px",
+                                    }}
+                                  />
+                                  <span>{pr.baseBranch}</span>
                                   {pr.authorLogin
                                     ? ` · @${pr.authorLogin}`
                                     : pr.authorGithub

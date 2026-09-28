@@ -13,6 +13,7 @@ import {
   GitPullRequest,
   Search,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../../contexts/ThemeContext";
@@ -108,7 +109,15 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
             {user?.displayName ||
               user?.username ||
               (isVi ? "Kỹ sư" : "Engineer")}{" "}
-            👋
+            <Sparkles
+              size={20}
+              style={{
+                display: "inline-block",
+                verticalAlign: "middle",
+                marginLeft: 6,
+                color: tokens.primary,
+              }}
+            />
           </Typography>
 
           <Typography

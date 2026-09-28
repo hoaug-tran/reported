@@ -49,6 +49,11 @@ import {
   HelpCircle,
   Download,
   Settings,
+  Info,
+  Zap,
+  Rocket,
+  Palette,
+  Wrench,
 } from "lucide-react";
 import { usePwaInstall } from "../../hooks/usePwaInstall";
 import { useLocation } from "wouter";
@@ -64,6 +69,7 @@ import { OnboardingTour } from "../common/OnboardingTour";
 import { CommandPalette } from "../search/CommandPalette";
 import { NotificationCenter } from "../notifications/NotificationCenter";
 import { NotificationPreferencesModal } from "../notifications/NotificationPreferencesModal";
+import { AboutReportedModal } from "../common/AboutReportedModal";
 import { EmailInspectorModal } from "../notifications/EmailInspectorModal";
 import { LinkRepoModal } from "../github/LinkRepoModal";
 import { DashboardCodeHostingBanner } from "../common/ConnectedAccountNotice";
@@ -127,6 +133,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const [linkRepoOpen, setLinkRepoOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [emailInspectorOpen, setEmailInspectorOpen] = useState(false);
+  const [aboutModalOpen, setAboutModalOpen] = useState(false);
 
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [workspaceName, setWorkspaceName] = useState("");
@@ -484,11 +491,21 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
       if (p === "members") label = t("members");
       if (p === "settings") label = t("settings");
       if (p === "connected-accounts") label = t("connectedAccounts");
+      if (p === "profile") label = language === "vi" ? "Hồ sơ cá nhân" : "Profile";
       if (p === "new")
         label = parts[0] === "issues" ? t("newPost") : t("askForReview");
       if (parts[0] === "issues" && idx === 1 && p !== "new") label = `#${p}`;
       if (parts[0] === "reviews" && idx === 1 && p !== "new")
         label = `Review #${p}`;
+      if (parts[0] === "users") {
+        if (idx === 0) return;
+        label =
+          p === user?.username
+            ? language === "vi"
+              ? "Hồ sơ cá nhân"
+              : "Profile"
+            : `@${p}`;
+      }
       crumbs.push({ label, path: currentPath });
     });
     return crumbs;
@@ -1175,7 +1192,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
               <MenuItem
                 onClick={() => {
                   setUserMenuAnchor(null);
-                  setLocation(`/users/${user.username}`);
+                  setLocation("/profile");
                 }}
               >
                 <User
@@ -1207,6 +1224,18 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                   style={{ marginRight: 12, color: tokens.primary }}
                 />{" "}
                 {t("notificationPrefs")}
+              </MenuItem>
+              <MenuItem
+                onClick={() => {
+                  setUserMenuAnchor(null);
+                  setAboutModalOpen(true);
+                }}
+              >
+                <Info
+                  size={16}
+                  style={{ marginRight: 12, color: tokens.primary }}
+                />{" "}
+                {language === "vi" ? "Giới thiệu Reported" : "About Reported"}
               </MenuItem>
               <Divider />
               <MenuItem
@@ -1741,43 +1770,57 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
             {[
               {
-                label: language === "vi" ? "⚡ Kỹ thuật" : "⚡ Engineering",
+                icon: Zap,
+                label: language === "vi" ? "Kỹ thuật" : "Engineering",
                 name: "Engineering",
               },
               {
-                label: language === "vi" ? "🚀 Sản phẩm" : "🚀 Product",
+                icon: Rocket,
+                label: language === "vi" ? "Sản phẩm" : "Product",
                 name: "Product Team",
               },
               {
-                label: language === "vi" ? "🎨 Thiết kế" : "🎨 Design",
+                icon: Palette,
+                label: language === "vi" ? "Thiết kế" : "Design",
                 name: "Design Studio",
               },
               {
-                label: language === "vi" ? "🛠 Hạ tầng" : "🛠 Infrastructure",
+                icon: Wrench,
+                label: language === "vi" ? "Hạ tầng" : "Infrastructure",
                 name: "Infrastructure",
               },
-            ].map((preset) => (
-              <Chip
-                key={preset.name}
-                label={preset.label}
-                size="small"
-                onClick={() => {
-                  setWorkspaceName(preset.name);
-                  setWorkspaceSlug(slugify(preset.name));
-                }}
-                sx={{
-                  cursor: "pointer",
-                  fontSize: "0.72rem",
-                  borderRadius: "4px",
-                  backgroundColor: tokens.surfaceSecondary,
-                  border: `1px solid ${tokens.border}`,
-                  "&:hover": {
-                    borderColor: tokens.primary,
-                    color: tokens.primary,
-                  },
-                }}
-              />
-            ))}
+            ].map((preset) => {
+              const PresetIcon = preset.icon;
+              return (
+                <Chip
+                  key={preset.name}
+                  icon={<PresetIcon size={12} />}
+                  label={preset.label}
+                  size="small"
+                  onClick={() => {
+                    setWorkspaceName(preset.name);
+                    setWorkspaceSlug(slugify(preset.name));
+                  }}
+                  sx={{
+                    cursor: "pointer",
+                    fontSize: "0.72rem",
+                    borderRadius: "4px",
+                    backgroundColor: tokens.surfaceSecondary,
+                    border: `1px solid ${tokens.border}`,
+                    "& .MuiChip-icon": {
+                      color: tokens.textSecondary,
+                    },
+                    "&:hover": {
+                      borderColor: tokens.primary,
+                      color: tokens.primary,
+                      "& .MuiChip-icon": {
+                        color: tokens.primary,
+                      },
+                    },
+                  }}
+                />
+              );
+            })}
           </Box>
           <TextField
             label={language === "vi" ? "Tên workspace" : "Workspace name"}
@@ -1860,6 +1903,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
 
       <OnboardingTour />
       <ScrollNavigator />
+      <AboutReportedModal
+        open={aboutModalOpen}
+        onClose={() => setAboutModalOpen(false)}
+      />
     </Box>
   </ScrollProvider>
   );

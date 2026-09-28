@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -51,6 +51,8 @@ import {
   Wrench,
   Compass,
   FileText,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../contexts/ThemeContext";
@@ -356,21 +358,20 @@ export const CreateIssuePage: React.FC = () => {
       setRepositoryId(repositoriesList[0].id);
     }
   }, [repositoriesList, projectId, repositoryId]);
-
-  useEffect(() => {
-    if (!repositoryId || !showPrLink) {
-      setLivePulls([]);
-      setSelectedPr(null);
-      return;
-    }
-    const fetchLivePulls = async () => {
+  const fetchLivePulls = useCallback(
+    async (forceRefresh = false) => {
+      if (!repositoryId || !showPrLink) {
+        setLivePulls([]);
+        return;
+      }
       setLoadingLivePulls(true);
       setLivePullsError(null);
       try {
+        const url = `/github/repositories/${repositoryId}/github-pulls${forceRefresh ? "?fresh=true" : ""}`;
         const data = await apiFetch<{
           pulls: LivePullRequest[];
           error?: string;
-        }>(`/github/repositories/${repositoryId}/github-pulls`);
+        }>(url, { skipCache: forceRefresh });
         const openPulls = (data.pulls || []).filter((p: LivePullRequest) => {
           const s = (p.state || "").toLowerCase();
           return s === "open" || s === "opened";
@@ -387,9 +388,13 @@ export const CreateIssuePage: React.FC = () => {
       } finally {
         setLoadingLivePulls(false);
       }
-    };
-    fetchLivePulls();
-  }, [repositoryId, showPrLink]);
+    },
+    [repositoryId, showPrLink, isVi],
+  );
+
+  useEffect(() => {
+    fetchLivePulls(false);
+  }, [fetchLivePulls]);
 
   useEffect(() => {
     if (!selectedPr) return;
@@ -1250,6 +1255,42 @@ flowchart TD
                 <Box
                   sx={{ display: "flex", flexDirection: "column", gap: 0.8 }}
                 >
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      mb: 0.5,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 600, color: tokens.textSecondary }}
+                    >
+                      {isVi ? "Pull Request đang mở:" : "Open Pull Requests:"}
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="text"
+                      startIcon={<RefreshCw size={12} />}
+                      onClick={() => fetchLivePulls(true)}
+                      disabled={loadingLivePulls}
+                      sx={{
+                        fontSize: "0.75rem",
+                        textTransform: "none",
+                        py: 0.2,
+                        color: tokens.primary,
+                      }}
+                    >
+                      {loadingLivePulls
+                        ? isVi
+                          ? "Đang tải..."
+                          : "Loading..."
+                        : isVi
+                          ? "Làm mới PR từ GitHub"
+                          : "Refresh from GitHub"}
+                    </Button>
+                  </Box>
                   {loadingLivePulls ? (
                     <Box
                       sx={{
@@ -1303,14 +1344,35 @@ flowchart TD
                       )}
                     </Box>
                   ) : livePulls.length === 0 ? (
-                    <Alert
-                      severity="info"
-                      sx={{ borderRadius: "6px", fontSize: "0.8rem", py: 0.5 }}
+                    <Box
+                      sx={{ display: "flex", flexDirection: "column", gap: 1 }}
                     >
-                      {isVi
-                        ? "Repo này chưa có Pull Request đang mở."
-                        : "No open Pull Requests for this repository."}
-                    </Alert>
+                      <Alert
+                        severity="info"
+                        sx={{ borderRadius: "6px", fontSize: "0.8rem", py: 0.5 }}
+                      >
+                        {isVi
+                          ? "Repo này chưa có Pull Request đang mở."
+                          : "No open Pull Requests for this repository."}
+                      </Alert>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<RefreshCw size={12} />}
+                        onClick={() => fetchLivePulls(true)}
+                        disabled={loadingLivePulls}
+                        sx={{
+                          alignSelf: "flex-start",
+                          fontSize: "0.75rem",
+                          textTransform: "none",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        {isVi
+                          ? "Đồng bộ lại PR vừa tạo"
+                          : "Sync newly created PR"}
+                      </Button>
+                    </Box>
                   ) : (
                     livePulls.map((pr) => {
                       const isSelected = selectedPr?.number === pr.number;
@@ -1383,7 +1445,16 @@ flowchart TD
                                 : tokens.textSecondary,
                             }}
                           >
-                            {pr.headBranch} → {pr.baseBranch}
+                            <span>{pr.headBranch}</span>
+                            <ArrowRight
+                              size={10}
+                              style={{
+                                display: "inline-block",
+                                verticalAlign: "middle",
+                                margin: "0 4px",
+                              }}
+                            />
+                            <span>{pr.baseBranch}</span>
                             {pr.authorLogin ? ` • @${pr.authorLogin}` : ""}
                           </Typography>
                         </Box>

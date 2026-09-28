@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Box,
   Typography,
@@ -39,6 +39,9 @@ import {
   RefreshCw,
   Users,
   LucideIcon,
+  ChevronUp,
+  ChevronDown,
+  ArrowRight,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../contexts/ThemeContext";
@@ -142,6 +145,7 @@ export const CreateReviewPage: React.FC = () => {
     : null;
 
   const [prUrl, setPrUrl] = useState("");
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [specialNotes, setSpecialNotes] = useState("");
   const [reviewType] = useState<ReviewType>(ReviewType.CODE);
@@ -214,6 +218,7 @@ export const CreateReviewPage: React.FC = () => {
       { skipCache: true },
     )
       .then((review) => {
+        setEditingReviewId(review.id);
         const focusLine = review.description.match(
           /^\*\*(?:Trọng tâm review|Focus areas):\*\*\s*(.+?)(?:\n\n|$)/,
         );
@@ -326,19 +331,20 @@ export const CreateReviewPage: React.FC = () => {
     }
   }, [projects]);
 
-  useEffect(() => {
-    if (!repositoryId || prSelectionMode !== "repo") {
-      setLivePulls([]);
-      return;
-    }
-    const fetchLivePulls = async () => {
+  const fetchLivePulls = useCallback(
+    async (forceRefresh = false) => {
+      if (!repositoryId || prSelectionMode !== "repo") {
+        setLivePulls([]);
+        return;
+      }
       setLoadingLivePulls(true);
       setLivePullsError(null);
       try {
+        const url = `/github/repositories/${repositoryId}/github-pulls${forceRefresh ? "?fresh=true" : ""}`;
         const data = await apiFetch<{
           pulls: LivePullRequest[];
           error?: string;
-        }>(`/github/repositories/${repositoryId}/github-pulls`);
+        }>(url, { skipCache: forceRefresh });
         const pulls = (data.pulls || []).filter((p: LivePullRequest) => {
           const s = (p.state || "").toLowerCase();
           return s === "open" || s === "opened";
@@ -364,9 +370,13 @@ export const CreateReviewPage: React.FC = () => {
       } finally {
         setLoadingLivePulls(false);
       }
-    };
-    fetchLivePulls();
-  }, [repositoryId, prSelectionMode, initPrNumber]);
+    },
+    [repositoryId, prSelectionMode, initPrNumber, isVi],
+  );
+
+  useEffect(() => {
+    fetchLivePulls(false);
+  }, [fetchLivePulls]);
 
   useEffect(() => {
     if (!selectedPr) return;
@@ -506,8 +516,9 @@ export const CreateReviewPage: React.FC = () => {
         reviewerIds,
         labels: selectedLabels,
       };
+      const targetId = editingReviewId || editNumber;
       const res = isEditing
-        ? await apiFetch<{ message: string }>(`/reviews/${editNumber}`, {
+        ? await apiFetch<{ message: string }>(`/reviews/${targetId}`, {
             method: "PATCH",
             body: JSON.stringify(payload),
           })
@@ -841,6 +852,47 @@ export const CreateReviewPage: React.FC = () => {
 
                     {repositoryId && (
                       <Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            mb: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 600,
+                              color: tokens.textSecondary,
+                            }}
+                          >
+                            {isVi
+                              ? "Danh sách Pull Request đang mở:"
+                              : "Open Pull Requests:"}
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="text"
+                            startIcon={<RefreshCw size={12} />}
+                            onClick={() => fetchLivePulls(true)}
+                            disabled={loadingLivePulls}
+                            sx={{
+                              fontSize: "0.75rem",
+                              textTransform: "none",
+                              py: 0.2,
+                              color: tokens.primary,
+                            }}
+                          >
+                            {loadingLivePulls
+                              ? isVi
+                                ? "Đang tải..."
+                                : "Loading..."
+                              : isVi
+                                ? "Làm mới PR từ GitHub"
+                                : "Refresh from GitHub"}
+                          </Button>
+                        </Box>
                         {loadingLivePulls ? (
                           <Box
                             sx={{
@@ -901,18 +953,43 @@ export const CreateReviewPage: React.FC = () => {
                             )}
                           </Box>
                         ) : livePulls.length === 0 ? (
-                          <Alert
-                            severity="info"
+                          <Box
                             sx={{
-                              fontSize: "0.8rem",
-                              py: 0.5,
-                              borderRadius: "6px",
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 1,
                             }}
                           >
-                            {isVi
-                              ? "Không có Pull Request nào trong repository này."
-                              : "No pull requests found for this repo."}
-                          </Alert>
+                            <Alert
+                              severity="info"
+                              sx={{
+                                fontSize: "0.8rem",
+                                py: 0.5,
+                                borderRadius: "6px",
+                              }}
+                            >
+                              {isVi
+                                ? "Không có Pull Request nào đang mở trong repository này."
+                                : "No open pull requests found for this repo."}
+                            </Alert>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<RefreshCw size={12} />}
+                              onClick={() => fetchLivePulls(true)}
+                              disabled={loadingLivePulls}
+                              sx={{
+                                alignSelf: "flex-start",
+                                fontSize: "0.75rem",
+                                textTransform: "none",
+                                borderRadius: "6px",
+                              }}
+                            >
+                              {isVi
+                                ? "Đồng bộ lại PR vừa tạo"
+                                : "Sync newly created PR"}
+                            </Button>
+                          </Box>
                         ) : (
                           <Box
                             sx={{
@@ -1037,7 +1114,7 @@ export const CreateReviewPage: React.FC = () => {
                                           }
                                         />
                                         <span>{pr.headBranch}</span>
-                                        <span style={{ opacity: 0.6 }}>→</span>
+                                        <ArrowRight size={12} style={{ opacity: 0.6 }} />
                                         <span>{pr.baseBranch}</span>
                                       </Box>
                                       {pr.authorLogin && (
@@ -1305,6 +1382,7 @@ export const CreateReviewPage: React.FC = () => {
               size="small"
               variant="text"
               onClick={() => setShowAdvanced((prev) => !prev)}
+              startIcon={showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               sx={{
                 textTransform: "none",
                 color: tokens.textSecondary,
@@ -1314,11 +1392,11 @@ export const CreateReviewPage: React.FC = () => {
             >
               {showAdvanced
                 ? isVi
-                  ? "▲ Thu gọn cài đặt nâng cao"
-                  : "▲ Hide advanced"
+                  ? "Thu gọn cài đặt nâng cao"
+                  : "Hide advanced"
                 : isVi
-                  ? "▼ Cài đặt nâng cao (Hạn chót, Dự án, Nhánh Git)"
-                  : "▼ Advanced settings (Deadline, Project, Git Branch)"}
+                  ? "Cài đặt nâng cao (Hạn chót, Dự án, Nhánh Git)"
+                  : "Advanced settings (Deadline, Project, Git Branch)"}
             </Button>
 
             <Collapse in={showAdvanced}>

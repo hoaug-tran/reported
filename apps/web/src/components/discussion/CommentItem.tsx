@@ -8,7 +8,33 @@ import {
   Menu,
   MenuItem,
 } from "@mui/material";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Flag, Link as LinkIcon, MoreHorizontal, Reply, Quote, Edit2, Trash2, Smile, History } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
+  Flag,
+  Link as LinkIcon,
+  MoreHorizontal,
+  Reply,
+  Quote,
+  Edit2,
+  Trash2,
+  Smile,
+  History,
+  ThumbsUp,
+  ThumbsDown,
+  Heart,
+  PartyPopper,
+  Rocket,
+  Flame,
+  Lightbulb,
+  CheckCircle2,
+  XCircle,
+  Bug,
+  HelpCircle,
+  LucideIcon,
+} from "lucide-react";
 import { UserAvatar } from "../common/UserAvatar";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { MarkdownEditor } from "../editor/MarkdownEditor";
@@ -28,51 +54,72 @@ interface CommentItemProps {
   readOnly?: boolean;
 }
 
-const AVAILABLE_REACTIONS: Array<{ type: ReactionType; emoji: string }> = [
-  { type: ReactionType.LIKE, emoji: "👍" },
-  { type: ReactionType.DISLIKE, emoji: "👎" },
-  { type: ReactionType.HEART, emoji: "❤️" },
-  { type: ReactionType.HOORAY, emoji: "🎉" },
-  { type: ReactionType.ROCKET, emoji: "🚀" },
-  { type: ReactionType.EYES, emoji: "👀" },
-  { type: ReactionType.FIRE, emoji: "🔥" },
-  { type: ReactionType.USEFUL, emoji: "💡" },
-  { type: ReactionType.AGREE, emoji: "✅" },
-  { type: ReactionType.DISAGREE, emoji: "❌" },
-  { type: ReactionType.BUG, emoji: "🐛" },
-  { type: ReactionType.CONFUSED, emoji: "😕" },
-];
-
-const REACTION_EMOJIS: Record<string, string> = {
-  [ReactionType.LIKE]: "👍",
-  [ReactionType.DISLIKE]: "👎",
-  [ReactionType.HEART]: "❤️",
-  [ReactionType.HOORAY]: "🎉",
-  [ReactionType.ROCKET]: "🚀",
-  [ReactionType.EYES]: "👀",
-  [ReactionType.FIRE]: "🔥",
-  [ReactionType.USEFUL]: "💡",
-  [ReactionType.AGREE]: "✅",
-  [ReactionType.DISAGREE]: "❌",
-  [ReactionType.BUG]: "🐛",
-  [ReactionType.CONFUSED]: "😕",
+export const REACTION_ICONS: Record<
+  ReactionType,
+  LucideIcon
+> = {
+  [ReactionType.LIKE]: ThumbsUp,
+  [ReactionType.DISLIKE]: ThumbsDown,
+  [ReactionType.HEART]: Heart,
+  [ReactionType.HOORAY]: PartyPopper,
+  [ReactionType.ROCKET]: Rocket,
+  [ReactionType.EYES]: Eye,
+  [ReactionType.FIRE]: Flame,
+  [ReactionType.USEFUL]: Lightbulb,
+  [ReactionType.AGREE]: CheckCircle2,
+  [ReactionType.DISAGREE]: XCircle,
+  [ReactionType.BUG]: Bug,
+  [ReactionType.CONFUSED]: HelpCircle,
 };
+
+const AVAILABLE_REACTIONS: Array<{
+  type: ReactionType;
+  icon: LucideIcon;
+}> = [
+  { type: ReactionType.LIKE, icon: ThumbsUp },
+  { type: ReactionType.DISLIKE, icon: ThumbsDown },
+  { type: ReactionType.HEART, icon: Heart },
+  { type: ReactionType.HOORAY, icon: PartyPopper },
+  { type: ReactionType.ROCKET, icon: Rocket },
+  { type: ReactionType.EYES, icon: Eye },
+  { type: ReactionType.FIRE, icon: Flame },
+  { type: ReactionType.USEFUL, icon: Lightbulb },
+  { type: ReactionType.AGREE, icon: CheckCircle2 },
+  { type: ReactionType.DISAGREE, icon: XCircle },
+  { type: ReactionType.BUG, icon: Bug },
+  { type: ReactionType.CONFUSED, icon: HelpCircle },
+];
 
 const HIDE_REASONS = Object.values(CommentHideReason);
 
 const COLLAPSE_CHARACTER_LIMIT = 2_000;
 const COLLAPSE_LINE_LIMIT = 18;
 
-function shouldCollapseComment(content: string) {
-  return content.length > COLLAPSE_CHARACTER_LIMIT || content.split("\n").length > COLLAPSE_LINE_LIMIT;
-}
+const shouldCollapseComment = (content: string) => {
+  return (
+    content.length > COLLAPSE_CHARACTER_LIMIT ||
+    content.split("\n").length > COLLAPSE_LINE_LIMIT
+  );
+};
 
-function relativeTime(value: string, isVi: boolean) {
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  const units = seconds < 60 ? [seconds, "giây", "second"] : seconds < 3600 ? [Math.floor(seconds / 60), "phút", "minute"] : seconds < 86400 ? [Math.floor(seconds / 3600), "giờ", "hour"] : [Math.floor(seconds / 86400), "ngày", "day"];
+const relativeTime = (value: string, isVi: boolean) => {
+  const seconds = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(value).getTime()) / 1000),
+  );
+  const units =
+    seconds < 60
+      ? [seconds, "giây", "second"]
+      : seconds < 3600
+        ? [Math.floor(seconds / 60), "phút", "minute"]
+        : seconds < 86400
+          ? [Math.floor(seconds / 3600), "giờ", "hour"]
+          : [Math.floor(seconds / 86400), "ngày", "day"];
   const [amount, vi, en] = units as [number, string, string];
-  return isVi ? `${amount} ${vi} trước` : `${amount} ${en}${amount === 1 ? "" : "s"} ago`;
-}
+  return isVi
+    ? `${amount} ${vi} trước`
+    : `${amount} ${en}${amount === 1 ? "" : "s"} ago`;
+};
 
 const CommentItemComponent: React.FC<CommentItemProps> = ({
   comment,
@@ -605,9 +652,21 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
                         backgroundColor: tokens.hover,
                         borderColor: tokens.primary,
                       },
-                    }}
-                  >
-                    <span>{REACTION_EMOJIS[r.reaction]}</span>
+                    }}>
+                    {(() => {
+                      const IconComponent =
+                        REACTION_ICONS[r.reaction as ReactionType] || ThumbsUp;
+                      return (
+                        <IconComponent
+                          size={13}
+                          color={
+                            r.hasReacted
+                              ? tokens.primary
+                              : tokens.textSecondary
+                          }
+                        />
+                      );
+                    })()}
                     <span
                       style={{
                         color: r.hasReacted
@@ -675,30 +734,34 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
                   p: 0.5,
                 }}
               >
-                {AVAILABLE_REACTIONS.map((item) => (
-                  <Tooltip key={item.type} title={reactionLabel(item.type)}>
-                    <Box
-                      onClick={() => handleToggleReaction(item.type)}
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        width: 34,
-                        height: 34,
-                        fontSize: "1.25rem",
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        transition: "transform 0.1s, background-color 0.1s",
-                        "&:hover": {
-                          backgroundColor: tokens.hover,
-                          transform: "scale(1.2)",
-                        },
-                      }}
-                    >
-                      {item.emoji}
-                    </Box>
-                  </Tooltip>
-                ))}
+                {AVAILABLE_REACTIONS.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <Tooltip key={item.type} title={reactionLabel(item.type)}>
+                      <Box
+                        onClick={() => handleToggleReaction(item.type)}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: 34,
+                          height: 34,
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          color: tokens.textPrimary,
+                          transition: "transform 0.1s, background-color 0.1s, color 0.1s",
+                          "&:hover": {
+                            backgroundColor: tokens.hover,
+                            color: tokens.primary,
+                            transform: "scale(1.15)",
+                          },
+                        }}
+                      >
+                        <Icon size={18} />
+                      </Box>
+                    </Tooltip>
+                  );
+                })}
               </Box>
             </Menu>
           </Box>

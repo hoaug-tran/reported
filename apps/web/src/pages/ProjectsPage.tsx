@@ -18,7 +18,18 @@ import {
   IconButton,
   Tooltip,
 } from "@mui/material";
-import { Plus, Bug, Eye, Edit2, Trash2, FolderGit2 } from "lucide-react";
+import {
+  Plus,
+  Bug,
+  Eye,
+  Edit2,
+  Trash2,
+  FolderGit2,
+  Globe,
+  Cpu,
+  Smartphone,
+  Cloud,
+} from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../contexts/ThemeContext";
 import { useI18n } from "../contexts/I18nContext";
@@ -508,54 +519,62 @@ export const ProjectsPage: React.FC = () => {
             <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.8 }}>
               {[
                 {
-                  label: "🌐 Web Frontend",
+                  label: "Web Frontend",
+                  icon: Globe,
                   name: "Web Frontend",
                   key: "FE",
                   slug: "web-frontend",
                 },
                 {
-                  label: "⚙️ API Backend",
+                  label: "API Backend",
+                  icon: Cpu,
                   name: "API Backend",
                   key: "BE",
                   slug: "api-backend",
                 },
                 {
-                  label: "📱 Mobile App",
+                  label: "Mobile App",
+                  icon: Smartphone,
                   name: "Mobile App",
                   key: "MOB",
                   slug: "mobile-app",
                 },
                 {
-                  label: "☁️ Cloud Infra",
+                  label: "Cloud Infra",
+                  icon: Cloud,
                   name: "Cloud Infrastructure",
                   key: "INFRA",
                   slug: "cloud-infra",
                 },
-              ].map((template) => (
-                <Chip
-                  key={template.key}
-                  label={template.label}
-                  size="small"
-                  onClick={() => {
-                    setName(template.name);
-                    setKey(template.key);
-                    setSlug(template.slug);
-                    setIsKeyManual(true);
-                    setIsSlugManual(true);
-                  }}
-                  sx={{
-                    cursor: "pointer",
-                    fontSize: "0.72rem",
-                    borderRadius: "4px",
-                    backgroundColor: tokens.surfaceSecondary,
-                    border: `1px solid ${tokens.border}`,
-                    "&:hover": {
-                      borderColor: tokens.primary,
-                      color: tokens.primary,
-                    },
-                  }}
-                />
-              ))}
+              ].map((template) => {
+                const Icon = template.icon;
+                return (
+                  <Chip
+                    key={template.key}
+                    icon={<Icon size={13} />}
+                    label={template.label}
+                    size="small"
+                    onClick={() => {
+                      setName(template.name);
+                      setKey(template.key);
+                      setSlug(template.slug);
+                      setIsKeyManual(true);
+                      setIsSlugManual(true);
+                    }}
+                    sx={{
+                      cursor: "pointer",
+                      fontSize: "0.72rem",
+                      borderRadius: "4px",
+                      backgroundColor: tokens.surfaceSecondary,
+                      border: `1px solid ${tokens.border}`,
+                      "&:hover": {
+                        borderColor: tokens.primary,
+                        color: tokens.primary,
+                      },
+                    }}
+                  />
+                );
+              })}
             </Box>
 
             <TextField

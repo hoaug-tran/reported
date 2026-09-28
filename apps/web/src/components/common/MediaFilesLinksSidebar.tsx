@@ -209,7 +209,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
       const url = m[2];
       if (isImageFile(url)) continue;
       const isVoice =
-        title.includes("🎙️") ||
+        title.includes("\u{1F399}") ||
         title.toLowerCase().includes("tin nhắn thoại") ||
         title.toLowerCase().includes("voice");
       const isAttachmentUrl = url.includes("/api/v1/attachments/");
@@ -224,7 +224,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
       ) {
         existingUrls.add(url);
         const cleanName =
-          title.replace(/^[📎🎙️\s]+/, "").trim() ||
+          title.replace(/^[\u{1F4CE}\u{1F399}\uFE0F\s]+/u, "").trim() ||
           (isVoice ? "Tin nhắn thoại" : "Tệp đính kèm");
         list.push({
           id: url,
@@ -269,7 +269,7 @@ export const MediaFilesLinksSidebar: React.FC<MediaFilesLinksSidebarProps> = ({
       const url = m[2];
       if (!isExcluded(url) && !list.some((l) => l.url === url)) {
         list.push({
-          title: title.replace(/^[📎🎙️\s]+/, "").trim() || url,
+          title: title.replace(/^[\u{1F4CE}\u{1F399}\uFE0F\s]+/u, "").trim() || url,
           url,
         });
       }
