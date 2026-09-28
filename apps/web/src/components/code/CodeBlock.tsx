@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Box,
   ButtonBase,
@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import hljs from "highlight.js";
 import { useThemeContext } from "../../contexts/ThemeContext";
+import { CODE_BLOCK_LIMITS, STORAGE_KEYS } from "../../constants/index";
 
 interface LanguageDefinition {
   id: string;
@@ -100,8 +101,15 @@ const TOP_AUTO_LANGUAGES = [
   "graphql",
 ];
 
-const AUTO_HIGHLIGHT_LIMIT = 40_000;
-const LINE_NUMBER_LIMIT = 2_000;
+const getCodeSnippetKey = (snippet: string): string => {
+  const normalized = (snippet || "").replace(/\r\n/g, "\n").trim();
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    hash = ((hash << 5) - hash) + normalized.charCodeAt(i);
+    hash |= 0;
+  }
+  return `${STORAGE_KEYS.codeLangPrefix}${hash}`;
+};
 
 const escapeHtml = (value: string) =>
   value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -136,6 +144,16 @@ const resolveLanguageId = (lang: string): string => {
   const normalized = (lang || "").toLowerCase().trim();
   if (!normalized) return "";
 
+  if (
+    normalized === "text" ||
+    normalized === "plaintext" ||
+    normalized === "txt" ||
+    normalized === "raw" ||
+    normalized === "none"
+  ) {
+    return "plaintext";
+  }
+
   for (const def of POPULAR_LANGUAGES) {
     if (def.id === normalized || def.aliases?.includes(normalized)) {
       return def.id;
@@ -149,40 +167,154 @@ const resolveLanguageId = (lang: string): string => {
   return normalized;
 };
 
+const detectCodeLanguageHeuristically = (code: string): string => {
+  const trimmed = code.trim();
+  if (!trimmed) return "plaintext";
+
+  if (
+    (trimmed.startsWith("{") && trimmed.endsWith("}")) ||
+    (trimmed.startsWith("[") && trimmed.endsWith("]"))
+  ) {
+    try {
+      JSON.parse(trimmed);
+      return "json";
+    } catch {}
+  }
+
+  if (/^<\?xml/i.test(trimmed) || /<mxfile/i.test(trimmed)) return "xml";
+  if (/^<!DOCTYPE\s+html/i.test(trimmed) || /<html[\s>]/i.test(trimmed)) return "html";
+  if (/<(div|span|p|a|ul|li|table|thead|tbody|tr|td|th|form|input|button|svg|header|footer|nav)\b[^>]*>/i.test(trimmed)) {
+    return "html";
+  }
+
+  const sqlPattern = /\b(SELECT\s+.+\s+FROM|INSERT\s+INTO\s+.+\s+VALUES|UPDATE\s+.+\s+SET|DELETE\s+FROM|CREATE\s+TABLE|ALTER\s+TABLE|DROP\s+TABLE)\b/i;
+  if (sqlPattern.test(trimmed)) {
+    return "sql";
+  }
+
+  const lines = trimmed.split("\n");
+  const diffMarkers = lines.filter(
+    (l) => l.startsWith("---") || l.startsWith("+++") || l.startsWith("@@") || /^[+-][^+-]/.test(l),
+  );
+  if (diffMarkers.length >= 2 && diffMarkers.length / lines.length > 0.35) {
+    return "diff";
+  }
+
+  if (/^#!\s*\/bin\/(bash|sh|zsh)/.test(trimmed)) {
+    return "bash";
+  }
+  const bashCommands = /^\s*(pnpm|npm|yarn|npx|curl|wget|docker|docker-compose|git|kubectl|sudo|chmod|chown|echo|export|cd|mkdir|rm)\s+/i;
+  const bashLines = lines.filter((l) => bashCommands.test(l) || /^\s*\$\s+[a-z]+/i.test(l));
+  if (bashLines.length > 0 && bashLines.length / lines.length >= 0.5) {
+    return "bash";
+  }
+
+  const pyPatterns = [
+    /^\s*def\s+[a-zA-Z0-9_]+\s*\([^)]*\)\s*:/m,
+    /^\s*class\s+[a-zA-Z0-9_]+(\s*\([^)]*\))?\s*:/m,
+    /^\s*from\s+[a-zA-Z0-9_.]+\s+import\s+/m,
+    /^\s*import\s+[a-zA-Z0-9_.]+/m,
+    /^\s*elif\s+.+:/m,
+    /if\s+__name__\s*==\s*['"]__main__['"]:/,
+  ];
+  if (pyPatterns.filter((p) => p.test(code)).length >= 2) {
+    return "python";
+  }
+
+  const hasTsTypes =
+    /\b(interface|type)\s+[A-Z][a-zA-Z0-9_]*\s*(=|\{)/.test(code) ||
+    /:\s*(string|number|boolean|any|void|unknown|Promise<[a-zA-Z0-9_]+>|Record<[a-zA-Z0-9_, ]+>)\b/.test(code);
+  const hasJsKeywords =
+    /\b(const|let|var)\s+[a-zA-Z0-9_]+\s*=/.test(code) ||
+    /\b(import\s+.+\s+from|export\s+(default|const|let|function|class))\b/.test(code) ||
+    /console\.(log|error|warn|info)\(/.test(code) ||
+    /=>\s*\{/.test(code);
+
+  if (hasTsTypes && hasJsKeywords) return "typescript";
+  if (hasJsKeywords) return "javascript";
+
+  if ((/\bpackage\s+[a-zA-Z0-9_]+/.test(code) && /\bfunc\s+/.test(code)) || /\bfmt\.Print(ln|f)?\(/.test(code)) {
+    return "go";
+  }
+
+  if (
+    /\bfn\s+[a-zA-Z0-9_]+\s*\(/.test(code) &&
+    (/\blet\s+(mut\s+)?[a-zA-Z0-9_]+/.test(code) || /\bpub\s+fn\b/.test(code) || /\bprintln!\(/.test(code) || /\bimpl\b/.test(code))
+  ) {
+    return "rust";
+  }
+
+  if (/#include\s+<[a-zA-Z0-9_.]+>/.test(code) || /\bstd::/.test(code) || /\bcout\s*<</.test(code)) {
+    return "cpp";
+  }
+
+  if (/([.#]?[a-zA-Z0-9_-]+|\*)\s*\{[^}]*(display|color|margin|padding|background|font-size|border|width|height)\s*:[^}]+\}/i.test(code)) {
+    return "css";
+  }
+
+  if (lines.length >= 2) {
+    const yamlLines = lines.filter(
+      (l) => /^\s*([a-zA-Z0-9_-]+|\"[^\"]+\"|\'[^\']+\')\s*:\s*(.+)?$/.test(l) || /^\s*-\s+.+$/.test(l),
+    );
+    if (yamlLines.length / lines.length >= 0.7 && !code.includes("{") && !code.includes(";") && !code.includes("class ")) {
+      return "yaml";
+    }
+  }
+
+  const logLines = lines.filter(
+    (l) => /^\s*(\d{4}-\d{2}-\d{2}|\[?(INFO|DEBUG|WARN|ERROR|FATAL)\]?|at\s+[a-zA-Z0-9_.]+\s*\(|\tat\s+)/i.test(l),
+  );
+  if (logLines.length > 0 && logLines.length / lines.length >= 0.4) {
+    return "plaintext";
+  }
+
+  return "";
+};
+
 interface CodeBlockProps {
   code: string;
   language?: string;
   showLineNumbersDefault?: boolean;
+  onLanguageChange?: (codeSnippet: string, newLanguage: string) => void;
 }
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
   code,
   language = "",
   showLineNumbersDefault = true,
+  onLanguageChange,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
   const [copied, setCopied] = useState(false);
+  const cleanCode = useMemo(() => (code || "").trim(), [code]);
+  const snippetKey = useMemo(() => getCodeSnippetKey(cleanCode), [cleanCode]);
+
+  const [userSelectedLang, setUserSelectedLang] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(snippetKey) || null;
+    } catch {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const persisted = localStorage.getItem(snippetKey);
+      if (persisted && persisted !== userSelectedLang) {
+        setUserSelectedLang(persisted);
+      }
+    } catch {}
+  }, [snippetKey]);
+
   const [showLineNumbers, setShowLineNumbers] = useState(
-    showLineNumbersDefault && code.split("\n").length <= LINE_NUMBER_LIMIT,
+    showLineNumbersDefault && code.split("\n").length <= CODE_BLOCK_LIMITS.lineNumberLimit,
   );
   const [wrapLines, setWrapLines] = useState(false);
-  const [userSelectedLang, setUserSelectedLang] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const cleanCode = useMemo(() => (code || "").trim(), [code]);
-
   const explicitLang = useMemo(() => {
-    const resolved = resolveLanguageId(language);
-    if (
-      resolved === "text" ||
-      resolved === "plaintext" ||
-      resolved === "txt" ||
-      !resolved
-    ) {
-      return "";
-    }
-    return resolved;
+    return resolveLanguageId(language);
   }, [language]);
 
   const activeMode = useMemo(() => {
@@ -207,29 +339,79 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
       return { html: "", detectedLang: "plaintext", isAuto: false };
     }
 
-    if (cleanCode.length > AUTO_HIGHLIGHT_LIMIT && (activeMode === "auto" || !effectiveLangKey)) {
+    if (effectiveLangKey === "plaintext" || effectiveLangKey === "text") {
+      return { html: escapeHtml(cleanCode), detectedLang: "plaintext", isAuto: false };
+    }
+
+    if (
+      cleanCode.length > CODE_BLOCK_LIMITS.autoHighlightCharacterLimit &&
+      (activeMode === "auto" || !effectiveLangKey)
+    ) {
       return { html: escapeHtml(cleanCode), detectedLang: "plaintext", isAuto: false };
     }
 
     if (activeMode === "auto" || !effectiveLangKey) {
+      if (cleanCode.length < CODE_BLOCK_LIMITS.minAutoDetectChars) {
+        return {
+          html: escapeHtml(cleanCode),
+          detectedLang: "plaintext",
+          isAuto: true,
+        };
+      }
+
+      const heuristic = detectCodeLanguageHeuristically(cleanCode);
+      if (heuristic) {
+        if (heuristic === "plaintext") {
+          return {
+            html: escapeHtml(cleanCode),
+            detectedLang: "plaintext",
+            isAuto: true,
+          };
+        }
+        try {
+          const res = hljs.highlight(cleanCode, {
+            language: heuristic,
+            ignoreIllegals: true,
+          });
+          return {
+            html: res.value,
+            detectedLang: heuristic,
+            isAuto: true,
+          };
+        } catch {
+          return {
+            html: escapeHtml(cleanCode),
+            detectedLang: heuristic,
+            isAuto: true,
+          };
+        }
+      }
+
       try {
         const topResult = hljs.highlightAuto(cleanCode, TOP_AUTO_LANGUAGES);
-        if (topResult.relevance >= 3 && topResult.language) {
+        const diff = topResult.secondBest
+          ? topResult.relevance - topResult.secondBest.relevance
+          : topResult.relevance;
+
+        if (
+          topResult.relevance >= CODE_BLOCK_LIMITS.confidenceRelevanceThreshold &&
+          diff >= CODE_BLOCK_LIMITS.minRelevanceMargin &&
+          topResult.language
+        ) {
           return {
             html: topResult.value,
             detectedLang: topResult.language,
             isAuto: true,
           };
         }
-        const fullResult = hljs.highlightAuto(cleanCode);
         return {
-          html: fullResult.value,
-          detectedLang: fullResult.language || "plaintext",
+          html: escapeHtml(cleanCode),
+          detectedLang: "plaintext",
           isAuto: true,
         };
       } catch {
         return {
-          html: cleanCode,
+          html: escapeHtml(cleanCode),
           detectedLang: "plaintext",
           isAuto: true,
         };
@@ -249,15 +431,14 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
           isAuto: false,
         };
       }
-      const autoRes = hljs.highlightAuto(cleanCode);
       return {
-        html: autoRes.value,
-        detectedLang: autoRes.language || effectiveLangKey,
+        html: escapeHtml(cleanCode),
+        detectedLang: effectiveLangKey || "plaintext",
         isAuto: false,
       };
     } catch {
       return {
-        html: cleanCode,
+        html: escapeHtml(cleanCode),
         detectedLang: effectiveLangKey || "plaintext",
         isAuto: false,
       };
@@ -308,6 +489,16 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
 
   const handleSelectLanguage = (langId: string) => {
     setUserSelectedLang(langId);
+    try {
+      if (langId === "auto") {
+        localStorage.removeItem(snippetKey);
+      } else {
+        localStorage.setItem(snippetKey, langId);
+      }
+    } catch {}
+    if (onLanguageChange) {
+      onLanguageChange(cleanCode, langId);
+    }
     handleClosePicker();
   };
 

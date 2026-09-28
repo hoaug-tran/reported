@@ -26,7 +26,25 @@ import { useThemeContext } from "../../contexts/ThemeContext";
 
 interface MarkdownRendererProps {
   content: string;
+  onCodeLanguageChange?: (codeSnippet: string, newLanguage: string) => void;
 }
+
+const InPreContext = React.createContext(false);
+
+const extractCodeString = (nodes: React.ReactNode): string => {
+  if (typeof nodes === "string") return nodes;
+  if (typeof nodes === "number") return String(nodes);
+  if (Array.isArray(nodes)) return nodes.map(extractCodeString).join("");
+  if (
+    React.isValidElement(nodes) &&
+    (nodes.props as { children?: React.ReactNode }).children
+  ) {
+    return extractCodeString(
+      (nodes.props as { children?: React.ReactNode }).children,
+    );
+  }
+  return "";
+};
 
 const customSanitizeSchema = {
   ...defaultSchema,
@@ -69,11 +87,50 @@ const customSanitizeSchema = {
     th: ["align", "style", "className", "class"],
     td: ["align", "style", "className", "class"],
     code: ["className", "class"],
-    span: ["className", "class", "style", "aria-hidden"],
   },
 };
 
-const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content }) => {
+const remarkBreaksPlugin = () => {
+  return (tree: any) => {
+    const walk = (node: any) => {
+      if (!node || !node.children) return;
+      if (
+        node.type === "paragraph" ||
+        node.type === "heading" ||
+        node.type === "tableCell"
+      ) {
+        const nextChildren: any[] = [];
+        for (const child of node.children) {
+          if (child.type === "text" && child.value.includes("\n")) {
+            const parts = child.value.split("\n");
+            for (let i = 0; i < parts.length; i++) {
+              if (i > 0) {
+                nextChildren.push({ type: "break" });
+              }
+              if (parts[i].length > 0) {
+                nextChildren.push({ type: "text", value: parts[i] });
+              }
+            }
+          } else {
+            walk(child);
+            nextChildren.push(child);
+          }
+        }
+        node.children = nextChildren;
+      } else {
+        for (const child of node.children) {
+          walk(child);
+        }
+      }
+    };
+    walk(tree);
+  };
+};
+
+const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({
+  content,
+  onCodeLanguageChange,
+}) => {
   const { tokens, resolvedMode } = useThemeContext();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxSrc, setLightboxSrc] = useState("");
@@ -86,7 +143,11 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content })
   const components: Components = useMemo(() => {
     return {
       pre({ children }) {
-        return <>{children}</>;
+        return (
+          <InPreContext.Provider value={true}>
+            <>{children}</>
+          </InPreContext.Provider>
+        );
       },
 
       p({ children, ...props }) {
@@ -98,16 +159,21 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content })
       },
 
       code({ className, children, ...props }) {
-        const match = /language-(\w+)/.exec(className || "");
+        const inPre = React.useContext(InPreContext);
+        const match = /language-([^\s]+)/.exec(className || "");
         const lang = match ? match[1].toLowerCase() : "";
-        const rawCode = String(children).replace(/\n$/, "");
-        const isInline = !match && !rawCode.includes("\n");
+        const rawCode = extractCodeString(children)
+          .replace(/\r\n/g, "\n")
+          .replace(/\n$/, "");
 
         if (lang === "mermaid") {
           return <MermaidViewer code={rawCode} />;
         }
 
-        if (lang === "drawio" || (lang === "xml" && rawCode.includes("<mxfile"))) {
+        if (
+          lang === "drawio" ||
+          (lang === "xml" && rawCode.includes("<mxfile"))
+        ) {
           return (
             <Box sx={{ my: 2 }}>
               <DrawioViewer xml={rawCode} filename="diagram.drawio" />
@@ -119,8 +185,14 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content })
           return <JsonViewer data={rawCode} title="JSON Payload" />;
         }
 
-        if (!isInline || lang) {
-          return <CodeBlock code={rawCode} language={lang || ""} />;
+        if (inPre || lang) {
+          return (
+            <CodeBlock
+              code={rawCode}
+              language={lang || ""}
+              onLanguageChange={onCodeLanguageChange}
+            />
+          );
         }
 
         return (
@@ -134,33 +206,67 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content })
         const extractText = (nodes: React.ReactNode): string => {
           if (typeof nodes === "string") return nodes;
           if (Array.isArray(nodes)) return nodes.map(extractText).join("");
-          if (React.isValidElement(nodes) && (nodes.props as { children?: React.ReactNode }).children) {
-            return extractText((nodes.props as { children?: React.ReactNode }).children);
+          if (
+            React.isValidElement(nodes) &&
+            (nodes.props as { children?: React.ReactNode }).children
+          ) {
+            return extractText(
+              (nodes.props as { children?: React.ReactNode }).children,
+            );
           }
           return "";
+        };
+
+        const stripAlertPrefix = (
+          node: React.ReactNode,
+          state: { stripped: boolean },
+        ): React.ReactNode => {
+          if (state.stripped) return node;
+
+          if (typeof node === "string") {
+            const strippedText = node.replace(
+              /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:\r?\n)?/i,
+              "",
+            );
+            if (strippedText !== node) {
+              state.stripped = true;
+            }
+            return strippedText;
+          }
+
+          if (Array.isArray(node)) {
+            return node.map((item) => stripAlertPrefix(item, state));
+          }
+
+          if (React.isValidElement(node)) {
+            const props = node.props as {
+              children?: React.ReactNode;
+              [key: string]: unknown;
+            };
+            if (props.children !== undefined) {
+              const newChildren = stripAlertPrefix(props.children, state);
+              return React.cloneElement(node, {
+                ...props,
+                children: newChildren,
+              });
+            }
+          }
+
+          return node;
         };
 
         const rawText = extractText(children);
         const alertInfo = parseGitHubAlert(rawText);
 
         if (alertInfo.isAlert && alertInfo.type) {
-          const cleanedChildren = React.Children.map(children, (child) => {
-            if (React.isValidElement(child) && child.type === "p") {
-              const pChildren = (child.props as { children?: React.ReactNode }).children;
-              if (typeof pChildren === "string") {
-                const stripped = pChildren.replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*/i, "");
-                return <p>{stripped}</p>;
-              }
-              if (Array.isArray(pChildren) && typeof pChildren[0] === "string") {
-                const first = pChildren[0].replace(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*/i, "");
-                return <p>{[first, ...pChildren.slice(1)]}</p>;
-              }
-            }
-            return child;
-          });
+          const state = { stripped: false };
+          const cleanedChildren = stripAlertPrefix(children, state);
 
           return (
-            <GitHubAlert type={alertInfo.type as GitHubAlertType} title={alertInfo.title}>
+            <GitHubAlert
+              type={alertInfo.type as GitHubAlertType}
+              title={alertInfo.title}
+            >
               {cleanedChildren}
             </GitHubAlert>
           );
@@ -616,8 +722,12 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({ content })
       }}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeRaw, [rehypeSanitize, customSanitizeSchema], rehypeKatex]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkBreaksPlugin]}
+        rehypePlugins={[
+          rehypeRaw,
+          [rehypeSanitize, customSanitizeSchema],
+          rehypeKatex,
+        ]}
         components={components}
       >
         {normalizedContent}

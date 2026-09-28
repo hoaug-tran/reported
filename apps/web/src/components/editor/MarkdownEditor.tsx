@@ -371,6 +371,45 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
     }, 0);
   };
 
+  const handleCodeLanguageChange = (codeSnippet: string, newLang: string) => {
+    const normSnippet = codeSnippet.replace(/\r\n/g, "\n").trim();
+    if (!normSnippet) return;
+
+    const lines = localValue.replace(/\r\n/g, "\n").split("\n");
+    let targetFenceStart = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startsWith("```")) {
+        const snippetLines: string[] = [];
+        let j = i + 1;
+        while (j < lines.length && !lines[j].startsWith("```")) {
+          snippetLines.push(lines[j]);
+          j++;
+        }
+        if (j < lines.length && lines[j].startsWith("```")) {
+          const currentCode = snippetLines.join("\n").trim();
+          if (currentCode === normSnippet) {
+            targetFenceStart = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (targetFenceStart !== -1) {
+      const langTag = newLang === "auto" || newLang === "plaintext" ? "" : newLang;
+      lines[targetFenceStart] = "```" + langTag;
+      const updated = lines.join("\n");
+      setLocalValue(updated);
+      onChange(updated);
+      pushHistory(
+        updated,
+        textareaRef.current?.selectionStart || 0,
+        textareaRef.current?.selectionEnd || 0,
+      );
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (isComposingRef.current || e.nativeEvent.isComposing) return;
 
@@ -1404,7 +1443,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
               Xem trước trực tiếp (Live Preview)
             </Typography>
             {debouncedPreviewValue ? (
-              <MarkdownRenderer content={debouncedPreviewValue} />
+              <MarkdownRenderer
+                content={debouncedPreviewValue}
+                onCodeLanguageChange={handleCodeLanguageChange}
+              />
             ) : (
               <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: "italic", fontSize: "0.8125rem" }}>
                 Nhập nội dung ở khung bên trái để xem trước sơ đồ và định dạng...
@@ -1507,7 +1549,10 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
       ) : (
         <Box sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: "border-box" }}>
           {debouncedPreviewValue ? (
-            <MarkdownRenderer content={debouncedPreviewValue} />
+            <MarkdownRenderer
+              content={debouncedPreviewValue}
+              onCodeLanguageChange={handleCodeLanguageChange}
+            />
           ) : (
             <Typography variant="body2" sx={{ color: tokens.textSecondary, fontStyle: "italic" }}>
               Chưa có nội dung để xem trước.
