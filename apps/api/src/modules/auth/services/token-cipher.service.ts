@@ -5,18 +5,18 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
 const TAG_LENGTH = 16;
 
-function getKey(): Buffer {
+const getKey = (): Buffer => {
   const salt = "reported_token_encryption_salt_2026";
   return crypto.scryptSync(
     config.sessionSecret || "reported_default_encryption_key_2026",
     salt,
     32,
   );
-}
+};
 
-export function encryptToken(
+export const encryptToken = (
   plainText: string | null | undefined,
-): string | null {
+): string | null => {
   if (!plainText) return null;
   const key = getKey();
   const iv = crypto.randomBytes(IV_LENGTH);
@@ -27,11 +27,11 @@ export function encryptToken(
   const tag = cipher.getAuthTag();
 
   return `${iv.toString("hex")}:${tag.toString("hex")}:${encrypted}`;
-}
+};
 
-export function decryptToken(
+export const decryptToken = (
   cipherText: string | null | undefined,
-): string | null {
+): string | null => {
   if (!cipherText) return null;
   try {
     const parts = cipherText.split(":");
@@ -52,4 +52,4 @@ export function decryptToken(
     console.error("Failed to decrypt token:", error);
     return null;
   }
-}
+};

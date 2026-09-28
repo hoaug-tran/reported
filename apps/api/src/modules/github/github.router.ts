@@ -22,12 +22,73 @@ import {
   ReviewerDecision,
 } from "@reported/contracts";
 import { requireAuth } from "../../middleware/auth.js";
-import { decryptToken } from "../auth/services/token-cipher.service.js";
+import {
+  decryptToken,
+  encryptToken,
+} from "../auth/services/token-cipher.service.js";
 import { AppError } from "../../middleware/error.js";
 import { config } from "../../config/index.js";
 import crypto from "crypto";
 import { cacheService } from "../../services/cache.service.js";
 import { recordOutboxEvent } from "../../events/outbox.js";
+
+const refreshGitHubAccountToken = async (
+  account: typeof externalAccounts.$inferSelect,
+): Promise<string | null> => {
+  if (
+    !account.refreshTokenEncrypted ||
+    !config.oauth.github.clientId ||
+    !config.oauth.github.clientSecret
+  ) {
+    return null;
+  }
+  try {
+    const refreshToken = decryptToken(account.refreshTokenEncrypted);
+    const refreshRes = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({
+          client_id: config.oauth.github.clientId,
+          client_secret: config.oauth.github.clientSecret,
+          grant_type: "refresh_token",
+          refresh_token: refreshToken,
+        }),
+      },
+    );
+
+    if (!refreshRes.ok) return null;
+    const data = (await refreshRes.json()) as any;
+    if (!data.access_token) return null;
+
+    const newEncryptedAccess = encryptToken(data.access_token);
+    const newEncryptedRefresh = data.refresh_token
+      ? encryptToken(data.refresh_token)
+      : account.refreshTokenEncrypted;
+    const tokenExpiresAt = data.expires_in
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : null;
+
+    await db
+      .update(externalAccounts)
+      .set({
+        accessTokenEncrypted: newEncryptedAccess,
+        refreshTokenEncrypted: newEncryptedRefresh,
+        tokenExpiresAt,
+        healthStatus: "HEALTHY",
+        updatedAt: new Date(),
+      })
+      .where(eq(externalAccounts.id, account.id));
+
+    return data.access_token;
+  } catch {
+    return null;
+  }
+};
 
 export const githubRouter = Router();
 
@@ -62,8 +123,8 @@ githubRouter.get(
         return res.status(200).json({ linked: false, repos: [] });
       }
 
-      const token = decryptToken(account.accessTokenEncrypted);
-      const ghRes = await fetch(
+      let token = decryptToken(account.accessTokenEncrypted);
+      let ghRes = await fetch(
         "https://api.github.com/user/repos?per_page=100&sort=updated&type=all",
         {
           headers: {
@@ -74,8 +135,29 @@ githubRouter.get(
         },
       );
 
+      if (ghRes.status === 401 && account.refreshTokenEncrypted) {
+        const refreshedToken = await refreshGitHubAccountToken(account);
+        if (refreshedToken) {
+          token = refreshedToken;
+          ghRes = await fetch(
+            "https://api.github.com/user/repos?per_page=100&sort=updated&type=all",
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "Reported-App",
+              },
+            },
+          );
+        }
+      }
+
       if (!ghRes.ok) {
         if (ghRes.status === 401) {
+          await db
+            .update(externalAccounts)
+            .set({ healthStatus: "EXPIRED", updatedAt: new Date() })
+            .where(eq(externalAccounts.id, account.id));
           return res
             .status(200)
             .json({
@@ -342,10 +424,14 @@ githubRouter.get(
         throw new AppError(404, "NOT_FOUND", "Repository not found");
       }
 
+      const isFresh =
+        req.query.fresh === "true" || req.query.skipCache === "true";
       const cacheKey = `gh:repo-pulls:${id}`;
-      const cached = cacheService.get<any>(cacheKey);
-      if (cached) {
-        return res.json(cached);
+      if (!isFresh) {
+        const cached = cacheService.get<any>(cacheKey);
+        if (cached) {
+          return res.json(cached);
+        }
       }
 
       const [account] = await db
@@ -374,6 +460,22 @@ githubRouter.get(
               },
             },
           );
+          if (ghRes.status === 401 && account.refreshTokenEncrypted) {
+            const refreshedToken = await refreshGitHubAccountToken(account);
+            if (refreshedToken) {
+              token = refreshedToken;
+              ghRes = await fetch(
+                `https://api.github.com/repos/${repo.fullName}/pulls?state=open&per_page=50&sort=updated`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/vnd.github.v3+json",
+                    "User-Agent": "Reported-App",
+                  },
+                },
+              );
+            }
+          }
           if (ghRes.status === 401) {
             await db
               .update(externalAccounts)
@@ -501,7 +603,7 @@ githubRouter.get(
       }));
 
       const result = { pulls };
-      cacheService.set(cacheKey, result, 30);
+      cacheService.set(cacheKey, result, 10);
       return res.json(result);
     } catch (error) {
       next(error);
@@ -669,6 +771,22 @@ githubRouter.get(
                 },
               },
             );
+            if (ghRes.status === 401 && account.refreshTokenEncrypted) {
+              const refreshedToken = await refreshGitHubAccountToken(account);
+              if (refreshedToken) {
+                token = refreshedToken;
+                ghRes = await fetch(
+                  `https://api.github.com/repos/${fullName}/pulls/${prNumber}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/vnd.github.v3+json",
+                      "User-Agent": "Reported-App",
+                    },
+                  },
+                );
+              }
+            }
             if (ghRes.status === 401) {
               await db
                 .update(externalAccounts)
@@ -947,6 +1065,22 @@ githubRouter.post(
               },
             },
           );
+          if (ghRes.status === 401 && account.refreshTokenEncrypted) {
+            const refreshedToken = await refreshGitHubAccountToken(account);
+            if (refreshedToken) {
+              token = refreshedToken;
+              ghRes = await fetch(
+                `https://api.github.com/repos/${repo.fullName}/pulls/${pr.prNumber}`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: "application/vnd.github.v3+json",
+                    "User-Agent": "Reported-App",
+                  },
+                },
+              );
+            }
+          }
           if (ghRes.status === 401) {
             await db
               .update(externalAccounts)
@@ -1229,7 +1363,7 @@ githubRouter.patch(
   },
 );
 
-export function formatPullRequestSummary(pr: any, repoFullName?: string) {
+export const formatPullRequestSummary = (pr: any, repoFullName?: string) => {
   if (!pr) return null;
   const meta = (pr.rawMetadata as any) || {};
   return {
