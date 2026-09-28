@@ -136,6 +136,12 @@ jobs:
             IdentityFile ~/.ssh/id_ed25519
             IdentitiesOnly yes
             StrictHostKeyChecking accept-new
+            ControlMaster auto
+            ControlPath ~/.ssh/ssh-%r@%h:%p
+            ControlPersist 10m
+            ServerAliveInterval 30
+            ServerAliveCountMax 4
+            ConnectTimeout 15
           EOF
           chmod 600 ~/.ssh/config
           ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
