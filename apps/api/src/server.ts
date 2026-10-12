@@ -22,6 +22,7 @@ import { activityRouter } from "./modules/activity/activity.router.js";
 import { searchRouter } from "./modules/search/search.router.js";
 import { attachmentsRouter } from "./modules/attachments/attachments.router.js";
 import { savedViewsRouter } from "./modules/saved-views/saved-views.router.js";
+import { adminRouter } from "./modules/admin/admin.router.js";
 
 import { globalRateLimiter } from "./middleware/rate-limit.js";
 
@@ -102,6 +103,7 @@ api.use("/activity", activityRouter);
 api.use("/search", searchRouter);
 api.use("/attachments", attachmentsRouter);
 api.use("/saved-views", savedViewsRouter);
+api.use("/admin", adminRouter);
 
 app.use("/api/v1", api);
 

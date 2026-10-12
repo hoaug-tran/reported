@@ -1,12 +1,13 @@
 import {
   db,
+  users,
   workspaces,
   workspaceMembers,
   projectMembers,
   eq,
   and,
 } from "@reported/database";
-import { WorkspaceRole, ProjectRole } from "@reported/contracts";
+import { UserRole, WorkspaceRole, ProjectRole } from "@reported/contracts";
 import { AppError } from "../middleware/error.js";
 
 export type Permission =
@@ -99,12 +100,28 @@ const WORKSPACE_ROLE_PERMISSIONS: Record<WorkspaceRole, Permission[]> = {
 
 export class AuthorizationService {
   async getWorkspaceMember(userId: string, workspaceId: string) {
-    return await db.query.workspaceMembers.findFirst({
+    const mem = await db.query.workspaceMembers.findFirst({
       where: and(
         eq(workspaceMembers.workspaceId, workspaceId),
         eq(workspaceMembers.userId, userId),
       ),
     });
+    if (mem) return mem;
+
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    if (user && user.role === UserRole.ADMIN) {
+      return {
+        id: "admin-superuser",
+        workspaceId,
+        userId,
+        role: WorkspaceRole.OWNER,
+        joinedAt: new Date(),
+        invitedBy: null,
+      };
+    }
+    return null;
   }
 
   async can(
@@ -113,6 +130,13 @@ export class AuthorizationService {
     permission: Permission,
     context?: { projectId?: string; authorId?: string },
   ): Promise<boolean> {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    if (user && user.role === UserRole.ADMIN) {
+      return true;
+    }
+
     const ws = await db.query.workspaces.findFirst({
       where: eq(workspaces.id, workspaceId),
     });
