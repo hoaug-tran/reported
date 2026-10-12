@@ -21,6 +21,7 @@ interface CommentThreadProps {
   onRefresh: () => void;
   childrenBeforeEditor?: React.ReactNode;
   readOnly?: boolean;
+  workspaceId?: string;
 }
 
 export const CommentThread: React.FC<CommentThreadProps> = ({
@@ -31,6 +32,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
   onRefresh,
   childrenBeforeEditor,
   readOnly = false,
+  workspaceId,
 }) => {
   const { tokens } = useThemeContext();
   const { user } = useAuthContext();
@@ -169,6 +171,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                   onRefresh={onRefresh}
                   onQuote={handleQuote}
                   readOnly={readOnly}
+                  workspaceId={workspaceId}
                 />
               );
             }
@@ -209,6 +212,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({
                 onChange={setNewComment}
                 targetType={targetType}
                 targetId={targetId}
+                workspaceId={workspaceId}
                 placeholder={
                   isVi
                     ? "Gửi phản hồi kỹ thuật, dán log, JSON, khối code hoặc gắn thẻ đồng nghiệp với @..."

@@ -660,6 +660,7 @@ export const ReviewDetailPage: React.FC = () => {
             comments={comments}
             activities={activities}
             onRefresh={fetchReviewData}
+            workspaceId={review.workspaceId || undefined}
             childrenBeforeEditor={
               <Box sx={{ mb: 2 }}>
                 <AcknowledgementBadge

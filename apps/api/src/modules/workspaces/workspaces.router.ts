@@ -43,6 +43,45 @@ workspacesRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
+
+      if (user.role === "ADMIN") {
+        const allWorkspaces = await db.query.workspaces.findMany();
+        const memberships = await db.query.workspaceMembers.findMany({
+          where: eq(workspaceMembers.userId, user.id),
+        });
+        const memberMap = new Map(memberships.map((m) => [m.workspaceId, m]));
+
+        const wsList = await Promise.all(
+          allWorkspaces.map(async (ws) => {
+            const [mCount] = await db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(workspaceMembers)
+              .where(eq(workspaceMembers.workspaceId, ws.id));
+
+            const [pCount] = await db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(projects)
+              .where(eq(projects.workspaceId, ws.id));
+
+            const memberRecord = memberMap.get(ws.id);
+            const isDirectMember = Boolean(memberRecord || ws.ownerId === user.id);
+            const role =
+              ws.ownerId === user.id
+                ? WorkspaceRole.OWNER
+                : (memberRecord?.role as WorkspaceRole) || WorkspaceRole.ADMIN;
+
+            return {
+              ...ws,
+              role,
+              membersCount: mCount?.count || 1,
+              projectsCount: pCount?.count || 0,
+              isAdminSuperuser: !isDirectMember,
+            };
+          }),
+        );
+        return res.json(wsList);
+      }
+
       const memberships = await db.query.workspaceMembers.findMany({
         where: eq(workspaceMembers.userId, user.id),
       });

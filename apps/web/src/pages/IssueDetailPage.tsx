@@ -838,6 +838,7 @@ export const IssueDetailPage: React.FC = () => {
             activities={activities}
             onRefresh={fetchIssueData}
             readOnly={issue.isDeleted}
+            workspaceId={issue.workspaceId || undefined}
           />
           <Box id="discussion-bottom" sx={{ height: 1, width: "100%" }} />
         </Box>

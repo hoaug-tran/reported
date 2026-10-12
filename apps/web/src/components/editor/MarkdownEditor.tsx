@@ -46,12 +46,15 @@ import {
   Layers,
   FileText,
   Upload,
+  Users,
 } from "lucide-react";
 import { MarkdownRenderer } from "../markdown/MarkdownRenderer";
 import { UserAvatar } from "../common/UserAvatar";
 import { UserSummaryDto } from "@reported/contracts";
 import { useThemeContext } from "../../contexts/ThemeContext";
+import { useAuthContext } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext";
+import { useOptionalWorkspace } from "../../contexts/WorkspaceContext";
 import { apiFetch } from "../../api/client";
 import { uploadFileWithChunking } from "../../utils/chunkedUpload";
 import { VoiceRecorder } from "../common/VoiceRecorder";
@@ -71,6 +74,7 @@ interface MarkdownEditorProps {
   onSubmit?: () => void;
   targetType?: string;
   targetId?: string;
+  workspaceId?: string;
 }
 
 const MAX_HISTORY = 30;
@@ -84,9 +88,13 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
   onSubmit,
   targetType,
   targetId,
+  workspaceId,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
+  const { user: currentUser } = useAuthContext();
   const { t } = useI18n();
+  const optionalWs = useOptionalWorkspace();
+  const effectiveWorkspaceId = workspaceId || optionalWs?.activeWorkspace?.id;
   const [tabIndex, setTabIndex] = useState<"write" | "preview" | "split">("write");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIndex, setMentionIndex] = useState<number>(-1);
@@ -333,18 +341,47 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
 
     const timer = setTimeout(async () => {
       try {
+        const queryParams = new URLSearchParams();
+        if (mentionQuery) queryParams.set("q", mentionQuery);
+        if (effectiveWorkspaceId) queryParams.set("workspaceId", effectiveWorkspaceId);
+
         const results = await apiFetch<UserSummaryDto[]>(
-          `/users/mentions?q=${encodeURIComponent(mentionQuery)}`,
+          `/users/mentions?${queryParams.toString()}`,
         );
-        setSuggestedUsers(results);
+
+        const filteredResults = results.filter(
+          (u) =>
+            !currentUser ||
+            (u.id !== currentUser.id &&
+              u.username.toLowerCase() !== currentUser.username.toLowerCase()),
+        );
+
+        const lowerQ = mentionQuery.toLowerCase();
+        let list = [...filteredResults];
+        if (
+          filteredResults.length > 0 &&
+          (!lowerQ || "all".startsWith(lowerQ) || "all".includes(lowerQ))
+        ) {
+          const allOption: UserSummaryDto = {
+            id: "all",
+            username: "All",
+            displayName: "@All",
+            email: "",
+            avatarUrl: null,
+            role: "ALL" as any,
+          };
+          list = [allOption, ...list.filter((u) => u.username.toLowerCase() !== "all")];
+        }
+
+        setSuggestedUsers(list);
         setSelectedSuggestionIndex(0);
       } catch {
         setSuggestedUsers([]);
       }
-    }, 200);
+    }, 180);
 
     return () => clearTimeout(timer);
-  }, [mentionQuery]);
+  }, [mentionQuery, effectiveWorkspaceId, currentUser]);
 
   const insertText = (prefix: string, suffix = "") => {
     const textarea = textareaRef.current;
@@ -520,6 +557,70 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
         textarea.setSelectionRange(pos, pos);
       }
     }, 0);
+  };
+
+  const renderMentionSuggestions = () => {
+    if (suggestedUsers.length === 0) return null;
+    return (
+      <Paper
+        elevation={4}
+        sx={{
+          position: "absolute",
+          top: 50,
+          left: 20,
+          width: 240,
+          maxHeight: 200,
+          overflowY: "auto",
+          zIndex: 100,
+          backgroundColor: tokens.surface,
+          border: `1px solid ${tokens.border}`,
+          borderRadius: "6px",
+        }}
+      >
+        <List dense sx={{ py: 0.5 }}>
+          {suggestedUsers.map((u, i) => (
+            <ListItemButton
+              key={u.id}
+              selected={i === selectedSuggestionIndex}
+              onClick={() => insertMention(u)}
+              sx={{
+                py: 0.5,
+                "&.Mui-selected": { backgroundColor: tokens.hover },
+              }}
+            >
+              <ListItemAvatar sx={{ minWidth: 30 }}>
+                {u.id === "all" ? (
+                  <Box
+                    sx={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: "50%",
+                      backgroundColor: "rgba(56, 139, 253, 0.16)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Users size={14} color={tokens.primary} />
+                  </Box>
+                ) : (
+                  <UserAvatar user={u} size={22} showTooltip={false} />
+                )}
+              </ListItemAvatar>
+              <ListItemText
+                primary={u.id === "all" ? "@All" : u.displayName}
+                secondary={u.id === "all" ? undefined : `@${u.username}`}
+                primaryTypographyProps={{
+                  fontSize: "0.8125rem",
+                  fontWeight: 600,
+                }}
+                secondaryTypographyProps={{ fontSize: "0.75rem" }}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+      </Paper>
+    );
   };
 
   const canUndo = historyIndexRef.current > 0;
@@ -1417,6 +1518,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
                 },
               }}
             />
+            {renderMentionSuggestions()}
           </Box>
 
           <Box
@@ -1501,50 +1603,7 @@ const MarkdownEditorComponent: React.FC<MarkdownEditorProps> = ({
             }}
           />
 
-          {suggestedUsers.length > 0 && (
-            <Paper
-              elevation={4}
-              sx={{
-                position: "absolute",
-                top: 50,
-                left: 20,
-                width: 240,
-                maxHeight: 200,
-                overflowY: "auto",
-                zIndex: 100,
-                backgroundColor: tokens.surface,
-                border: `1px solid ${tokens.border}`,
-                borderRadius: "6px",
-              }}
-            >
-              <List dense sx={{ py: 0.5 }}>
-                {suggestedUsers.map((u, i) => (
-                  <ListItemButton
-                    key={u.id}
-                    selected={i === selectedSuggestionIndex}
-                    onClick={() => insertMention(u)}
-                    sx={{
-                      py: 0.5,
-                      "&.Mui-selected": { backgroundColor: tokens.hover },
-                    }}
-                  >
-                    <ListItemAvatar sx={{ minWidth: 30 }}>
-                      <UserAvatar user={u} size={22} showTooltip={false} />
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={u.displayName}
-                      secondary={`@${u.username}`}
-                      primaryTypographyProps={{
-                        fontSize: "0.8125rem",
-                        fontWeight: 600,
-                      }}
-                      secondaryTypographyProps={{ fontSize: "0.75rem" }}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            </Paper>
-          )}
+          {renderMentionSuggestions()}
         </Box>
       ) : (
         <Box sx={{ p: 2, minHeight: editorHeight || 120, boxSizing: "border-box" }}>

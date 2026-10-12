@@ -52,6 +52,7 @@ interface CommentItemProps {
   onQuote: (quoteText: string) => void;
   isNested?: boolean;
   readOnly?: boolean;
+  workspaceId?: string;
 }
 
 export const REACTION_ICONS: Record<
@@ -127,6 +128,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
   onQuote,
   isNested = false,
   readOnly = false,
+  workspaceId,
 }) => {
   const { tokens, resolvedMode } = useThemeContext();
   const { user } = useAuthContext();
@@ -545,6 +547,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
                 targetType={comment.targetType}
                 targetId={comment.targetId}
                 minRows={3}
+                workspaceId={workspaceId}
               />
               <Box
                 sx={{
@@ -777,6 +780,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
             targetId={comment.targetId}
             placeholder={`${t("replyTo")} @${comment.author.username}...`}
             minRows={2}
+            workspaceId={workspaceId}
             onSubmit={handleSubmitReply}
           />
           <Box
@@ -810,6 +814,7 @@ const CommentItemComponent: React.FC<CommentItemProps> = ({
               onQuote={onQuote}
               isNested={true}
               readOnly={readOnly}
+              workspaceId={workspaceId}
             />
           ))}
         </Box>

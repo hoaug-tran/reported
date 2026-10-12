@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from "express";
 import {
   db,
   users,
+  workspaces,
   issues,
   issueAssignees,
   reviewRequests,
@@ -96,6 +97,58 @@ usersRouter.get(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const q = ((req.query.q as string) || "").trim().replace(/^@/, "");
+      const targetWorkspaceId = (
+        (req.query.workspaceId as string) ||
+        (req.headers["x-workspace-id"] as string) ||
+        ""
+      ).trim();
+
+      const currentUserId = req.user?.id;
+      let eligibleUserIds: string[] = [];
+
+      if (targetWorkspaceId) {
+        const members = await db
+          .select({ userId: workspaceMembers.userId })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.workspaceId, targetWorkspaceId));
+
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.id, targetWorkspaceId),
+        });
+
+        const idSet = new Set(members.map((m) => m.userId));
+        if (ws?.ownerId) {
+          idSet.add(ws.ownerId);
+        }
+        if (currentUserId) {
+          idSet.delete(currentUserId);
+        }
+        eligibleUserIds = Array.from(idSet);
+      } else if (req.user) {
+        const userMemberships = await db
+          .select({ workspaceId: workspaceMembers.workspaceId })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.userId, req.user.id));
+
+        const wsIds = userMemberships.map((m) => m.workspaceId);
+        if (wsIds.length > 0) {
+          const peerMembers = await db
+            .select({ userId: workspaceMembers.userId })
+            .from(workspaceMembers)
+            .where(inArray(workspaceMembers.workspaceId, wsIds));
+
+          const idSet = new Set(peerMembers.map((p) => p.userId));
+          if (currentUserId) {
+            idSet.delete(currentUserId);
+          }
+          eligibleUserIds = Array.from(idSet);
+        }
+      }
+
+      if (eligibleUserIds.length === 0) {
+        return res.json([]);
+      }
+
       const userList = await db
         .select({
           id: users.id,
@@ -106,14 +159,18 @@ usersRouter.get(
         })
         .from(users)
         .where(
-          q
-            ? or(
-                ilike(users.username, `%${q}%`),
-                ilike(users.displayName, `%${q}%`),
-              )
-            : undefined,
+          and(
+            inArray(users.id, eligibleUserIds),
+            currentUserId ? ne(users.id, currentUserId) : undefined,
+            q
+              ? or(
+                  ilike(users.username, `%${q}%`),
+                  ilike(users.displayName, `%${q}%`),
+                )
+              : undefined,
+          ),
         )
-        .limit(10);
+        .limit(15);
 
       return res.json(userList);
     } catch (error) {

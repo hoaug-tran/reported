@@ -398,6 +398,13 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({
 
         if (textContent.startsWith("@") && !textContent.includes(" ")) {
           const username = textContent.substring(1);
+          if (username.toLowerCase() === "all") {
+            return (
+              <span className="mention-tag mention-all-tag" {...props}>
+                {children}
+              </span>
+            );
+          }
           return (
             <a href={`/users/${username}`} className="mention-tag" {...props}>
               {children}
@@ -588,6 +595,19 @@ const MarkdownRendererComponent: React.FC<MarkdownRendererProps> = ({
           fontSize: "0.8125rem",
           transition: "background-color 0.15s",
           "&:hover": { textDecoration: "underline", backgroundColor: tokens.hover },
+        },
+
+        "& .mention-all-tag": {
+          color: tokens.accent,
+          backgroundColor: "rgba(168, 85, 247, 0.15)",
+          border: "1px solid rgba(168, 85, 247, 0.3)",
+          borderRadius: "4px",
+          px: 0.7,
+          py: 0.15,
+          fontWeight: 700,
+          cursor: "default",
+          fontSize: "0.8125rem",
+          "&:hover": { textDecoration: "none" },
         },
 
         "& .markdown-link": {

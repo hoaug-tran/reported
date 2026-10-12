@@ -9,6 +9,7 @@ import {
   issues,
   reviewRequests,
   activities,
+  workspaces,
   workspaceMembers,
   eq,
   and,
@@ -212,6 +213,7 @@ commentsRouter.post(
       let targetTitle = "";
       let targetAuthorId = "";
       let targetLink = "";
+      let targetWorkspaceId: string | null = null;
 
       if (input.targetType === TargetType.ISSUE) {
         const issue = await db.query.issues.findFirst({
@@ -221,6 +223,7 @@ commentsRouter.post(
           targetTitle = issue.title;
           targetAuthorId = issue.authorId;
           targetLink = `/issues/${issue.number}`;
+          targetWorkspaceId = issue.workspaceId;
         }
       } else {
         const review = await db.query.reviewRequests.findFirst({
@@ -230,21 +233,64 @@ commentsRouter.post(
           targetTitle = review.title;
           targetAuthorId = review.authorId;
           targetLink = `/reviews/${review.number}`;
+          targetWorkspaceId = review.workspaceId;
         }
+      }
+
+      if (!targetWorkspaceId && req.headers["x-workspace-id"]) {
+        targetWorkspaceId = (req.headers["x-workspace-id"] as string).trim();
       }
 
       const mentionRegex = /@([a-zA-Z0-9_-]+)/g;
       const matches = Array.from(input.content.matchAll(mentionRegex));
-      const usernames = Array.from(new Set(matches.map((m) => m[1])));
-      let mentionedUserIds: string[] = [];
+      const extractedTags = Array.from(new Set(matches.map((m) => m[1])));
+      const hasAllMention = extractedTags.some((tag) => tag.toLowerCase() === "all");
+      const specificUsernames = extractedTags.filter((tag) => tag.toLowerCase() !== "all");
 
-      if (usernames.length > 0) {
-        const mentionedUsers = await db
+      let eligibleWorkspaceUserIds: string[] = [];
+      if (targetWorkspaceId) {
+        const mems = await db
+          .select({ userId: workspaceMembers.userId })
+          .from(workspaceMembers)
+          .where(eq(workspaceMembers.workspaceId, targetWorkspaceId));
+        const ws = await db.query.workspaces.findFirst({
+          where: eq(workspaces.id, targetWorkspaceId),
+        });
+        const idSet = new Set(mems.map((m) => m.userId));
+        if (ws?.ownerId) {
+          idSet.add(ws.ownerId);
+        }
+        eligibleWorkspaceUserIds = Array.from(idSet);
+      }
+
+      let mentionedUsers: { id: string; username: string }[] = [];
+
+      if (hasAllMention && targetWorkspaceId && eligibleWorkspaceUserIds.length > 0) {
+        const targetIds = eligibleWorkspaceUserIds.filter((id) => id !== user.id);
+        if (targetIds.length > 0) {
+          mentionedUsers = await db
+            .select({ id: users.id, username: users.username })
+            .from(users)
+            .where(inArray(users.id, targetIds));
+        }
+      } else if (specificUsernames.length > 0) {
+        const foundUsers = await db
           .select({ id: users.id, username: users.username })
           .from(users)
-          .where(inArray(users.username, usernames));
-        mentionedUserIds = mentionedUsers.map((mentionedUser) => mentionedUser.id);
+          .where(inArray(users.username, specificUsernames));
 
+        if (targetWorkspaceId && eligibleWorkspaceUserIds.length > 0) {
+          mentionedUsers = foundUsers.filter(
+            (u) => eligibleWorkspaceUserIds.includes(u.id) && u.id !== user.id,
+          );
+        } else {
+          mentionedUsers = foundUsers.filter((u) => u.id !== user.id);
+        }
+      }
+
+      let mentionedUserIds: string[] = [];
+      if (mentionedUsers.length > 0) {
+        mentionedUserIds = mentionedUsers.map((m) => m.id);
         for (const mUser of mentionedUsers) {
           await db.insert(mentions).values({
             targetType: input.targetType,
@@ -255,17 +301,17 @@ commentsRouter.post(
           });
         }
 
-        if (mentionedUsers.length > 0) {
-          await recordOutboxEvent("USER_MENTIONED", {
-            targetUserIds: mentionedUsers.map((u) => u.id),
-            actorId: user.id,
-            title: `Mentioned in ${targetTitle}`,
-            message: createCommentSnippet(input.content),
-            link: targetLink,
-            targetType: input.targetType,
-            targetId: input.targetId,
-          });
-        }
+        await recordOutboxEvent("USER_MENTIONED", {
+          targetUserIds: mentionedUserIds,
+          actorId: user.id,
+          title: hasAllMention
+            ? `Mentioned (@All) in ${targetTitle}`
+            : `Mentioned in ${targetTitle}`,
+          message: createCommentSnippet(input.content),
+          link: targetLink,
+          targetType: input.targetType,
+          targetId: input.targetId,
+        });
       }
 
       await recordOutboxEvent("COMMENT_CREATED", {
