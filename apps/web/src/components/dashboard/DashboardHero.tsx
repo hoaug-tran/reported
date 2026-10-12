@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { Box, Typography, Button, Tooltip } from "@mui/material";
 import {
   Sun,
+  Sunrise,
+  Sunset,
+  MoonStar,
+  Moon,
   CloudSun,
   CloudRain,
   Cloud,
@@ -51,14 +55,20 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
 
   const hour = new Date().getHours();
   let greeting = isVi ? "Chào buổi sáng" : "Good morning";
+  let timeIcon = <Sunrise size={22} color="#f59e0b" style={{ display: "inline-block", verticalAlign: "middle" }} />;
+
   if (hour >= 12 && hour < 14) {
     greeting = isVi ? "Chào buổi trưa" : "Good noon";
+    timeIcon = <Sun size={22} color="#eab308" style={{ display: "inline-block", verticalAlign: "middle" }} />;
   } else if (hour >= 14 && hour < 18) {
     greeting = isVi ? "Chào buổi chiều" : "Good afternoon";
+    timeIcon = <Sunset size={22} color="#f97316" style={{ display: "inline-block", verticalAlign: "middle" }} />;
   } else if (hour >= 18 && hour < 22) {
     greeting = isVi ? "Chào buổi tối" : "Good evening";
+    timeIcon = <MoonStar size={22} color="#818cf8" style={{ display: "inline-block", verticalAlign: "middle" }} />;
   } else if (hour >= 22 || hour < 5) {
     greeting = isVi ? "Cú đêm lập trình" : "Late night coding";
+    timeIcon = <Moon size={22} color="#a855f7" style={{ display: "inline-block", verticalAlign: "middle" }} />;
   }
 
   const renderWeatherIcon = () => {
@@ -103,21 +113,34 @@ export const DashboardHero: React.FC<DashboardHeroProps> = ({
               letterSpacing: "-0.03em",
               color: tokens.textPrimary,
               fontSize: { xs: "1.45rem", sm: "1.8rem" },
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 1,
             }}
           >
-            {greeting},{" "}
-            {user?.displayName ||
-              user?.username ||
-              (isVi ? "Kỹ sư" : "Engineer")}{" "}
-            <Sparkles
-              size={20}
-              style={{
-                display: "inline-block",
-                verticalAlign: "middle",
-                marginLeft: 6,
-                color: tokens.primary,
-              }}
-            />
+            <span>
+              {greeting},{" "}
+              {user?.displayName ||
+                user?.username ||
+                (isVi ? "Kỹ sư" : "Engineer")}
+            </span>
+            <Tooltip title={greeting}>
+              <Box
+                sx={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  p: 0.6,
+                  borderRadius: "8px",
+                  backgroundColor: tokens.surfaceSecondary,
+                  border: `1px solid ${tokens.border}`,
+                  ml: 0.5,
+                }}
+              >
+                {timeIcon}
+              </Box>
+            </Tooltip>
           </Typography>
 
           <Typography

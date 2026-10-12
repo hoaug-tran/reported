@@ -326,5 +326,7 @@
   "backToPasswordLogin": "Quay lại đăng nhập mật khẩu",
   "accountLinkTitle": "Xác thực tài khoản hiện có",
   "accountLinkDesc": "Để bảo mật, vui lòng đăng nhập bằng mật khẩu hoặc OTP trước, sau đó vào Cài đặt > Tài khoản đã liên kết để kết nối phương thức này.",
-  "gotIt": "Đã hiểu"
+  "gotIt": "Đã hiểu",
+  "admin": "Quản trị viên",
+  "adminDashboard": "Bảng Quản Trị Viên"
 }

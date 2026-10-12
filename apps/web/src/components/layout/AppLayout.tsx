@@ -54,6 +54,7 @@ import {
   Rocket,
   Palette,
   Wrench,
+  ShieldCheck,
 } from "lucide-react";
 import { usePwaInstall } from "../../hooks/usePwaInstall";
 import { useLocation } from "wouter";
@@ -150,6 +151,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
   const [langMenuAnchor, setLangMenuAnchor] = useState<null | HTMLElement>(
     null,
   );
+  const [topUserMenuAnchor, setTopUserMenuAnchor] =
+    useState<null | HTMLElement>(null);
 
   const [counts, setCounts] = useState({
     posts: 0,
@@ -366,10 +369,19 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
         e.preventDefault();
         toggleSidebar();
       }
+      if (
+        (e.altKey && e.key.toLowerCase() === "a") ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a")
+      ) {
+        if (user?.role?.toUpperCase() === "ADMIN") {
+          e.preventDefault();
+          setLocation("/admin");
+        }
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleSidebar]);
+  }, [toggleSidebar, user?.role, setLocation]);
 
   const navItems = [
     { label: t("inbox"), path: "/", icon: <Inbox size={18} /> },
@@ -409,6 +421,15 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
       icon: <Users size={18} />,
       count: counts.members,
     },
+    ...(user?.role?.toUpperCase() === "ADMIN"
+      ? [
+          {
+            label: language === "vi" ? "Quản trị viên" : "Administration",
+            path: "/admin",
+            icon: <ShieldCheck size={18} />,
+          },
+        ]
+      : []),
   ];
 
   useEffect(() => {
@@ -609,7 +630,7 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
             </Box>
 
             <Box
-              sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.5 }}
+              sx={{ display: "flex", alignItems: "center", gap: 0.75, mt: 0.5, flexWrap: "wrap" }}
             >
               <Typography
                 variant="caption"
@@ -771,15 +792,16 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                     fontWeight: isActive ? 600 : 500,
                     color: isActive ? tokens.textPrimary : tokens.textSecondary,
                     backgroundColor: isActive
-                      ? "rgba(110, 118, 129, 0.14)"
+                      ? tokens.surfaceSecondary
                       : "transparent",
-                    borderLeft: isActive
-                      ? `3px solid ${tokens.primary}`
-                      : "3px solid transparent",
+                    border: isActive
+                      ? `1px solid ${tokens.border}`
+                      : "1px solid transparent",
+                    boxShadow: isActive ? "0 1px 2px rgba(0,0,0,0.04)" : "none",
                     transition: "all 0.15s ease",
                     "&:hover": {
                       backgroundColor: isActive
-                        ? "rgba(110, 118, 129, 0.2)"
+                        ? tokens.surfaceSecondary
                         : tokens.hover,
                       color: tokens.textPrimary,
                     },
@@ -1188,7 +1210,6 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                   {user.email}
                 </Typography>
               </Box>
-              <Divider />
               <MenuItem
                 onClick={() => {
                   setUserMenuAnchor(null);
@@ -1379,9 +1400,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
             sx={{
               display: "flex",
               alignItems: "center",
-              gap: 2,
+              gap: 1.5,
               minWidth: 0,
-              maxWidth: { xs: "60%", sm: "38%", md: "28%" },
             }}
           >
             {isMobile && (
@@ -1683,6 +1703,129 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({
                 )}
               </IconButton>
             </Tooltip>
+
+            {user && (
+              <>
+                <Box
+                  id="tour-top-profile"
+                  onClick={(e) => setTopUserMenuAnchor(e.currentTarget)}
+                  sx={{
+                    display: { xs: "none", sm: "flex" },
+                    alignItems: "center",
+                    gap: 1,
+                    cursor: "pointer",
+                    p: 0.4,
+                    borderRadius: "8px",
+                    transition: "all 0.15s ease",
+                    "&:hover": { backgroundColor: tokens.hover },
+                  }}
+                >
+                  <UserAvatar user={user} size={30} showTooltip={false} />
+                  <ChevronDown size={14} color={tokens.textSecondary} />
+                </Box>
+
+                <Menu
+                  anchorEl={topUserMenuAnchor}
+                  open={Boolean(topUserMenuAnchor)}
+                  onClose={() => setTopUserMenuAnchor(null)}
+                  PaperProps={{ sx: { minWidth: 230, p: 0.5 } }}
+                >
+                  <Box sx={{ px: 2, py: 1.2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                        {user.displayName}
+                      </Typography>
+                      {user.role?.toUpperCase() === "ADMIN" && (
+                        <Chip
+                          icon={<ShieldCheck size={11} color="#10b981" />}
+                          label="ADMIN"
+                          size="small"
+                          sx={{
+                            height: 18,
+                            fontSize: "0.625rem",
+                            fontWeight: 800,
+                            backgroundColor: "rgba(16, 185, 129, 0.12)",
+                            color: "#10b981",
+                            border: "1px solid rgba(16, 185, 129, 0.25)",
+                            "& .MuiChip-icon": { ml: 0.4 },
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: tokens.textSecondary, display: "block" }}
+                      noWrap
+                    >
+                      {user.email}
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <MenuItem
+                    onClick={() => {
+                      setTopUserMenuAnchor(null);
+                      setLocation("/profile");
+                    }}
+                  >
+                    <User
+                      size={16}
+                      style={{ marginRight: 12, color: tokens.primary }}
+                    />{" "}
+                    {t("profile")}
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setTopUserMenuAnchor(null);
+                      setLocation("/settings/connected-accounts");
+                    }}
+                  >
+                    <GitBranch
+                      size={16}
+                      style={{ marginRight: 12, color: tokens.primary }}
+                    />{" "}
+                    {t("connectedAccounts")}
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setTopUserMenuAnchor(null);
+                      setLocation("/settings/workspace");
+                    }}
+                  >
+                    <Briefcase
+                      size={16}
+                      style={{ marginRight: 12, color: tokens.primary }}
+                    />{" "}
+                    {t("workspaceSettings")}
+                  </MenuItem>
+                  <MenuItem
+                    onClick={() => {
+                      setTopUserMenuAnchor(null);
+                      setPreferencesOpen(true);
+                    }}
+                  >
+                    <Settings
+                      size={16}
+                      style={{ marginRight: 12, color: tokens.primary }}
+                    />{" "}
+                    {language === "vi" ? "Cài đặt thông báo" : "Notification Settings"}
+                  </MenuItem>
+                  <Divider />
+                  <MenuItem
+                    onClick={() => {
+                      setTopUserMenuAnchor(null);
+                      logout();
+                    }}
+                    sx={{ color: tokens.error }}
+                  >
+                    <LogOut
+                      size={16}
+                      style={{ marginRight: 12, color: tokens.error }}
+                    />{" "}
+                    {t("logout")}
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
           </Box>
         </Box>
 

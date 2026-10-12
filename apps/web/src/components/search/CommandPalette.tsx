@@ -21,9 +21,11 @@ import {
   FolderGit2,
   FolderKanban,
   MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useThemeContext } from "../../contexts/ThemeContext";
+import { useAuthContext } from "../../contexts/AuthContext";
 import { useI18n } from "../../contexts/I18nContext";
 import { apiFetch } from "../../api/client";
 import { SearchResultItemDto } from "@reported/contracts";
@@ -79,7 +81,25 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return () => clearTimeout(timer);
   }, [query]);
 
+  const { user } = useAuthContext();
+  const isAdmin = user?.role?.toUpperCase() === "ADMIN";
+
   const defaultActions = [
+    ...(isAdmin
+      ? [
+          {
+            id: "admin-governance",
+            title: isVi
+              ? "Mở Bảng Quản Trị Hệ Thống (God-Mode)"
+              : "Open Admin Governance Console (God-Mode)",
+            icon: <ShieldCheck size={18} color={tokens.primary} />,
+            action: () => {
+              onClose();
+              setLocation("/admin");
+            },
+          },
+        ]
+      : []),
     {
       id: "create-issue",
       title: isVi

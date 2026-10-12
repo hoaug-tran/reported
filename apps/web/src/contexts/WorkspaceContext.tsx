@@ -260,3 +260,8 @@ export const useWorkspace = () => {
   }
   return ctx;
 };
+
+export const useOptionalWorkspace = () => {
+  return useContext(WorkspaceContext);
+};
+

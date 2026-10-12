@@ -326,5 +326,7 @@
   "backToPasswordLogin": "Back to password login",
   "accountLinkTitle": "Existing Account Verification",
   "accountLinkDesc": "For security, please log in with your password or OTP first, then go to Settings > Connected Accounts to link this provider.",
-  "gotIt": "Got it"
+  "gotIt": "Got it",
+  "admin": "Administration",
+  "adminDashboard": "Admin Console"
 }

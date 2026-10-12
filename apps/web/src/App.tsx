@@ -24,6 +24,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { ConnectedAccountsPage } from "./pages/ConnectedAccountsPage";
 import { OAuthCallbackPage } from "./pages/OAuthCallbackPage";
 import { WorkspaceSettingsPage } from "./pages/WorkspaceSettingsPage";
+import { AdminDashboardPage } from "./pages/AdminDashboardPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { AccessDeniedPage } from "./pages/AccessDeniedPage";
 import { AppShellSkeleton } from "./components/common/Skeletons";
@@ -44,6 +45,17 @@ const ProtectedRoutes = () => {
 
   if (!user) {
     return <LoginPage />;
+  }
+
+  if (location.startsWith("/admin")) {
+    if (user.role?.toUpperCase() !== "ADMIN") {
+      return <AccessDeniedPage />;
+    }
+    return (
+      <WorkspaceProvider>
+        <AdminDashboardPage />
+      </WorkspaceProvider>
+    );
   }
 
   return (
@@ -76,6 +88,9 @@ const ProtectedRoutes = () => {
           />
           <Route path="/settings" component={ConnectedAccountsPage} />
           <Route path="/oauth/callback" component={OAuthCallbackPage} />
+          <Route path="/dashboard">
+            <Redirect to="/" />
+          </Route>
           <Route path="/login">
             <Redirect to="/" />
           </Route>
