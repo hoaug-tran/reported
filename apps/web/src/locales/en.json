@@ -37,6 +37,7 @@
   "workspaceSlug": "Workspace Slug",
 
   "roleOwner": "Owner",
+  "roleCoOwner": "Co-owner",
   "roleAdmin": "Admin",
   "roleMember": "Member",
   "roleGuest": "Guest",

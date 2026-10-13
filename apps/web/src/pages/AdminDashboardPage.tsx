@@ -405,16 +405,73 @@ interface CommentEditItem {
   editorAvatarUrl: string | null;
 }
 
+const TAB_INDEX_TO_SLUG: Record<number, string> = {
+  0: "",
+  1: "workspaces",
+  2: "projects",
+  3: "users",
+  4: "posts",
+  5: "comments",
+  6: "reactions",
+  7: "labels",
+  8: "repositories",
+  9: "queues",
+  10: "audit",
+  11: "diagnostics",
+};
+
+const SLUG_TO_TAB_INDEX: Record<string, number> = {
+  "": 0,
+  overview: 0,
+  workspaces: 1,
+  projects: 2,
+  users: 3,
+  posts: 4,
+  comments: 5,
+  reactions: 6,
+  labels: 7,
+  repositories: 8,
+  queues: 9,
+  audit: 10,
+  diagnostics: 11,
+};
+
 export const AdminDashboardPage: React.FC = () => {
   const { tokens, resolvedMode, setMode } = useThemeContext();
   const { user, logout, isLoading: authLoading } = useAuthContext();
   const { language, setLanguage, t } = useI18n();
   const { setActiveWorkspace, activeWorkspace } = useWorkspace();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
-  const [activeTab, setActiveTab] = useState<number>(0);
-  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => new Set([0]));
+  const getTabIndexFromLocation = useCallback((loc: string) => {
+    const cleanPath = loc.replace(/^\/admin\/?/, "");
+    const firstSegment = cleanPath.split("/")[0] || "";
+    return SLUG_TO_TAB_INDEX[firstSegment] ?? 0;
+  }, []);
+
+  const [activeTab, setActiveTab] = useState<number>(() => {
+    const cleanPath = window.location.pathname.replace(/^\/admin\/?/, "");
+    const firstSegment = cleanPath.split("/")[0] || "";
+    return SLUG_TO_TAB_INDEX[firstSegment] ?? 0;
+  });
+  const [visitedTabs, setVisitedTabs] = useState<Set<number>>(() => {
+    const cleanPath = window.location.pathname.replace(/^\/admin\/?/, "");
+    const firstSegment = cleanPath.split("/")[0] || "";
+    const initialIndex = SLUG_TO_TAB_INDEX[firstSegment] ?? 0;
+    return new Set([0, initialIndex]);
+  });
   const loadedTabsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    const tabFromLoc = getTabIndexFromLocation(location);
+    setActiveTab(tabFromLoc);
+    setVisitedTabs((prev) => {
+      if (prev.has(tabFromLoc)) return prev;
+      const next = new Set(prev);
+      next.add(tabFromLoc);
+      return next;
+    });
+  }, [location, getTabIndexFromLocation]);
 
   const handleSelectTab = useCallback((tabIndex: number) => {
     setActiveTab(tabIndex);
@@ -424,7 +481,12 @@ export const AdminDashboardPage: React.FC = () => {
       next.add(tabIndex);
       return next;
     });
-  }, []);
+    const slug = TAB_INDEX_TO_SLUG[tabIndex];
+    const targetUrl = slug ? `/admin/${slug}` : "/admin";
+    if (location !== targetUrl) {
+      setLocation(targetUrl);
+    }
+  }, [location, setLocation]);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(null);
@@ -534,6 +596,15 @@ export const AdminDashboardPage: React.FC = () => {
 
   const [deleteUserItem, setDeleteUserItem] = useState<AdminUserItem | null>(null);
   const [submittingDeleteUser, setSubmittingDeleteUser] = useState<boolean>(false);
+
+  const [editUserModalOpen, setEditUserModalOpen] = useState<boolean>(false);
+  const [editingUser, setEditingUser] = useState<AdminUserItem | null>(null);
+  const [editDisplayName, setEditDisplayName] = useState<string>("");
+  const [editEmail, setEditEmail] = useState<string>("");
+  const [editBio, setEditBio] = useState<string>("");
+  const [editGithubUsername, setEditGithubUsername] = useState<string>("");
+  const [editUserRole, setEditUserRole] = useState<string>(UserRole.USER);
+  const [submittingEditUser, setSubmittingEditUser] = useState<boolean>(false);
 
   const [createWsOpen, setCreateWsOpen] = useState<boolean>(false);
   const [wsName, setWsName] = useState<string>("");
@@ -1024,6 +1095,41 @@ export const AdminDashboardPage: React.FC = () => {
       toast.error(language === "vi" ? "Cập nhật vai trò thất bại" : "Failed to update role");
     } finally {
       setSubmittingRole(false);
+    }
+  };
+
+  const handleOpenEditUser = (u: AdminUserItem) => {
+    setEditingUser(u);
+    setEditDisplayName(u.displayName || "");
+    setEditEmail(u.email || "");
+    setEditBio(u.bio || "");
+    setEditGithubUsername(u.githubUsername || "");
+    setEditUserRole(u.role || UserRole.USER);
+    setEditUserModalOpen(true);
+  };
+
+  const handleSaveEditUser = async () => {
+    if (!editingUser) return;
+    try {
+      setSubmittingEditUser(true);
+      await apiFetch(`/admin/users/${editingUser.id}/profile`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          displayName: editDisplayName.trim() || undefined,
+          email: editEmail.trim() || undefined,
+          bio: editBio.trim() || null,
+          githubUsername: editGithubUsername.trim() || null,
+          role: editUserRole,
+        }),
+      });
+      toast.success(language === "vi" ? "Cập nhật thông tin người dùng thành công" : "User profile updated successfully");
+      setEditUserModalOpen(false);
+      setEditingUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || (language === "vi" ? "Cập nhật thất bại" : "Failed to update user"));
+    } finally {
+      setSubmittingEditUser(false);
     }
   };
 
@@ -1635,28 +1741,28 @@ export const AdminDashboardPage: React.FC = () => {
         };
       case "IN_PROGRESS":
         return {
-          label: language === "vi" ? "Đang xử lý (In Progress)" : "In Progress",
+          label: language === "vi" ? "Đang xử lý" : "In Progress",
           color: "#3b82f6",
           bg: "rgba(59, 130, 246, 0.12)",
           border: "rgba(59, 130, 246, 0.3)",
         };
       case "IN_REVIEW":
         return {
-          label: language === "vi" ? "Đang duyệt (In Review)" : "In Review",
+          label: language === "vi" ? "Đang duyệt" : "In Review",
           color: "#8b5cf6",
           bg: "rgba(139, 92, 246, 0.12)",
           border: "rgba(139, 92, 246, 0.3)",
         };
       case "RESOLVED":
         return {
-          label: language === "vi" ? "Đã giải quyết (Resolved)" : "Resolved",
+          label: language === "vi" ? "Đã giải quyết" : "Resolved",
           color: "#10b981",
           bg: "rgba(16, 185, 129, 0.12)",
           border: "rgba(16, 185, 129, 0.3)",
         };
       case "CLOSED":
         return {
-          label: language === "vi" ? "Đã đóng (Closed)" : "Closed",
+          label: language === "vi" ? "Đã đóng" : "Closed",
           color: "#94a3b8",
           bg: "rgba(148, 163, 184, 0.12)",
           border: "rgba(148, 163, 184, 0.3)",
@@ -1675,7 +1781,7 @@ export const AdminDashboardPage: React.FC = () => {
     switch (role?.toUpperCase()) {
       case "ADMIN":
         return {
-          label: language === "vi" ? "Quản Trị Viên (Admin)" : "Admin",
+          label: language === "vi" ? "Quản Trị Viên" : "Admin",
           color: tokens.primary,
           bg: "rgba(56, 139, 253, 0.12)",
           border: "rgba(56, 139, 253, 0.3)",
@@ -1683,7 +1789,7 @@ export const AdminDashboardPage: React.FC = () => {
       case "USER":
       case "MEMBER":
         return {
-          label: language === "vi" ? "Thành Viên (User)" : "Member",
+          label: language === "vi" ? "Thành Viên" : "Member",
           color: "#10b981",
           bg: "rgba(16, 185, 129, 0.12)",
           border: "rgba(16, 185, 129, 0.3)",
@@ -1697,28 +1803,28 @@ export const AdminDashboardPage: React.FC = () => {
         };
       case "MAINTAINER":
         return {
-          label: language === "vi" ? "Bảo Trì Viên (Maintainer)" : "Maintainer",
+          label: language === "vi" ? "Maintainer" : "Maintainer",
           color: "#06b6d4",
           bg: "rgba(6, 182, 212, 0.12)",
           border: "rgba(6, 182, 212, 0.3)",
         };
       case "REVIEWER":
         return {
-          label: language === "vi" ? "Duyệt Mã (Reviewer)" : "Reviewer",
+          label: language === "vi" ? "Reviewer" : "Reviewer",
           color: "#f59e0b",
           bg: "rgba(245, 158, 11, 0.12)",
           border: "rgba(245, 158, 11, 0.3)",
         };
       case "OWNER":
         return {
-          label: language === "vi" ? "Chủ Sở Hữu (Owner)" : "Owner",
+          label: language === "vi" ? "Chủ Sở Hữu" : "Owner",
           color: "#f59e0b",
           bg: "rgba(245, 158, 11, 0.12)",
           border: "rgba(245, 158, 11, 0.3)",
         };
       case "GUEST":
         return {
-          label: language === "vi" ? "Khách Vãng Lai (Guest)" : "Guest",
+          label: language === "vi" ? "Khách" : "Guest",
           color: "#94a3b8",
           bg: "rgba(148, 163, 184, 0.12)",
           border: "rgba(148, 163, 184, 0.3)",
@@ -1738,19 +1844,19 @@ export const AdminDashboardPage: React.FC = () => {
       case "SENT":
       case "PROCESSED":
         return {
-          label: language === "vi" ? (status === "SENT" ? "Đã gửi (Sent)" : "Đã xử lý (Processed)") : (status === "SENT" ? "Sent" : "Processed"),
+          label: language === "vi" ? (status === "SENT" ? "Đã gửi" : "Đã xử lý") : (status === "SENT" ? "Sent" : "Processed"),
           color: tokens.success,
           bg: "rgba(63, 185, 80, 0.15)",
         };
       case "FAILED":
         return {
-          label: language === "vi" ? "Thất bại (Failed)" : "Failed",
+          label: language === "vi" ? "Thất bại" : "Failed",
           color: tokens.error,
           bg: "rgba(239, 68, 68, 0.15)",
         };
       case "PENDING":
         return {
-          label: language === "vi" ? "Đang chờ (Pending)" : "Pending",
+          label: language === "vi" ? "Đang chờ" : "Pending",
           color: tokens.warning,
           bg: "rgba(245, 158, 11, 0.15)",
         };
@@ -1765,6 +1871,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   const formatAuditAction = (action: string) => {
     if (!action) return "";
+    const normalized = action.replace(/\./g, "_").toUpperCase();
     const mapVi: Record<string, string> = {
       USER_LOGIN: "Đăng nhập",
       USER_LOGOUT: "Đăng xuất",
@@ -1772,9 +1879,13 @@ export const AdminDashboardPage: React.FC = () => {
       USER_UPDATE: "Sửa người dùng",
       USER_DELETE: "Xóa người dùng",
       USER_ROLE_UPDATE: "Cập nhật vai trò",
+      USER_PASSWORD_RESET: "Đặt lại mật khẩu",
       WORKSPACE_CREATE: "Tạo workspace",
       WORKSPACE_UPDATE: "Sửa workspace",
       WORKSPACE_DELETE: "Xóa workspace",
+      WORKSPACE_MEMBER_ADD: "Thêm thành viên",
+      WORKSPACE_MEMBER_UPDATE: "Sửa quyền thành viên",
+      WORKSPACE_MEMBER_REMOVE: "Xóa thành viên",
       PROJECT_CREATE: "Tạo dự án",
       PROJECT_UPDATE: "Sửa dự án",
       PROJECT_DELETE: "Xóa dự án",
@@ -1784,6 +1895,8 @@ export const AdminDashboardPage: React.FC = () => {
       POST_CREATE: "Tạo bài viết",
       POST_UPDATE: "Cập nhật bài viết",
       POST_DELETE: "Xóa bài viết",
+      COMMENT_CREATE: "Tạo bình luận",
+      COMMENT_UPDATE: "Sửa bình luận",
       COMMENT_MODERATE: "Kiểm duyệt BL",
       COMMENT_DELETE: "Xóa bình luận",
       REPO_UNLINK: "Ngắt kết nối repo",
@@ -1791,46 +1904,72 @@ export const AdminDashboardPage: React.FC = () => {
       MAINTENANCE_CLEANUP: "Dọn dẹp hệ thống",
       BROADCAST_NOTIFICATION: "Phát thông báo",
     };
-    if (language === "vi" && mapVi[action]) {
-      return mapVi[action];
+    if (language === "vi" && mapVi[normalized]) {
+      return mapVi[normalized];
     }
-    return action.replace(/_/g, " ");
+    return normalized.replace(/_/g, " ");
   };
 
   const formatAuditTarget = (target: string) => {
     if (!target) return "";
+    const parts = target.split(":");
+    const type = parts[0]?.toUpperCase() || "";
+    const id = parts[1] || "";
     const mapVi: Record<string, string> = {
       USER: "Người dùng",
+      USERS: "Người dùng",
       WORKSPACE: "Không gian làm việc",
+      WORKSPACES: "Không gian làm việc",
       PROJECT: "Dự án",
+      PROJECTS: "Dự án",
       ISSUE: "Vấn đề (Issue)",
+      ISSUES: "Vấn đề (Issue)",
       REVIEW: "Đánh giá mã (Review)",
+      REVIEWS: "Đánh giá mã (Review)",
       COMMENT: "Bình luận",
+      COMMENTS: "Bình luận",
       LABEL: "Nhãn dán",
+      LABELS: "Nhãn dán",
       REPOSITORY: "Kho mã nguồn",
+      REPOSITORIES: "Kho mã nguồn",
       QUEUE: "Hàng đợi",
+      QUEUES: "Hàng đợi",
       SYSTEM: "Hệ thống",
+      AUTH: "Xác thực",
     };
-    if (language === "vi" && mapVi[target.toUpperCase()]) {
-      return mapVi[target.toUpperCase()];
+    const prefix = (language === "vi" ? mapVi[type] : null) || type.replace(/_/g, " ");
+    if (id) {
+      return `${prefix} (#${id.slice(0, 8)})`;
     }
-    return target.replace(/_/g, " ");
+    return prefix;
   };
 
   const formatEventType = (type: string) => {
     if (!type) return "";
+    const normalized = type.replace(/\./g, "_").toUpperCase();
     const mapVi: Record<string, string> = {
+      COMMENT_CREATED: "Tạo bình luận",
+      COMMENT_ADDED: "Bình luận mới",
+      COMMENT_UPDATED: "Sửa bình luận",
+      COMMENT_DELETED: "Xóa bình luận",
       ISSUE_CREATED: "Tạo vấn đề",
       ISSUE_UPDATED: "Cập nhật vấn đề",
-      COMMENT_ADDED: "Bình luận mới",
+      ISSUE_STATUS_CHANGED: "Đổi trạng thái vấn đề",
+      ISSUE_ASSIGNED: "Giao việc vấn đề",
+      POST_CREATED: "Tạo bài viết",
+      POST_UPDATED: "Sửa bài viết",
+      POST_DELETED: "Xóa bài viết",
       REVIEW_REQUESTED: "Yêu cầu duyệt mã",
+      REVIEW_SUBMITTED: "Nộp kết quả duyệt",
       NOTIFICATION_DISPATCHED: "Gửi thông báo",
       EMAIL_SENT: "Gửi email",
+      PASSWORD_RESET: "Đặt lại mật khẩu",
+      WORKSPACE_INVITATION: "Lời mời tham gia workspace",
     };
-    if (language === "vi" && mapVi[type]) {
-      return mapVi[type];
+    if (language === "vi" && mapVi[normalized]) {
+      return mapVi[normalized];
     }
-    return type.replace(/_/g, " ");
+    return normalized.replace(/_/g, " ");
   };
 
   const getPostTypeConfig = (type: string) => {
@@ -1850,14 +1989,14 @@ export const AdminDashboardPage: React.FC = () => {
 
   const getTableFriendlyName = (key: string) => {
     const mapVi: Record<string, string> = {
-      users: "Người dùng (Users)",
-      workspaces: "Không gian (Workspaces)",
-      projects: "Dự án (Projects)",
-      issues: "Vấn đề (Issues)",
-      pullRequests: "Yêu cầu kéo (PRs)",
-      labels: "Nhãn dán (Labels)",
-      comments: "Bình luận (Comments)",
-      reactions: "Tương tác (Reactions)",
+      users: "Người dùng",
+      workspaces: "Workspace",
+      projects: "Dự án",
+      issues: "Bài viết / Issue",
+      pullRequests: "Yêu cầu review (PR)",
+      labels: "Nhãn dán",
+      comments: "Bình luận",
+      reactions: "Tương tác",
       outboxEvents: "Sự kiện Outbox",
       emailJobs: "Hàng đợi Email",
     };
@@ -1895,53 +2034,53 @@ export const AdminDashboardPage: React.FC = () => {
       ],
     },
     {
-      title: language === "vi" ? "QUẢN TRỊ THỰC THỂ" : "ENTITY MANAGEMENT",
+      title: language === "vi" ? "QUẢN LÝ DỮ LIỆU" : "DATA MANAGEMENT",
       items: [
         {
           index: 1,
-          label: "Workspaces",
+          label: language === "vi" ? "Không Gian Làm Việc" : "Workspaces",
           icon: Briefcase,
           badge: stats?.overview.totalWorkspaces ?? null,
         },
         {
           index: 2,
-          label: "Projects",
+          label: language === "vi" ? "Dự Án" : "Projects",
           icon: FolderGit2,
           badge: stats?.overview.totalProjects ?? null,
         },
         {
           index: 3,
-          label: "Users",
+          label: language === "vi" ? "Người Dùng" : "Users",
           icon: Users,
           badge: stats?.overview.totalUsers ?? null,
         },
         {
           index: 4,
-          label: "Posts",
+          label: language === "vi" ? "Bài Viết" : "Posts",
           icon: FileText,
           badge: stats?.overview.totalPosts ?? null,
         },
         {
           index: 5,
-          label: "Comments",
+          label: language === "vi" ? "Bình Luận" : "Comments",
           icon: MessageSquare,
           badge: stats?.overview.totalComments ?? null,
         },
         {
           index: 6,
-          label: "Reactions",
+          label: language === "vi" ? "Tương Tác" : "Reactions",
           icon: ThumbsUp,
           badge: stats?.overview.totalReactions ?? null,
         },
         {
           index: 7,
-          label: "Labels",
+          label: language === "vi" ? "Nhãn Dán" : "Labels",
           icon: Tag,
           badge: stats?.overview.totalLabels ?? null,
         },
         {
           index: 8,
-          label: "Repositories",
+          label: language === "vi" ? "Kho Lưu Trữ" : "Repositories",
           icon: GitBranch,
           badge: stats?.overview.totalRepositories ?? null,
         },
@@ -1952,19 +2091,19 @@ export const AdminDashboardPage: React.FC = () => {
       items: [
         {
           index: 9,
-          label: "Queues & Jobs",
+          label: language === "vi" ? "Hàng Đợi & Tác Vụ" : "Queues & Jobs",
           icon: Radio,
           badge: ((stats?.overview.pendingEmailJobs ?? 0) + (stats?.overview.pendingOutboxEvents ?? 0)) || null,
         },
         {
           index: 10,
-          label: "Audit Logs",
+          label: language === "vi" ? "Nhật Ký Thao Tác" : "Audit Logs",
           icon: Activity,
           badge: null,
         },
         {
           index: 11,
-          label: "System Diagnostics",
+          label: language === "vi" ? "Chẩn Đoán Hệ Thống" : "System Diagnostics",
           icon: Server,
           badge: null,
         },
@@ -2640,7 +2779,7 @@ export const AdminDashboardPage: React.FC = () => {
                     {stats.overview.totalProjects}
                   </Typography>
                   <Typography sx={{ fontSize: "0.8125rem", color: tokens.textSecondary }}>
-                    {language === "vi" ? "Tổng số dự án toàn sàn" : "Total projects"}
+                    {language === "vi" ? "Tổng số dự án trên hệ thống" : "Total projects"}
                   </Typography>
                 </Paper>
 
@@ -2701,7 +2840,7 @@ export const AdminDashboardPage: React.FC = () => {
                 >
                   <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <Typography sx={{ fontSize: "0.8125rem", fontWeight: 600, color: tokens.textSecondary }}>
-                      {language === "vi" ? "Bài viết & Vấn đề" : "Posts & Issues"}
+                      {language === "vi" ? "Bài viết & Issue" : "Posts & Issues"}
                     </Typography>
                     <Box sx={{ width: 32, height: 32, borderRadius: "6px", backgroundColor: tokens.surfaceSecondary, border: `1px solid ${tokens.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: tokens.textSecondary }}>
                       <FileText size={16} />
@@ -3239,7 +3378,7 @@ export const AdminDashboardPage: React.FC = () => {
               <Paper sx={{ p: 3, backgroundColor: tokens.surface, border: `1px solid ${tokens.border}`, borderRadius: "10px" }}>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2.5 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: "1.05rem", color: tokens.textPrimary }}>
-                    {language === "vi" ? "Thành Viên Đóng Góp Năng Nổ Nhất" : "Top Active Contributors"}
+                    {language === "vi" ? "Thành Viên Tích Cực Nhất" : "Top Contributors"}
                   </Typography>
                   <Button
                     size="small"
@@ -3251,37 +3390,61 @@ export const AdminDashboardPage: React.FC = () => {
                   </Button>
                 </Box>
 
-                <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(5, 1fr)" }, gap: 2 }}>
+                <Box
+                  sx={{
+                    display: "grid",
+                    gridTemplateColumns: {
+                      xs: "1fr",
+                      sm: "repeat(2, minmax(0, 1fr))",
+                      md: "repeat(3, minmax(0, 1fr))",
+                      xl: "repeat(5, minmax(0, 1fr))",
+                    },
+                    gap: 2,
+                  }}
+                >
                   {stats.topContributors.map((c) => (
                     <Box
                       key={c.id}
                       onClick={() => handleInspectUser(c.id)}
                       sx={{
                         p: 2,
+                        minWidth: 0,
+                        overflow: "hidden",
+                        boxSizing: "border-box",
                         borderRadius: "8px",
                         border: `1px solid ${tokens.border}`,
                         backgroundColor: tokens.surfaceSecondary,
                         cursor: "pointer",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 1.2,
                         transition: "all 0.15s ease",
                         "&:hover": { borderColor: tokens.primary, backgroundColor: tokens.hover },
                       }}
                     >
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 1.2 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0, overflow: "hidden" }}>
                         <UserAvatar user={c as any} size={34} showTooltip={false} />
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.875rem", color: tokens.textPrimary }}>
-                            {c.displayName}
-                          </Typography>
-                          <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}>
-                            @{c.username}
-                          </Typography>
+                        <Box sx={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+                          <Tooltip title={c.displayName} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.875rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {c.displayName}
+                            </Typography>
+                          </Tooltip>
+                          <Tooltip title={`@${c.username}`} placement="top">
+                            <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.75rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              @{c.username}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </Box>
-                      <Chip
-                        size="small"
-                        label={language === "vi" ? `${c.commentsCount} bình luận` : `${c.commentsCount} comments`}
-                        sx={{ height: 22, fontSize: "0.75rem", fontWeight: 700, backgroundColor: "rgba(63, 185, 80, 0.15)", color: tokens.success }}
-                      />
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Chip
+                          size="small"
+                          label={language === "vi" ? `${c.commentsCount} bình luận` : `${c.commentsCount} comments`}
+                          sx={{ height: 22, fontSize: "0.75rem", fontWeight: 700, backgroundColor: "rgba(63, 185, 80, 0.15)", color: tokens.success, maxWidth: "100%" }}
+                        />
+                      </Box>
                     </Box>
                   ))}
                 </Box>
@@ -3356,8 +3519,8 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   workspacesList.map((ws) => (
                     <TableRow key={ws.id} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.4 }}>
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, minWidth: 0 }}>
                           <Box
                             sx={{
                               width: 36,
@@ -3367,27 +3530,32 @@ export const AdminDashboardPage: React.FC = () => {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
+                              flexShrink: 0,
                             }}
                           >
                             <Briefcase size={18} color={tokens.primary} />
                           </Box>
-                          <Box>
+                          <Box sx={{ minWidth: 0, overflow: "hidden" }}>
                             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                              <Typography sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                                {ws.name}
-                              </Typography>
+                              <Tooltip title={ws.name} placement="top">
+                                <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                  {ws.name}
+                                </Typography>
+                              </Tooltip>
                               {activeWorkspace?.id === ws.id && (
-                                <Chip label="Đang chọn" size="small" sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 700, backgroundColor: tokens.primary, color: "#fff" }} />
+                                <Chip label="Đang chọn" size="small" sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 700, backgroundColor: tokens.primary, color: "#fff", flexShrink: 0 }} />
                               )}
                             </Box>
-                            <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
-                              @{ws.slug}
-                            </Typography>
+                            <Tooltip title={`@${ws.slug}`} placement="bottom">
+                              <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                @{ws.slug}
+                              </Typography>
+                            </Tooltip>
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <TableCell sx={{ maxWidth: 180 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                           <UserAvatar
                             user={{
                               id: ws.ownerId,
@@ -3399,9 +3567,11 @@ export const AdminDashboardPage: React.FC = () => {
                             size={28}
                             showTooltip={false}
                           />
-                          <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                            {ws.ownerDisplayName}
-                          </Typography>
+                          <Tooltip title={ws.ownerDisplayName} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {ws.ownerDisplayName}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
                       <TableCell align="center">
@@ -3557,21 +3727,27 @@ export const AdminDashboardPage: React.FC = () => {
                       <TableCell>
                         <Chip label={p.key} size="small" sx={{ height: 24, fontWeight: 700, fontSize: "0.75rem", backgroundColor: tokens.hover }} />
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                          {p.name}
-                        </Typography>
-                        {p.description && (
-                          <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", maxWidth: 300 }}>
-                            {p.description}
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Tooltip title={p.name} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.name}
                           </Typography>
+                        </Tooltip>
+                        {p.description && (
+                          <Tooltip title={p.description} placement="bottom">
+                            <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {p.description}
+                            </Typography>
+                          </Tooltip>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {p.workspaceName}
-                        </Typography>
-                        <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block" }}>
+                      <TableCell sx={{ maxWidth: 200 }}>
+                        <Tooltip title={`${p.workspaceName} (@${p.workspaceSlug})`} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {p.workspaceName}
+                          </Typography>
+                        </Tooltip>
+                        <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block", overflow: "hidden", textOverflow: "ellipsis" }}>
                           @{p.workspaceSlug}
                         </Typography>
                       </TableCell>
@@ -3710,23 +3886,29 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   usersList.map((u) => (
                     <TableRow key={u.id} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, cursor: "pointer" }} onClick={() => handleInspectUser(u.id)}>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.4, cursor: "pointer", minWidth: 0 }} onClick={() => handleInspectUser(u.id)}>
                           <UserAvatar user={u as any} size={34} showTooltip={false} />
-                          <Box>
-                            <Typography sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                              {u.displayName}
-                            </Typography>
-                            <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
-                              @{u.username}
-                            </Typography>
+                          <Box sx={{ minWidth: 0, overflow: "hidden" }}>
+                            <Tooltip title={u.displayName} placement="top">
+                              <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                                {u.displayName}
+                              </Typography>
+                            </Tooltip>
+                            <Tooltip title={`@${u.username}`} placement="bottom">
+                              <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                @{u.username}
+                              </Typography>
+                            </Tooltip>
                           </Box>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ color: tokens.textPrimary, fontSize: "0.875rem" }}>
-                          {u.email}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Tooltip title={u.email} placement="top">
+                          <Typography noWrap sx={{ color: tokens.textPrimary, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {u.email}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -3758,6 +3940,11 @@ export const AdminDashboardPage: React.FC = () => {
                       </TableCell>
                       <TableCell align="right">
                         <Box sx={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 1 }}>
+                          <Tooltip title="Sửa thông tin">
+                            <IconButton size="small" onClick={() => handleOpenEditUser(u)} sx={{ color: tokens.primary, p: 0.8 }}>
+                              <Edit3 size={17} />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Chi tiết hoạt động">
                             <IconButton size="small" onClick={() => handleInspectUser(u.id)} sx={{ color: tokens.textSecondary, p: 0.8 }}>
                               <Eye size={17} />
@@ -3864,10 +4051,10 @@ export const AdminDashboardPage: React.FC = () => {
                     sx={{ height: 38 }}
                   >
                     <MenuItem value="">{language === "vi" ? "Tất cả trạng thái" : "All Statuses"}</MenuItem>
-                    <MenuItem value="OPEN">{language === "vi" ? "Đang mở (Open)" : "Open"}</MenuItem>
-                    <MenuItem value="IN_PROGRESS">{language === "vi" ? "Đang xử lý (In Progress)" : "In Progress"}</MenuItem>
-                    <MenuItem value="RESOLVED">{language === "vi" ? "Đã giải quyết (Resolved)" : "Resolved"}</MenuItem>
-                    <MenuItem value="CLOSED">{language === "vi" ? "Đã đóng (Closed)" : "Closed"}</MenuItem>
+                    <MenuItem value="OPEN">{language === "vi" ? "Đang mở" : "Open"}</MenuItem>
+                    <MenuItem value="IN_PROGRESS">{language === "vi" ? "Đang xử lý" : "In Progress"}</MenuItem>
+                    <MenuItem value="RESOLVED">{language === "vi" ? "Đã giải quyết" : "Resolved"}</MenuItem>
+                    <MenuItem value="CLOSED">{language === "vi" ? "Đã đóng" : "Closed"}</MenuItem>
                   </Select>
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -3914,8 +4101,8 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   postsList.map((post) => (
                     <TableRow key={`${post.postType}-${post.id}`} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <TableCell sx={{ maxWidth: 320 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                           {(() => {
                             const postTypeCfg = getPostTypeConfig(post.postType);
                             return (
@@ -3929,24 +4116,31 @@ export const AdminDashboardPage: React.FC = () => {
                                   backgroundColor: postTypeCfg.bg,
                                   color: postTypeCfg.color,
                                   border: `1px solid ${postTypeCfg.color}33`,
+                                  flexShrink: 0,
                                 }}
                               />
                             );
                           })()}
-                          <Typography sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                            #{post.number} {post.title}
-                          </Typography>
+                          <Tooltip title={`#${post.number} ${post.title}`} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              #{post.number} {post.title}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {post.workspaceName || "Toàn sàn"}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 160 }}>
+                        <Tooltip title={post.workspaceName || (language === "vi" ? "Toàn hệ thống" : "Global")} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {post.workspaceName || (language === "vi" ? "Toàn hệ thống" : "Global")}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          @{post.authorUsername}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 140 }}>
+                        <Tooltip title={`@${post.authorUsername}`} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            @{post.authorUsername}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -4083,8 +4277,8 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   commentsList.map((comm) => (
                     <TableRow key={comm.id} hover sx={{ opacity: comm.isHidden ? 0.65 : 1, "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <TableCell sx={{ maxWidth: 160 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                           <UserAvatar
                             user={{
                               id: comm.authorId,
@@ -4096,12 +4290,14 @@ export const AdminDashboardPage: React.FC = () => {
                             size={28}
                             showTooltip={false}
                           />
-                          <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                            @{comm.authorUsername}
-                          </Typography>
+                          <Tooltip title={`@${comm.authorUsername}`} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              @{comm.authorUsername}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ maxWidth: 280 }}>
                         <Box
                           onClick={() => {
                             const postNum = comm.targetNumber || (comm as any).postNumber;
@@ -4109,18 +4305,25 @@ export const AdminDashboardPage: React.FC = () => {
                               setLocation(comm.targetType === "ISSUE" ? `/issues/${postNum}` : `/reviews/${postNum}`);
                             }
                           }}
-                          sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                          sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" }, minWidth: 0 }}
                         >
-                          <Typography sx={{ fontWeight: 700, color: tokens.primary, fontSize: "0.9375rem" }}>
-                            {(comm.targetNumber || (comm as any).postNumber) ? `#${comm.targetNumber || (comm as any).postNumber} ` : ""}
-                            {comm.targetTitle || (comm as any).postTitle || (comm.targetType === "ISSUE" ? "Issue" : "Review")}
-                          </Typography>
+                          <Tooltip
+                            title={`${(comm.targetNumber || (comm as any).postNumber) ? `#${comm.targetNumber || (comm as any).postNumber} ` : ""}${comm.targetTitle || (comm as any).postTitle || (comm.targetType === "ISSUE" ? "Issue" : "Review")}`}
+                            placement="top"
+                          >
+                            <Typography noWrap sx={{ fontWeight: 700, color: tokens.primary, fontSize: "0.9375rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {(comm.targetNumber || (comm as any).postNumber) ? `#${comm.targetNumber || (comm as any).postNumber} ` : ""}
+                              {comm.targetTitle || (comm as any).postTitle || (comm.targetType === "ISSUE" ? "Issue" : "Review")}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ maxWidth: 360 }}>
-                        <Typography sx={{ fontSize: "0.875rem", color: tokens.textPrimary }} noWrap>
-                          {comm.content}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 340 }}>
+                        <Tooltip title={comm.content} placement="top">
+                          <Typography noWrap sx={{ fontSize: "0.875rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {comm.content}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell align="center">
                         <Chip size="small" label={comm.reactionsCount} sx={{ height: 24, fontSize: "0.75rem", fontWeight: 700 }} />
@@ -4239,8 +4442,8 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   reactionsList.map((r, i) => (
                     <TableRow key={`${r.commentId}-${r.userId}-${r.reaction}-${i}`} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <TableCell sx={{ maxWidth: 160 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                           <UserAvatar
                             user={{
                               id: r.userId,
@@ -4252,9 +4455,11 @@ export const AdminDashboardPage: React.FC = () => {
                             size={28}
                             showTooltip={false}
                           />
-                          <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                            @{r.username}
-                          </Typography>
+                          <Tooltip title={`@${r.username}`} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                              @{r.username}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
                       <TableCell>
@@ -4265,15 +4470,19 @@ export const AdminDashboardPage: React.FC = () => {
                           </Typography>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ maxWidth: 300 }}>
-                        <Typography sx={{ color: tokens.textPrimary, fontSize: "0.875rem" }} noWrap>
-                          {r.commentSnippet}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Tooltip title={r.commentSnippet} placement="top">
+                          <Typography noWrap sx={{ color: tokens.textPrimary, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {r.commentSnippet}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, color: tokens.primary, fontSize: "0.875rem" }}>
-                          #{r.targetNumber} {r.targetTitle}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 260 }}>
+                        <Tooltip title={`#${r.targetNumber} ${r.targetTitle}`} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, color: tokens.primary, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            #{r.targetNumber} {r.targetTitle}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
@@ -4369,32 +4578,39 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   (labelsList || []).map((lb) => (
                     <TableRow key={lb.id} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <TableCell sx={{ maxWidth: 180 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                           <Box sx={{ width: 14, height: 14, borderRadius: "50%", backgroundColor: lb.color, flexShrink: 0 }} />
-                          <Chip
-                            label={lb.name}
-                            size="small"
-                            sx={{
-                              height: 26,
-                              fontSize: "0.8125rem",
-                              fontWeight: 700,
-                              backgroundColor: `${lb.color}22`,
-                              color: lb.color,
-                              border: `1px solid ${lb.color}44`,
-                            }}
-                          />
+                          <Tooltip title={lb.name} placement="top">
+                            <Chip
+                              label={lb.name}
+                              size="small"
+                              sx={{
+                                height: 26,
+                                fontSize: "0.8125rem",
+                                fontWeight: 700,
+                                backgroundColor: `${lb.color}22`,
+                                color: lb.color,
+                                border: `1px solid ${lb.color}44`,
+                                maxWidth: 150,
+                              }}
+                            />
+                          </Tooltip>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ color: tokens.textSecondary, fontSize: "0.875rem" }}>
-                          {lb.description || "-"}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Tooltip title={lb.description || "-"} placement="top">
+                          <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {lb.description || "-"}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {lb.workspaceName}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 180 }}>
+                        <Tooltip title={lb.workspaceName} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {lb.workspaceName}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell align="center">
                         <Chip size="small" label={lb.issuesCount} sx={{ height: 24, fontSize: "0.75rem", fontWeight: 700 }} />
@@ -4475,17 +4691,24 @@ export const AdminDashboardPage: React.FC = () => {
                 ) : (
                   reposList.map((rp) => (
                     <TableRow key={rp.id} hover sx={{ "&:hover": { backgroundColor: tokens.hover } }}>
-                      <TableCell>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
-                          <GitBranch size={18} color={tokens.primary} />
-                          <Typography sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                            {rp.fullName}
-                          </Typography>
+                      <TableCell sx={{ maxWidth: 280 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
+                          <GitBranch size={18} color={tokens.primary} style={{ flexShrink: 0 }} />
+                          <Tooltip title={rp.fullName} placement="top">
+                            <Typography noWrap sx={{ fontWeight: 700, fontSize: "0.9375rem", color: tokens.textPrimary, overflow: "hidden", textOverflow: "ellipsis" }}>
+                              {rp.fullName}
+                            </Typography>
+                          </Tooltip>
                         </Box>
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                          {rp.workspaceName} (@{rp.workspaceSlug})
+                      <TableCell sx={{ maxWidth: 200 }}>
+                        <Tooltip title={`${rp.workspaceName} (@${rp.workspaceSlug})`} placement="top">
+                          <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {rp.workspaceName}
+                          </Typography>
+                        </Tooltip>
+                        <Typography noWrap sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          @{rp.workspaceSlug}
                         </Typography>
                       </TableCell>
                       <TableCell>
@@ -4549,81 +4772,153 @@ export const AdminDashboardPage: React.FC = () => {
 
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" }, gap: 3 }}>
                 <Paper sx={{ p: 2.8, backgroundColor: tokens.surface, border: `1px solid ${tokens.border}`, borderRadius: "10px" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
-                    <Mail size={18} color={tokens.primary} />
-                    <Typography sx={{ fontWeight: 800, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                      Email Jobs Gần Đây
-                    </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <Mail size={18} color={tokens.primary} />
+                      <Typography sx={{ fontWeight: 800, fontSize: "0.9375rem", color: tokens.textPrimary }}>
+                        {language === "vi" ? "Email Jobs Gần Đây" : "Recent Email Jobs"}
+                      </Typography>
+                    </Box>
+                    {queuesData && (
+                      <Chip
+                        size="small"
+                        label={`${queuesData.emails.length} ${language === "vi" ? "tác vụ" : "jobs"}`}
+                        sx={{ height: 22, fontSize: "0.75rem", fontWeight: 700 }}
+                      />
+                    )}
                   </Box>
                   {!queuesData || queuesData.emails.length === 0 ? (
                     <Typography sx={{ color: tokens.textSecondary, py: 3, display: "block", fontSize: "0.875rem" }}>
-                      Không có tác vụ gửi email nào
+                      {language === "vi" ? "Không có tác vụ gửi email nào" : "No recent email jobs"}
                     </Typography>
                   ) : (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
-                      {queuesData.emails.map((em) => (
-                        <Box key={em.id} sx={{ p: 1.6, borderRadius: "8px", border: `1px solid ${tokens.border}`, backgroundColor: tokens.surfaceSecondary }}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.8 }}>
-                            <Typography sx={{ fontWeight: 700, fontSize: "0.875rem", color: tokens.textPrimary }}>
-                              {em.toEmail}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              label={getQueueStatusConfig(em.status).label}
-                              sx={{
-                                height: 22,
-                                fontSize: "0.75rem",
-                                fontWeight: 700,
-                                backgroundColor: getQueueStatusConfig(em.status).bg,
-                                color: getQueueStatusConfig(em.status).color,
-                              }}
-                            />
+                      {queuesData.emails.map((em) => {
+                        const statusCfg = getQueueStatusConfig(em.status);
+                        return (
+                          <Box key={em.id} sx={{ p: 1.6, borderRadius: "8px", border: `1px solid ${tokens.border}`, backgroundColor: tokens.surfaceSecondary }}>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.8 }}>
+                              <Tooltip title={em.toEmail} placement="top">
+                                <Typography
+                                  noWrap
+                                  sx={{
+                                    fontWeight: 700,
+                                    fontSize: "0.875rem",
+                                    color: tokens.textPrimary,
+                                    maxWidth: 240,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {em.toEmail}
+                                </Typography>
+                              </Tooltip>
+                              <Chip
+                                size="small"
+                                label={statusCfg.label}
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.75rem",
+                                  fontWeight: 700,
+                                  backgroundColor: statusCfg.bg,
+                                  color: statusCfg.color,
+                                }}
+                              />
+                            </Box>
+                            <Tooltip title={em.subject} placement="top">
+                              <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block", mb: 0.8 }} noWrap>
+                                {em.subject}
+                              </Typography>
+                            </Tooltip>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                              <Typography sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}>
+                                {new Date(em.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} • {new Date(em.createdAt).toLocaleDateString()}
+                              </Typography>
+                              {em.attempts > 1 && (
+                                <Chip
+                                  size="small"
+                                  label={`${language === "vi" ? "Đã thử lại" : "Retries"}: ${em.attempts}`}
+                                  sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 700, color: tokens.warning }}
+                                />
+                              )}
+                            </Box>
                           </Box>
-                          <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block" }} noWrap>
-                            {em.subject}
-                          </Typography>
-                        </Box>
-                      ))}
+                        );
+                      })}
                     </Box>
                   )}
                 </Paper>
 
                 <Paper sx={{ p: 2.8, backgroundColor: tokens.surface, border: `1px solid ${tokens.border}`, borderRadius: "10px" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, mb: 2 }}>
-                    <Send size={18} color={tokens.accent} />
-                    <Typography sx={{ fontWeight: 800, fontSize: "0.9375rem", color: tokens.textPrimary }}>
-                      Outbox Events Gần Đây
-                    </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                      <Send size={18} color={tokens.accent} />
+                      <Typography sx={{ fontWeight: 800, fontSize: "0.9375rem", color: tokens.textPrimary }}>
+                        {language === "vi" ? "Outbox Events Gần Đây" : "Recent Outbox Events"}
+                      </Typography>
+                    </Box>
+                    {queuesData && (
+                      <Chip
+                        size="small"
+                        label={`${queuesData.outbox.length} ${language === "vi" ? "sự kiện" : "events"}`}
+                        sx={{ height: 22, fontSize: "0.75rem", fontWeight: 700 }}
+                      />
+                    )}
                   </Box>
                   {!queuesData || queuesData.outbox.length === 0 ? (
                     <Typography sx={{ color: tokens.textSecondary, py: 3, display: "block", fontSize: "0.875rem" }}>
-                      Không có sự kiện outbox nào
+                      {language === "vi" ? "Không có sự kiện outbox nào" : "No recent outbox events"}
                     </Typography>
                   ) : (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
-                      {queuesData.outbox.map((ob) => (
-                        <Box key={ob.id} sx={{ p: 1.6, borderRadius: "8px", border: `1px solid ${tokens.border}`, backgroundColor: tokens.surfaceSecondary }}>
-                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.8 }}>
-                            <Typography sx={{ fontWeight: 700, fontSize: "0.875rem", color: tokens.primary }}>
-                              {formatEventType(ob.eventType)}
-                            </Typography>
-                            <Chip
-                              size="small"
-                              label={getQueueStatusConfig(ob.status).label}
-                              sx={{
-                                height: 22,
-                                fontSize: "0.75rem",
-                                fontWeight: 700,
-                                backgroundColor: getQueueStatusConfig(ob.status).bg,
-                                color: getQueueStatusConfig(ob.status).color,
-                              }}
-                            />
+                      {queuesData.outbox.map((ob) => {
+                        const statusCfg = getQueueStatusConfig(ob.status);
+                        const friendlyName = formatEventType(ob.eventType);
+                        return (
+                          <Box key={ob.id} sx={{ p: 1.6, borderRadius: "8px", border: `1px solid ${tokens.border}`, backgroundColor: tokens.surfaceSecondary }}>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 0.8 }}>
+                              <Tooltip title={ob.eventType} placement="top">
+                                <Typography
+                                  noWrap
+                                  sx={{
+                                    fontWeight: 700,
+                                    fontSize: "0.875rem",
+                                    color: tokens.primary,
+                                    maxWidth: 240,
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                  }}
+                                >
+                                  {friendlyName}
+                                </Typography>
+                              </Tooltip>
+                              <Chip
+                                size="small"
+                                label={statusCfg.label}
+                                sx={{
+                                  height: 22,
+                                  fontSize: "0.75rem",
+                                  fontWeight: 700,
+                                  backgroundColor: statusCfg.bg,
+                                  color: statusCfg.color,
+                                }}
+                              />
+                            </Box>
+                            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 0.5 }}>
+                              <Typography sx={{ color: tokens.textSecondary, fontSize: "0.75rem" }}>
+                                {new Date(ob.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })} • {new Date(ob.createdAt).toLocaleDateString()}
+                              </Typography>
+                              {ob.retryCount > 0 && (
+                                <Chip
+                                  size="small"
+                                  label={`${language === "vi" ? "Đã thử lại" : "Retries"}: ${ob.retryCount}`}
+                                  sx={{ height: 20, fontSize: "0.6875rem", fontWeight: 700, color: tokens.warning }}
+                                />
+                              )}
+                            </Box>
                           </Box>
-                          <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem", display: "block" }}>
-                            Thử lại: {ob.retryCount} • {new Date(ob.createdAt).toLocaleTimeString()}
-                          </Typography>
-                        </Box>
-                      ))}
+                        );
+                      })}
                     </Box>
                   )}
                 </Paper>
@@ -4669,9 +4964,9 @@ export const AdminDashboardPage: React.FC = () => {
                           {new Date(log.createdAt).toLocaleString()}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ maxWidth: 180 }}>
                         {log.actorUsername ? (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.2 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1.2, minWidth: 0 }}>
                             <UserAvatar
                               user={{
                                 id: log.actorId || "",
@@ -4683,9 +4978,11 @@ export const AdminDashboardPage: React.FC = () => {
                               size={28}
                               showTooltip={false}
                             />
-                            <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                              @{log.actorUsername}
-                            </Typography>
+                            <Tooltip title={`@${log.actorUsername}`} placement="top">
+                              <Typography noWrap sx={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                @{log.actorUsername}
+                              </Typography>
+                            </Tooltip>
                           </Box>
                         ) : (
                           <Typography sx={{ color: tokens.textSecondary, fontSize: "0.875rem" }}>
@@ -4706,10 +5003,12 @@ export const AdminDashboardPage: React.FC = () => {
                           }}
                         />
                       </TableCell>
-                      <TableCell>
-                        <Typography sx={{ color: tokens.textPrimary, fontSize: "0.8125rem", fontWeight: 600 }}>
-                          {formatAuditTarget(log.targetResource)}
-                        </Typography>
+                      <TableCell sx={{ maxWidth: 220 }}>
+                        <Tooltip title={log.targetResource} placement="top">
+                          <Typography noWrap sx={{ color: tokens.textPrimary, fontSize: "0.8125rem", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {formatAuditTarget(log.targetResource)}
+                          </Typography>
+                        </Tooltip>
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ color: tokens.textSecondary, fontSize: "0.8125rem" }}>
@@ -4760,8 +5059,8 @@ export const AdminDashboardPage: React.FC = () => {
               </Typography>
               <Typography sx={{ color: tokens.textSecondary, fontSize: "0.875rem" }}>
                 {language === "vi"
-                  ? "Giám sát hiệu năng phần cứng, cơ sở dữ liệu PostgreSQL, phát thông báo toàn sàn & bảo trì tự động"
-                  : "Monitor hardware, PostgreSQL database, broadcast platform-wide announcements & perform maintenance"}
+                  ? "Giám sát máy chủ, cơ sở dữ liệu PostgreSQL, gửi thông báo hệ thống & bảo trì định kỳ"
+                  : "Monitor hardware, PostgreSQL database, broadcast announcements & perform maintenance"}
               </Typography>
             </Box>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.4 }}>
@@ -4781,7 +5080,7 @@ export const AdminDashboardPage: React.FC = () => {
                 onClick={() => setBroadcastOpen(true)}
                 sx={{ backgroundColor: tokens.primary, textTransform: "none", borderRadius: "6px", height: 38, px: 2, fontSize: "0.8125rem", fontWeight: 600 }}
               >
-                {language === "vi" ? "Phát Thông Báo Toàn Sàn" : "Broadcast Announcement"}
+                {language === "vi" ? "Gửi Thông Báo Hệ Thống" : "Broadcast Announcement"}
               </Button>
               <Button
                 size="small"
@@ -4791,7 +5090,7 @@ export const AdminDashboardPage: React.FC = () => {
                 onClick={() => setCleanupDialogOpen(true)}
                 sx={{ textTransform: "none", borderRadius: "6px", height: 38, px: 2, fontSize: "0.8125rem", fontWeight: 600 }}
               >
-                {language === "vi" ? "Dọn Dẹp Dữ Liệu Rác" : "Cleanup Expired"}
+                {language === "vi" ? "Dọn Dẹp Dữ Liệu Hết Hạn" : "Cleanup Expired"}
               </Button>
             </Box>
           </Box>
@@ -4873,13 +5172,13 @@ export const AdminDashboardPage: React.FC = () => {
               </Box>
 
               <Typography sx={{ fontWeight: 800, fontSize: "0.9375rem", color: tokens.textPrimary, mb: 2, letterSpacing: "0.04em" }}>
-                {language === "vi" ? "DUNG LƯỢNG BẢN GHI TOÀN BỘ BẢNG DỮ LIỆU" : "POSTGRESQL TABLE RECORD VOLUMES"}
+                {language === "vi" ? "SỐ LƯỢNG BẢN GHI THEO BẢNG DỮ LIỆU" : "POSTGRESQL TABLE RECORD VOLUMES"}
               </Typography>
 
               <Box
                 sx={{
                   display: "grid",
-                  gridTemplateColumns: { xs: "repeat(2, 1fr)", sm: "repeat(3, 1fr)", md: "repeat(5, 1fr)" },
+                  gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", sm: "repeat(3, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" },
                   gap: 2,
                   mb: 3.5,
                 }}
@@ -5268,6 +5567,89 @@ export const AdminDashboardPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      <Dialog
+        open={editUserModalOpen}
+        onClose={() => {
+          if (!submittingEditUser) {
+            setEditUserModalOpen(false);
+            setEditingUser(null);
+          }
+        }}
+        PaperProps={{ sx: { width: 480, borderRadius: "8px", backgroundColor: tokens.surface } }}
+      >
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {language === "vi" ? "Chỉnh Sửa Thông Tin Người Dùng" : "Edit User Profile"}
+        </DialogTitle>
+        <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+          <TextField
+            label={language === "vi" ? "Tên hiển thị" : "Display Name"}
+            fullWidth
+            size="small"
+            value={editDisplayName}
+            onChange={(e) => setEditDisplayName(e.target.value)}
+          />
+          <TextField
+            label="Email"
+            fullWidth
+            size="small"
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+          />
+          <TextField
+            label="GitHub Username"
+            fullWidth
+            size="small"
+            value={editGithubUsername}
+            onChange={(e) => setEditGithubUsername(e.target.value)}
+            placeholder="octocat"
+          />
+          <FormControl fullWidth size="small">
+            <InputLabel>{language === "vi" ? "Vai trò hệ thống" : "Platform Role"}</InputLabel>
+            <Select
+              value={editUserRole}
+              label={language === "vi" ? "Vai trò hệ thống" : "Platform Role"}
+              onChange={(e) => setEditUserRole(e.target.value)}
+            >
+              <MenuItem value="ADMIN">{language === "vi" ? "ADMIN (Quản trị viên toàn quyền)" : "ADMIN"}</MenuItem>
+              <MenuItem value="MAINTAINER">{language === "vi" ? "MAINTAINER (Bảo trì viên)" : "MAINTAINER"}</MenuItem>
+              <MenuItem value="REVIEWER">{language === "vi" ? "REVIEWER (Duyệt mã & nội dung)" : "REVIEWER"}</MenuItem>
+              <MenuItem value="USER">{language === "vi" ? "USER (Thành viên tiêu chuẩn)" : "USER"}</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            label={language === "vi" ? "Tiểu sử (Bio)" : "Bio"}
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            value={editBio}
+            onChange={(e) => setEditBio(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            size="small"
+            disabled={submittingEditUser}
+            onClick={() => {
+              setEditUserModalOpen(false);
+              setEditingUser(null);
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            {language === "vi" ? "Hủy" : "Cancel"}
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            disabled={submittingEditUser}
+            onClick={handleSaveEditUser}
+            sx={{ textTransform: "none", backgroundColor: tokens.primary }}
+          >
+            {submittingEditUser ? (language === "vi" ? "Đang lưu..." : "Saving...") : (language === "vi" ? "Lưu thay đổi" : "Save Changes")}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={Boolean(roleModalUser)} onClose={() => setRoleModalUser(null)} PaperProps={{ sx: { width: 420, borderRadius: "8px", backgroundColor: tokens.surface } }}>
         <DialogTitle sx={{ fontWeight: 700 }}>{language === "vi" ? "Thay Đổi Vai Trò Người Dùng" : "Change User Role"}</DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
@@ -5538,20 +5920,20 @@ export const AdminDashboardPage: React.FC = () => {
       </Dialog>
 
       <Dialog open={broadcastOpen} onClose={() => setBroadcastOpen(false)} PaperProps={{ sx: { width: 480, borderRadius: "8px", backgroundColor: tokens.surface } }}>
-        <DialogTitle sx={{ fontWeight: 700 }}>Phát Thông Báo Toàn Bộ Người Dùng</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700 }}>{language === "vi" ? "Gửi Thông Báo Toàn Hệ Thống" : "Broadcast System Announcement"}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
           <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-            Thông báo này sẽ được gửi tới tất cả người dùng trong toàn hệ thống.
+            {language === "vi" ? "Thông báo này sẽ được gửi tới tất cả người dùng trong toàn hệ thống." : "This notification will be broadcast to all registered users across the system."}
           </Typography>
           <TextField
-            label="Tiêu đề thông báo"
+            label={language === "vi" ? "Tiêu đề thông báo" : "Announcement title"}
             fullWidth
             size="small"
             value={broadcastTitle}
             onChange={(e) => setBroadcastTitle(e.target.value)}
           />
           <TextField
-            label="Nội dung thông báo"
+            label={language === "vi" ? "Nội dung thông báo" : "Announcement content"}
             fullWidth
             multiline
             rows={3}
@@ -5560,7 +5942,7 @@ export const AdminDashboardPage: React.FC = () => {
             onChange={(e) => setBroadcastMessage(e.target.value)}
           />
           <TextField
-            label="Liên kết đính kèm (tùy chọn)"
+            label={language === "vi" ? "Liên kết đính kèm (tùy chọn)" : "Attached link (optional)"}
             fullWidth
             size="small"
             placeholder="/"
@@ -5569,7 +5951,7 @@ export const AdminDashboardPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button size="small" onClick={() => setBroadcastOpen(false)} sx={{ textTransform: "none" }}>Hủy</Button>
+          <Button size="small" onClick={() => setBroadcastOpen(false)} sx={{ textTransform: "none" }}>{language === "vi" ? "Hủy" : "Cancel"}</Button>
           <Button
             size="small"
             variant="contained"
@@ -5577,20 +5959,22 @@ export const AdminDashboardPage: React.FC = () => {
             onClick={handleSendBroadcast}
             sx={{ textTransform: "none", backgroundColor: tokens.primary }}
           >
-            {submittingBroadcast ? "Đang gửi..." : "Gửi thông báo toàn sàn"}
+            {submittingBroadcast ? (language === "vi" ? "Đang gửi..." : "Sending...") : (language === "vi" ? "Gửi thông báo hệ thống" : "Send announcement")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={cleanupDialogOpen} onClose={() => setCleanupDialogOpen(false)} PaperProps={{ sx: { width: 420, borderRadius: "8px", backgroundColor: tokens.surface } }}>
-        <DialogTitle sx={{ fontWeight: 700, color: tokens.warning }}>Dọn Dẹp Dữ Liệu Rác</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, color: tokens.warning }}>{language === "vi" ? "Dọn Dẹp Dữ Liệu Hết Hạn" : "Cleanup Expired Data"}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ color: tokens.textSecondary }}>
-            Hệ thống sẽ dọn dẹp các phiên đăng nhập đã hết hạn, các sự kiện outbox đã xử lý thành công và các email job đã gửi. Hành động này không ảnh hưởng đến dữ liệu người dùng.
+            {language === "vi"
+              ? "Hệ thống sẽ dọn dẹp các phiên đăng nhập đã hết hạn, các sự kiện outbox đã xử lý thành công và các email job đã hoàn tất. Hành động này không ảnh hưởng đến dữ liệu người dùng."
+              : "The system will clean up expired login sessions, processed outbox events, and completed email jobs. This action will not affect user data."}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
-          <Button size="small" onClick={() => setCleanupDialogOpen(false)} sx={{ textTransform: "none" }}>Hủy</Button>
+          <Button size="small" onClick={() => setCleanupDialogOpen(false)} sx={{ textTransform: "none" }}>{language === "vi" ? "Hủy" : "Cancel"}</Button>
           <Button
             size="small"
             variant="contained"
@@ -5599,7 +5983,7 @@ export const AdminDashboardPage: React.FC = () => {
             color="warning"
             sx={{ textTransform: "none" }}
           >
-            {cleaningSystem ? "Đang dọn dẹp..." : "Tiến hành dọn dẹp"}
+            {cleaningSystem ? (language === "vi" ? "Đang dọn dẹp..." : "Cleaning...") : (language === "vi" ? "Tiến hành dọn dẹp" : "Proceed with cleanup")}
           </Button>
         </DialogActions>
       </Dialog>

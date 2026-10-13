@@ -26,7 +26,7 @@ import {
   CircularProgress,
   Skeleton,
 } from "@mui/material";
-import { UserPlus, Trash2, Users } from "lucide-react";
+import { UserPlus, Trash2, Users, Crown, ShieldCheck } from "lucide-react";
 import { useThemeContext } from "../contexts/ThemeContext";
 import { useI18n } from "../contexts/I18nContext";
 import { useWorkspace } from "../contexts/WorkspaceContext";
@@ -40,7 +40,7 @@ import { toast } from "../contexts/ToastContext";
 
 export const MembersPage: React.FC = () => {
   const { tokens } = useThemeContext();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { user } = useAuthContext();
   const { activeWorkspace } = useWorkspace();
 
@@ -60,13 +60,14 @@ export const MembersPage: React.FC = () => {
 
   const currentUserMember = members.find((m) => m.userId === user?.id);
   const currentUserRole = currentUserMember?.role;
+  const isPrimaryOwner = activeWorkspace?.ownerId === user?.id;
   const isWorkspaceOwner =
-    activeWorkspace?.ownerId === user?.id ||
+    isPrimaryOwner ||
     activeWorkspace?.role === WorkspaceRole.OWNER ||
+    currentUserRole === WorkspaceRole.OWNER ||
     user?.role === "ADMIN";
   const canManageMembers =
     isWorkspaceOwner ||
-    currentUserRole === WorkspaceRole.OWNER ||
     currentUserRole === WorkspaceRole.ADMIN;
 
   const fetchMembers = async () => {
@@ -411,60 +412,103 @@ export const MembersPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell sx={{ whiteSpace: "nowrap" }}>
-                        <Select
-                          size="small"
-                          value={m.role}
-                          onChange={(e) =>
-                            handleRoleChange(
-                              m.userId || m.id,
-                              e.target.value as WorkspaceRole,
-                            )
+                        {(() => {
+                          const isMemberPrimaryOwner =
+                            activeWorkspace?.ownerId === (m.userId || m.id);
+                          if (isMemberPrimaryOwner) {
+                            return (
+                              <Chip
+                                icon={<Crown size={12} color="#d29922" />}
+                                label={t("roleOwner")}
+                                size="small"
+                                sx={{
+                                  backgroundColor: "rgba(210, 153, 34, 0.15)",
+                                  color: "#d29922",
+                                  border: "1px solid rgba(210, 153, 34, 0.35)",
+                                  fontWeight: 700,
+                                  fontSize: "0.75rem",
+                                  height: 28,
+                                  borderRadius: "6px",
+                                  "& .MuiChip-icon": { ml: 0.8 },
+                                }}
+                              />
+                            );
                           }
-                          disabled={
-                            !canManageMembers ||
-                            (isOwner &&
-                              members.filter(
-                                (item) => item.role === WorkspaceRole.OWNER,
-                              ).length <= 1)
-                          }
-                          sx={{
-                            backgroundColor: badge.bg,
-                            color: badge.text,
-                            border: badge.border,
-                            fontWeight: 700,
-                            fontSize: "0.75rem",
-                            height: 28,
-                            borderRadius: "6px",
-                            "& .MuiSelect-select": {
-                              py: "2px !important",
-                              pl: "12px !important",
-                              pr: "28px !important",
-                              display: "flex",
-                              alignItems: "center",
-                            },
-                            "& .MuiSelect-icon": {
-                              color: badge.text,
-                              right: "4px",
-                              fontSize: "1.1rem",
-                            },
-                            "& .MuiOutlinedInput-notchedOutline": {
-                              border: "none",
-                            },
-                          }}
-                        >
-                          <MenuItem value={WorkspaceRole.OWNER}>
-                            {t("roleOwner")}
-                          </MenuItem>
-                          <MenuItem value={WorkspaceRole.ADMIN}>
-                            {t("roleAdmin")}
-                          </MenuItem>
-                          <MenuItem value={WorkspaceRole.MEMBER}>
-                            {t("roleMember")}
-                          </MenuItem>
-                          <MenuItem value={WorkspaceRole.GUEST}>
-                            {t("roleGuest")}
-                          </MenuItem>
-                        </Select>
+
+                          const canEditThisMember =
+                            canManageMembers &&
+                            !isSelf &&
+                            !isMemberPrimaryOwner &&
+                            (isWorkspaceOwner ||
+                              (currentUserRole === WorkspaceRole.ADMIN &&
+                                m.role !== WorkspaceRole.OWNER &&
+                                m.role !== WorkspaceRole.ADMIN));
+
+                          return (
+                            <Select
+                              size="small"
+                              value={m.role}
+                              onChange={(e) =>
+                                handleRoleChange(
+                                  m.userId || m.id,
+                                  e.target.value as WorkspaceRole,
+                                )
+                              }
+                              disabled={!canEditThisMember}
+                              renderValue={(selected) => {
+                                if (selected === WorkspaceRole.OWNER) {
+                                  return t("roleCoOwner");
+                                }
+                                if (selected === WorkspaceRole.ADMIN) {
+                                  return t("roleAdmin");
+                                }
+                                if (selected === WorkspaceRole.MEMBER) {
+                                  return t("roleMember");
+                                }
+                                return t("roleGuest");
+                              }}
+                              sx={{
+                                backgroundColor: badge.bg,
+                                color: badge.text,
+                                border: badge.border,
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                height: 28,
+                                borderRadius: "6px",
+                                "& .MuiSelect-select": {
+                                  py: "2px !important",
+                                  pl: "12px !important",
+                                  pr: "28px !important",
+                                  display: "flex",
+                                  alignItems: "center",
+                                },
+                                "& .MuiSelect-icon": {
+                                  color: badge.text,
+                                  right: "4px",
+                                  fontSize: "1.1rem",
+                                },
+                                "& .MuiOutlinedInput-notchedOutline": {
+                                  border: "none",
+                                },
+                              }}
+                            >
+                              {isWorkspaceOwner && (
+                                <MenuItem value={WorkspaceRole.OWNER}>
+                                  {t("roleCoOwner")}
+                                </MenuItem>
+                              )}
+                              <MenuItem value={WorkspaceRole.ADMIN}>
+                                {t("roleAdmin")}
+                              </MenuItem>
+                              <MenuItem value={WorkspaceRole.MEMBER}>
+                                {t("roleMember")}
+                              </MenuItem>
+                              <MenuItem value={WorkspaceRole.GUEST}>
+                                {t("roleGuest")}
+                              </MenuItem>
+                            </Select>
+                          );
+                        })()}
                       </TableCell>
 
                       <TableCell
@@ -478,27 +522,34 @@ export const MembersPage: React.FC = () => {
 
                       <TableCell align="right">
                         {(() => {
-                          const isSoleOwner =
-                            isOwner &&
-                            members.filter(
-                              (item) => item.role === WorkspaceRole.OWNER,
-                            ).length <= 1;
-                          if (isSoleOwner) {
+                          const isMemberPrimaryOwner =
+                            activeWorkspace?.ownerId === (m.userId || m.id);
+                          if (isMemberPrimaryOwner) {
                             return (
-                              <Chip
-                                label={t("roleOwner")}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                  height: 22,
-                                  fontSize: "0.6875rem",
-                                  fontWeight: 600,
-                                  color: "#d29922",
-                                  borderColor: "rgba(210, 153, 34, 0.4)",
-                                }}
-                              />
+                              <Tooltip
+                                title={
+                                  language === "vi"
+                                    ? "Chủ sở hữu chính của workspace"
+                                    : "Primary Workspace Owner"
+                                }
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{
+                                    color: "#d29922",
+                                    fontWeight: 600,
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 0.5,
+                                  }}
+                                >
+                                  <Crown size={12} color="#d29922" />
+                                  {t("roleOwner")}
+                                </Typography>
+                              </Tooltip>
                             );
                           }
+
                           if (isSelf) {
                             return (
                               <Typography
@@ -508,13 +559,29 @@ export const MembersPage: React.FC = () => {
                                   fontStyle: "italic",
                                 }}
                               >
-                                (bạn)
+                                {language === "vi" ? "(bạn)" : "(you)"}
                               </Typography>
                             );
                           }
-                          if (canManageMembers) {
+
+                          const canEditThisMember =
+                            canManageMembers &&
+                            !isSelf &&
+                            !isMemberPrimaryOwner &&
+                            (isWorkspaceOwner ||
+                              (currentUserRole === WorkspaceRole.ADMIN &&
+                                m.role !== WorkspaceRole.OWNER &&
+                                m.role !== WorkspaceRole.ADMIN));
+
+                          if (canEditThisMember) {
                             return (
-                              <Tooltip title="Xóa khỏi không gian">
+                              <Tooltip
+                                title={
+                                  language === "vi"
+                                    ? "Xóa khỏi không gian"
+                                    : "Remove from workspace"
+                                }
+                              >
                                 <IconButton
                                   size="small"
                                   onClick={() => setRemoveTarget(m)}

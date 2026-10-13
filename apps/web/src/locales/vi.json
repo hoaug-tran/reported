@@ -37,6 +37,7 @@
   "workspaceSlug": "Workspace Slug",
 
   "roleOwner": "Chủ sở hữu",
+  "roleCoOwner": "Đồng sở hữu",
   "roleAdmin": "Quản trị viên",
   "roleMember": "Thành viên",
   "roleGuest": "Khách",

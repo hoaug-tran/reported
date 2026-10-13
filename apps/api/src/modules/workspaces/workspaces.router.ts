@@ -27,6 +27,7 @@ import {
   InviteMemberSchema,
   UpdateMemberRoleSchema,
   WorkspaceRole,
+  UserRole,
   ReviewerDecision,
 } from "@reported/contracts";
 import { requireAuth } from "../../middleware/auth.js";
@@ -433,34 +434,91 @@ workspacesRouter.patch(
 
       const input = UpdateMemberRoleSchema.parse(req.body);
 
-      if (input.role !== WorkspaceRole.OWNER) {
-        const target = await db.query.workspaceMembers.findFirst({
-          where: and(
-            eq(workspaceMembers.workspaceId, id),
-            or(
-              eq(workspaceMembers.userId, userId),
-              eq(workspaceMembers.id, userId),
-            ),
-          ),
-        });
-        if (target?.role === WorkspaceRole.OWNER) {
-          const [ownerCount] = await db
-            .select({ count: sql<number>`count(*)::int` })
-            .from(workspaceMembers)
-            .where(
-              and(
-                eq(workspaceMembers.workspaceId, id),
-                eq(workspaceMembers.role, WorkspaceRole.OWNER),
-              ),
-            );
+      const ws = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, id),
+      });
+      if (!ws) {
+        throw new AppError(404, "NOT_FOUND", "Workspace not found");
+      }
 
-          if ((ownerCount?.count || 0) <= 1) {
-            throw new AppError(
-              400,
-              "CANNOT_DEMOTE_LAST_OWNER",
-              "Workspace must have at least one Owner",
-            );
-          }
+      const target = await db.query.workspaceMembers.findFirst({
+        where: and(
+          eq(workspaceMembers.workspaceId, id),
+          or(
+            eq(workspaceMembers.userId, userId),
+            eq(workspaceMembers.id, userId),
+          ),
+        ),
+      });
+      if (!target) {
+        throw new AppError(404, "NOT_FOUND", "Member not found");
+      }
+
+      if (ws.ownerId === target.userId && input.role !== WorkspaceRole.OWNER) {
+        throw new AppError(
+          400,
+          "CANNOT_DEMOTE_PRIMARY_OWNER",
+          "Cannot change role of the primary workspace owner",
+        );
+      }
+
+      const callerMember = await db.query.workspaceMembers.findFirst({
+        where: and(
+          eq(workspaceMembers.workspaceId, id),
+          eq(workspaceMembers.userId, currentUser.id),
+        ),
+      });
+
+      const isSystemAdmin = currentUser.role === UserRole.ADMIN;
+      const isCallerOwner =
+        ws.ownerId === currentUser.id ||
+        callerMember?.role === WorkspaceRole.OWNER ||
+        isSystemAdmin;
+
+      if (!isCallerOwner) {
+        if (input.role === WorkspaceRole.OWNER) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "Only workspace owners can promote members to Co-owner",
+          );
+        }
+        if (target.role === WorkspaceRole.OWNER) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "Admins cannot modify the role of a workspace owner",
+          );
+        }
+        if (
+          target.role === WorkspaceRole.ADMIN &&
+          target.userId !== currentUser.id
+        ) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "Admins cannot modify the role of another admin",
+          );
+        }
+      }
+
+      if (input.role !== WorkspaceRole.OWNER && target.role === WorkspaceRole.OWNER) {
+        const [ownerCount] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(workspaceMembers)
+          .where(
+            and(
+              eq(workspaceMembers.workspaceId, id),
+              eq(workspaceMembers.role, WorkspaceRole.OWNER),
+            ),
+          );
+
+        if ((ownerCount?.count || 0) <= 1) {
+          throw new AppError(
+            400,
+            "CANNOT_DEMOTE_LAST_OWNER",
+            "Workspace must have at least one Owner",
+          );
         }
       }
 
@@ -500,6 +558,13 @@ workspacesRouter.delete(
         );
       }
 
+      const ws = await db.query.workspaces.findFirst({
+        where: eq(workspaces.id, id),
+      });
+      if (!ws) {
+        throw new AppError(404, "NOT_FOUND", "Workspace not found");
+      }
+
       const target = await db.query.workspaceMembers.findFirst({
         where: and(
           eq(workspaceMembers.workspaceId, id),
@@ -508,6 +573,44 @@ workspacesRouter.delete(
       });
       if (!target) {
         throw new AppError(404, "NOT_FOUND", "Member not found");
+      }
+
+      if (ws.ownerId === target.userId) {
+        throw new AppError(
+          400,
+          "CANNOT_REMOVE_PRIMARY_OWNER",
+          "Cannot remove the primary workspace owner",
+        );
+      }
+
+      const callerMember = await db.query.workspaceMembers.findFirst({
+        where: and(
+          eq(workspaceMembers.workspaceId, id),
+          eq(workspaceMembers.userId, currentUser.id),
+        ),
+      });
+
+      const isSystemAdmin = currentUser.role === UserRole.ADMIN;
+      const isCallerOwner =
+        ws.ownerId === currentUser.id ||
+        callerMember?.role === WorkspaceRole.OWNER ||
+        isSystemAdmin;
+
+      if (currentUser.id !== userId && !isCallerOwner) {
+        if (target.role === WorkspaceRole.OWNER) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "Admins cannot remove a workspace owner",
+          );
+        }
+        if (target.role === WorkspaceRole.ADMIN) {
+          throw new AppError(
+            403,
+            "FORBIDDEN",
+            "Admins cannot remove another admin",
+          );
+        }
       }
 
       if (target.role === WorkspaceRole.OWNER) {

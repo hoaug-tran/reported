@@ -794,7 +794,7 @@ adminRouter.patch(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params;
-      const { displayName, email, bio, githubUsername } = req.body;
+      const { displayName, email, bio, githubUsername, role } = req.body;
       const adminActor = req.user!;
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -802,6 +802,12 @@ adminRouter.patch(
       if (typeof email === "string") updates.email = email.trim();
       if (typeof bio === "string") updates.bio = bio.trim() || null;
       if (typeof githubUsername === "string") updates.githubUsername = githubUsername.trim() || null;
+      if (typeof role === "string" && ["ADMIN", "USER"].includes(role)) {
+        if (id === adminActor.id && role !== "ADMIN") {
+          throw new AppError(400, "CANNOT_DEMOTE_SELF", "You cannot demote yourself from admin");
+        }
+        updates.role = role;
+      }
 
       const [updated] = await db
         .update(users)
