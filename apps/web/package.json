@@ -12,17 +12,17 @@
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
-    "@emotion/styled": "^11.14.0",
-    "@mui/icons-material": "^6.3.0",
-    "@mui/material": "^6.3.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^6.5.0",
+    "@mui/material": "^6.5.0",
     "@reported/contracts": "workspace:*",
-    "@tanstack/react-query": "^5.62.8",
-    "dompurify": "^3.2.3",
+    "@tanstack/react-query": "^5.102.8",
+    "dompurify": "^3.4.17",
     "highlight.js": "^11.12.0",
     "katex": "^0.18.7",
     "lucide-react": "^1.40.0",
     "mermaid": "^12.0.0",
-    "prismjs": "^1.29.0",
+    "prismjs": "^1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
@@ -31,17 +31,17 @@
     "rehype-sanitize": "^6.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
-    "wouter": "^3.3.5"
+    "wouter": "^3.10.0"
   },
   "devDependencies": {
-    "@types/dompurify": "^3.0.5",
+    "@types/dompurify": "^3.2.0",
     "@types/katex": "^0.16.8",
-    "@types/node": "^22.10.1",
-    "@types/prismjs": "^1.26.5",
-    "@types/react": "^18.3.13",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "typescript": "^5.7.3",
-    "vite": "^6.0.3"
+    "@types/node": "^22.20.1",
+    "@types/prismjs": "^1.26.6",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5"
   }
 }
