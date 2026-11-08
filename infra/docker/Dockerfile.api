@@ -6,7 +6,7 @@ RUN apk add --no-cache libc6-compat && corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 RUN pnpm --filter=@reported/contracts... build
 RUN pnpm --filter=@reported/database... build
 RUN pnpm --filter=@reported/api... build

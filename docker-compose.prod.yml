@@ -128,5 +128,11 @@ networks:
 
 volumes:
   reported_postgres_data:
+    name: reported_reported_postgres_data
+    external: true
   reported_redis_data:
+    name: reported_reported_redis_data
+    external: true
   reported_uploads_data:
+    name: reported_reported_uploads_data
+    external: true

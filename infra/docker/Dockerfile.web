@@ -13,7 +13,7 @@ ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
 
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 RUN pnpm --filter=@reported/contracts... build
 RUN pnpm --filter=@reported/web... build
 
