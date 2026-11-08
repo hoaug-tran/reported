@@ -18,10 +18,10 @@ services:
       - nginx
 
   nginx:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.proxy
     restart: unless-stopped
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     networks:
       - reported-edge-network
       - reported-app-network
